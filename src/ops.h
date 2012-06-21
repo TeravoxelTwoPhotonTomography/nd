@@ -1,5 +1,7 @@
 /** \file    
-    Basic nd-array algorithms 
+    Basic generic nd-array algorithms.
+
+    \todo interface for kind-dependent implementations.
 
     \author Nathan Clack
     \date   June 2012

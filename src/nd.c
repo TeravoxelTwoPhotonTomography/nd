@@ -146,13 +146,28 @@ nd_type_id_t ndtype(const nd_t a)
 { return a->type_desc; 
 }
 
-/** initializes \a a so that it references \a buf. */
+/** initializes \a a so that it references \a buf. 
+
+    If the shape of the array \a is already set so that \nelem fits, then
+    this just sets the data pointer and returns.
+
+    Otherwise, resizes the array as a 1d container referencing the data.
+
+    \todo Awkward.  I like binding the pointer so that I don't deal with
+          memory management inside.  I don't like how this ends up getting
+          used.  The ndinit/ndref/ndcast/ndshape pattern sucks.  The 
+          multiple behaviors (trying to keep shape sometimes, changing it 
+          other times) also sucks.
+*/
 nd_t ndref(nd_t a, void *buf, size_t nelem)
-{ maybe_resize_array(a,1);
+{ a->data=buf;
+  if(a->strides && ndnelem(a)==nelem)
+    return a;
+  maybe_resize_array(a,1);
   a->shape[0]=nelem;
   a->strides[0]=ndbpp(a);
   a->strides[1]=ndbpp(a)*nelem;
-  a->data=buf;
+  
   return a;
 }
 
@@ -162,7 +177,7 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
     If the new shape does not conform, an error is generated and
     there is no change to the array.
 
-    /returns 0 on error, otherwise the array \a a.
+    \returns 0 on error, otherwise the array \a a.
 */
 nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
 { size_t nelem;

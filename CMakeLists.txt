@@ -1,3 +1,6 @@
+# TODO: copy test data to build directory
+# TODO: copy plugins to proper place in build
+#
 cmake_minimum_required(VERSION 2.8)
 project(nd)
 
@@ -19,6 +22,15 @@ macro(show v)
 endmacro()
 
 ################################################################################
+# CONFIG
+################################################################################
+
+set(NDIO_PLUGIN_PATH  plugins)
+set(ND_TEST_DATA_PATH ${PROJECT_SOURCE_DIR}/test/data)
+configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
+include_directories(${PROJECT_BINARY_DIR})
+
+################################################################################
 # SOURCE
 ################################################################################
 
@@ -32,7 +44,12 @@ file(GLOB HDRS src/*.h src/io/*.h)
 add_library(libnd
   ${SRCS}
   ${HDRS}
+  config.h.in
+  ${PROJECT_BINARY_DIR}/config.h
   )
+
+# ndio plugins
+add_subdirectory(${PROJECT_SOURCE_DIR}/plugins/ndio-tiff)
 
 ###############################################################################
 #  Testing
@@ -57,6 +74,7 @@ if(GTEST_FOUND)
     ${GTEST_BOTH_LIBRARIES}
     libnd
     )
+  add_dependencies(libnd-tests ndio-tiff)
   add_test(TestLibND libnd-tests)
 endif()
 

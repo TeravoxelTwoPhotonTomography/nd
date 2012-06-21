@@ -3,6 +3,10 @@
 
     Currently never unloads the shared libaries loaded by the plugin system.
 
+    \todo change api so read and write accept shape arguments.
+    \todo check for NULL's in a plugin's api before calling.  Some functions
+          may not be implemented.
+
     \author Nathan Clack
     \date   June 2012
 */
@@ -11,6 +15,7 @@
 
 #include "nd.h"
 #include "io.h"
+#include "config.h"
 #include "io/plugin.h"
 #include <stdio.h>
 #include <string.h>
@@ -19,8 +24,6 @@
 #ifdef _MSC_VER
 #define va_copy(a,b) (a=b)
 #endif
-
-#define FORMAT_PLUGIN_PATH "plugins" // \todo move this to a config variable
 
 #define ENDL                         "\n"
 #define LOG(...)                     fprintf(stderr,__VA_ARGS__)
@@ -45,7 +48,7 @@ struct _ndio_t
 /** \todo make thread safe, needs a mutex */
 static int maybe_load_plugins()
 { if(!g_formats)
-    TRY(g_formats=ndioLoadPlugins(FORMAT_PLUGIN_PATH,&g_countof_formats));
+    TRY(g_formats=ndioLoadPlugins(NDIO_PLUGIN_PATH,&g_countof_formats));
   return 1;
 Error:
   return 0;
@@ -74,8 +77,8 @@ static int get_format_by_name(const char *format)
 ///// INTERFACE
 /////
 
-void* ndioContext(ndio_t file) { return file->context; }
-char* ndioError  (ndio_t file) { return file->log; }
+void* ndioContext(ndio_t file) { return file?file->context:0; }
+char* ndioError  (ndio_t file) { return file?file->log:0; }
 
 /** Determines if the file can be read by any of the file formats. */
 int ndioIsFile(const char *filename)
@@ -127,13 +130,14 @@ void ndioClose(ndio_t file)
 }
 
 nd_t ndioShape(ndio_t file)
-{ return file->fmt->shape(file);
+{ return file?file->fmt->shape(file):0;
 }
 
 #undef LOG
 #define LOG(...) ndLogError(a,__VA_ARGS__)
 ndio_t ndioRead(ndio_t file, nd_t a)
-{ TRY(file->fmt->read(file,a));
+{ TRY(file);
+  TRY(file->fmt->read(file,a));
   return file;
 Error:
   if(ndioError(file))
@@ -142,7 +146,9 @@ Error:
 }
 
 ndio_t ndioWrite(ndio_t file, nd_t a)
-{ TRY(file->fmt->write(file,a));
+{ TRY(file);
+  TRY(a);
+  TRY(file->fmt->write(file,a));
   return file;
 Error:
   if(ndioError(file))

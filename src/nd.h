@@ -53,14 +53,14 @@ const size_t* ndstrides(const nd_t a);
 char*         nderror(const nd_t a);                      ///< \returns NULL if no error, otherwise a descriptive string
 void          ndLogError(nd_t a, const char *fmt, ...);   ///< logs an error, storing it with the array
 void          ndResetLog(nd_t a);                         ///< clears the error log returning the array to an error free state
-              
+
 nd_t          ndcast(nd_t a, nd_type_id_t desc);          ///< Changes the pixel data type
 nd_type_id_t  ndtype(const nd_t a);                       ///< \returns the pixel data type
 nd_t          ndref (nd_t a, void *buf, size_t nelem);    ///< Binds the buffer to \a and reshapes \a as a 1d container.
 
 nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
-              
+
 nd_t          ndreshape(nd_t a,unsigned ndim,const size_t *shape);
 #ifdef __cplusplus
 } //extern "C" {

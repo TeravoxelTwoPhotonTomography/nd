@@ -1,9 +1,12 @@
 #include "plugin.h"
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 
 #pragma warning( push )
 #pragma warning( disable:4996 ) //unsafe function
+
+//#define DEBUG_SEARCH
 
 #define ENDL       "\n"
 #define LOG(...)   fprintf(stderr,__VA_ARGS__)
@@ -42,12 +45,23 @@ Error:
   return 0;
 }
 
-static ndio_fmt_t *load(const char *fname)
+static void cat(char *buf, size_t nbytes, int nstrings, const char** strings)
+{ int i;
+  memset(buf,0,nbytes);
+  for(i=0;i<nstrings;++i)
+    strcat(buf,strings[i]);
+}
+
+static ndio_fmt_t *load(const char *path, const char *fname)
 { ndio_fmt_t *api=NULL;
   void *lib=NULL;
-  ndio_get_format_api get;
-  TRY(lib=LoadLibrary(fname),estring()); // FIXME: Need to store lib with api struct
-  TRY(get=(ndio_get_format_api)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
+  ndio_get_format_api_t get;
+  char *buf,*p[]={(char*)path,"/",(char*)fname}; // windows handles the "/" just fine
+  size_t n = strlen(path)+strlen(fname)+2; // one extra for the terminating null
+  TRY(buf=(char*)alloca(n),"Out of stack space.");
+  cat(buf,n,3,p);  
+  TRY(lib=LoadLibrary(buf),estring());
+  TRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
   TRY(api=(ndio_fmt_t*)get(),fname);
   api->lib=lib;
 Finalize:
@@ -79,22 +93,51 @@ Error:
   return 0;
 }
 
-ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
-{ apis_t apis = {0};
-  DIR*           dir;
-  struct dirent *ent;
 
-  TRY(dir=opendir(path),strerror(errno));
+static int recursive_load(apis_t *apis,DIR* dir,const char *path)
+{ DIR* child=0;
+  int is_ok=1;
+  struct dirent *ent=0;
   while((ent=readdir(dir))!=NULL)
   { if(ent->d_type==DT_REG
     && is_shared_lib(ent->d_name,ent->d_namlen))
-      TRY(push(&apis,load(ent->d_name)),"Could not append format API.");
+    { TRY(push(apis,load(path,ent->d_name)),"Could not append format API.");
+    } else if(ent->d_type==DT_DIR)
+    { char *buf;
+      size_t n=strlen(path)+strlen(ent->d_name)+2;
+      const char *p[]={path,"/",ent->d_name};
+      if( 0==strcmp(ent->d_name,".")*strcmp(ent->d_name,".."))
+        continue;
+      TRY(buf=(char*)alloca(n),"Out of stack space.");
+      cat(buf,n,3,p);
+#ifdef DEBUG_SEARCH
+      puts(buf);
+#endif
+      TRY(child=opendir(buf),"Could not open child directory.");
+      TRY(recursive_load(apis,child,buf),"Search for plugins failed.");
+    }
   }
+Finalize:
+  if(child) closedir(child);
+  return is_ok;
+Error:
+  is_ok=0;
+  goto Finalize;
+}
+
+ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
+{ apis_t apis = {0};
+  DIR*           dir;
+  TRY(dir=opendir(path),strerror(errno));
+  TRY(recursive_load(&apis,dir,path),"Search for plugins failed.");
   *n=apis.n;
+Finalize:
+  closedir(dir);
   return apis.v;
 Error:
   if(n) *n=0;
-  return NULL;
+  apis.v=NULL;
+  goto Finalize;
 }
 
 void ndioFreePlugins(ndio_fmts_t fmts, size_t n)
