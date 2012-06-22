@@ -49,7 +49,10 @@ add_library(libnd
   )
 
 # ndio plugins
-add_subdirectory(${PROJECT_SOURCE_DIR}/plugins/ndio-tiff)
+file(GLOB PLUGINS plugins/*)
+foreach(PLUGIN ${PLUGINS})
+  add_subdirectory(${PLUGIN})
+endforeach(PLUGIN)
 
 ###############################################################################
 #  Testing

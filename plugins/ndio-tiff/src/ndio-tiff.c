@@ -190,7 +190,7 @@ static unsigned write_tiff(ndio_t file, nd_t a)
     for(i=0;i<d;++i)
     { for(j=0;j<c;++j)
       { Channel_Kind k= (Channel_Kind)((c<3)?(RED_CHAN+j):PLAIN_CHAN);
-        plane->data=(void*)((uint8_t*)nddata(a)+i*ndstrides(a)[2]+j*chanstride);        
+        plane->data=(void*)((uint8_t*)nddata(a)+i*ndstrides(a)[2]+j*chanstride);
         TRY(0==Add_IFD_Channel(ctx,plane,k));
       }
       Update_Tiff(ctx,LZW_PRESS);

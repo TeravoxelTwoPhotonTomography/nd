@@ -10,24 +10,27 @@ endmacro()
 ################################################################################
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
-find_package(Mylib REQUIRED)
-include_directories(${MYLIB_INCLUDE_DIR})
+find_package(Mylib)
+if(MYLIB_FOUND)
+  include_directories(${MYLIB_INCLUDE_DIR})
 
-get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
+  get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
 
-include_directories(${ND_SOURCE_DIR}) # from parent scope
+  include_directories(${ND_SOURCE_DIR}) # from parent scope
 
-################################################################################
-# SOURCE
-################################################################################
+  ################################################################################
+  # SOURCE
+  ################################################################################
 
-file(GLOB SRCS src/*.c)
-file(GLOB HDRS src/*.h)
+  file(GLOB SRCS src/*.c)
+  file(GLOB HDRS src/*.h)
 
-################################################################################
-# TARGETS
-################################################################################
+  ################################################################################
+  # TARGETS
+  ################################################################################
 
-add_library(ndio-tiff MODULE ${SRCS} ${HDRS})
-target_link_libraries(ndio-tiff ${MYLIB_LIBRARIES} libnd)
+  add_library(ndio-tiff MODULE ${SRCS} ${HDRS})
+  target_link_libraries(ndio-tiff ${MYLIB_LIBRARIES} libnd)
 
+
+endif(MYLIB_FOUND)
