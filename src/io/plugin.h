@@ -6,7 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include <stddef.h>
 #include "interface.h"
 
   typedef struct _ndio_fmt_t **ndio_fmts_t;

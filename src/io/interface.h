@@ -24,12 +24,12 @@ extern "C" {
   typedef struct _nd_t*   nd_t;
 
   typedef const char* (*_ndio__fmt_name_t)(void);
-  typedef unsigned    (*_ndio__is_fmt_t  )(const char* path, const char *mode);
-  typedef void*       (*_ndio__open_t    )(const char* path, const char *mode);
-  typedef void        (*_ndio__close_t   )(ndio_t file);
-  typedef nd_t        (*_ndio__shape_t   )(ndio_t file);
-  typedef unsigned    (*_ndio__read_t    )(ndio_t file, nd_t dst);
-  typedef unsigned    (*_ndio__write_t   )(ndio_t file, nd_t src);
+  typedef unsigned    (*_ndio__is_fmt_t)(const char* path, const char *mode);
+  typedef void*       (*_ndio__open_t  )(const char* path, const char *mode);
+  typedef void        (*_ndio__close_t )(ndio_t file);
+  typedef nd_t        (*_ndio__shape_t )(ndio_t file);
+  typedef unsigned    (*_ndio__read_t  )(ndio_t file, nd_t dst);
+  typedef unsigned    (*_ndio__write_t )(ndio_t file, nd_t src);
 
   typedef struct _ndio_fmt_t
   { _ndio__fmt_name_t name;       ///< \returns a string with the format's name.

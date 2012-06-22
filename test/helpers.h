@@ -1,5 +1,6 @@
 #pragma once
 #define TOL_F32 1e-5
+#include <cmath>
 
 template<class T>
 T RMSE(size_t n, T* a, T* b)

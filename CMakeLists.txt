@@ -61,7 +61,8 @@ find_path(GTEST_ROOT
   PATH_SUFFIXES
     gtest-1.6.0
   DOC "The root directory of the gtest install prefix")
-find_package(gtest)
+find_package(GTest)
+find_package(Threads)
 if(GTEST_FOUND)
   enable_testing()
   include_directories(${PROJECT_SOURCE_DIR})
@@ -72,6 +73,7 @@ if(GTEST_FOUND)
     )
   target_link_libraries(libnd-tests
     ${GTEST_BOTH_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
     libnd
     )
   add_dependencies(libnd-tests ndio-tiff)

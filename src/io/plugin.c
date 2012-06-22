@@ -1,4 +1,6 @@
 #include "plugin.h"
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
@@ -24,7 +26,7 @@ const char* estring();
 #define FreeLibrary(lib)         (0==dlclose(lib))          // dlclose returns non-zero on error, use dlerror().  FreeLibrary returns 0 on error, otherwise non-zero
 #define GetProcAddress(lib,name) dlsym((lib),(name))        // returns NULL on error, use dlerror()
 #define estring                  dlerror                    // returns an error string
-#define HMODULE                  (void*)
+#define HMODULE                  void*
 #endif
 
 #ifdef _MSC_VER
@@ -56,10 +58,11 @@ static ndio_fmt_t *load(const char *path, const char *fname)
 { ndio_fmt_t *api=NULL;
   void *lib=NULL;
   ndio_get_format_api_t get;
-  char *buf,*p[]={(char*)path,"/",(char*)fname}; // windows handles the "/" just fine
+  char *buf;
+  const char *p[]={(char*)path,"/",(char*)fname}; // windows handles the "/" just fine
   size_t n = strlen(path)+strlen(fname)+2; // one extra for the terminating null
   TRY(buf=(char*)alloca(n),"Out of stack space.");
-  cat(buf,n,3,p);  
+  cat(buf,n,3,p);
   TRY(lib=LoadLibrary(buf),estring());
   TRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
   TRY(api=(ndio_fmt_t*)get(),fname);
@@ -100,7 +103,7 @@ static int recursive_load(apis_t *apis,DIR* dir,const char *path)
   struct dirent *ent=0;
   while((ent=readdir(dir))!=NULL)
   { if(ent->d_type==DT_REG
-    && is_shared_lib(ent->d_name,ent->d_namlen))
+    && is_shared_lib(ent->d_name,strlen(ent->d_name)))
     { TRY(push(apis,load(path,ent->d_name)),"Could not append format API.");
     } else if(ent->d_type==DT_DIR)
     { char *buf;
