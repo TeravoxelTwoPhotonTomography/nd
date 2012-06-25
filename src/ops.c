@@ -43,8 +43,8 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 /////
 #define ENDL     "\n"
 #define LOG(...) fprintf(stderr,__VA_ARGS__)
-#define TRY(e)   do{if(!(e)) {LOG("%s(%d):"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,#e); goto Error; }}while(0)
-#define FAIL     do{          LOG("%s(%d):"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__); goto Error; }while(0) 
+#define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
+#define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0) 
 
 /////
 ///// Basic Element-wise operations

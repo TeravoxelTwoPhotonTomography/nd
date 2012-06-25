@@ -4,7 +4,7 @@
 # ------
 # FFMPEG_LIBRARIES
 # FFMPEG_FOUND
-# FFMPEG_INCLUDE_DIR
+# FFMPEG_INCLUDE_DIRS
 # FFMPEG_SHARED_LIBS
 #       dynamically loaded libraries that need to be
 #       distributed with any binaries
@@ -45,12 +45,6 @@ if(WIN32)
             ffmpeg/${SYS}/lib/lib${shortname}
   )
   file(GLOB _FFMPEG_SHARED_LIBS ${ROOT_3RDPARTY_DIR}/ffmpeg/${DLLS}/bin/*.dll)
-
-  #get path to inttypes
-  FIND_PATH(INTTYPES_INCLUDE_DIR inttypes.h
-      HINTS ${ROOT_3RDPARTY_DIR}
-      PATH_SUFFIXES inttypes
-      )
 else()
   set(FFMPEG_INCLUDE_PATH_SUFFIXES
             ffmpeg
@@ -143,7 +137,7 @@ IF   (FFMPEG_LIBAVFORMAT_FOUND AND FFMPEG_LIBAVDEVICE_FOUND AND FFMPEG_LIBAVCODE
 
     SET(FFMPEG_INCLUDE_DIRS 
         ${FFMPEG_LIBAVFORMAT_INCLUDE_DIRS}
-        ${INTTYPES_INCLUDE_DIR})
+        )
 
     SET(FFMPEG_LIBRARY_DIRS ${FFMPEG_LIBAVFORMAT_LIBRARY_DIRS})
 

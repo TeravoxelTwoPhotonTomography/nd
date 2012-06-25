@@ -27,7 +27,7 @@
 
 #define ENDL                         "\n"
 #define LOG(...)                     fprintf(stderr,__VA_ARGS__)
-#define TRY(e)                       do{if(!(e)) { LOG("%s(%d):"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,#e); goto Error;}} while(0)
+#define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
 
@@ -107,15 +107,24 @@ ndio_t ndioOpen(const char* filename, const char *format, const char *mode)
   int ifmt;
   maybe_load_plugins();
   if(format)
-    TRY(0<=(ifmt=get_format_by_name(format)));
-  else
-    TRY(0<=(ifmt=detect_file_type(filename,mode)));
+  { if(0>(ifmt=get_format_by_name(format))) goto ErrorSpecificFormat;
+  } else
+  { if(0>(ifmt=detect_file_type(filename,mode))) goto ErrorDetectFormat;
+  }
   TRY(ctx=g_formats[ifmt]->open(filename,mode));
   NEW(struct _ndio_t,file,1);
   file->context=ctx;
   file->fmt=g_formats[ifmt];
   file->log=NULL;
   return file;
+ErrorSpecificFormat:
+  LOG("%s(%d): %s"ENDL "\tCould not open %s for %s with specified format %s."ENDL,
+      __FILE__,__LINE__,__FUNCTION__,filename,(mode[0]=='r')?"reading":"writing",format);
+  return NULL;
+ErrorDetectFormat:
+  LOG("%s(%d): %s"ENDL "\tCould not open %s for %s."ENDL,
+      __FILE__,__LINE__,__FUNCTION__,filename,(mode[0]=='r')?"reading":"writing"); 
+  return NULL;
 Error:
   return NULL;
 }

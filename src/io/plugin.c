@@ -12,7 +12,8 @@
 
 #define ENDL       "\n"
 #define LOG(...)   fprintf(stderr,__VA_ARGS__)
-#define TRY(e,msg) do{ if(!(e)) {LOG("%s(%d)"ENDL "\tExpression evaluated to false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,#e,msg); goto Error; }} while(0)
+#define TRY(e,msg) do{ if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated to false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }} while(0)
+#define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -63,9 +64,15 @@ static ndio_fmt_t *load(const char *path, const char *fname)
   size_t n = strlen(path)+strlen(fname)+2; // one extra for the terminating null
   TRY(buf=(char*)alloca(n),"Out of stack space.");
   cat(buf,n,3,p);
-  TRY(lib=LoadLibrary(buf),estring());
-  TRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
+  /// \todo FIXME: WINDOWS SPECIFIC (SetDllDirectory)
+  // - add the path to the loaded plugin as to the shared lib search path so that
+  //   shared libaries that the plugin depends on will also be found.
+  // - not sure what the linux behavior is so not sure how to fix this yet
+  TRY(SetDllDirectory(path),estring());
+  TRY(lib=LoadLibrary(fname),"There was a problem loading the specified library.");
+  SILENTTRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
   TRY(api=(ndio_fmt_t*)get(),fname);
+
   api->lib=lib;
 Finalize:
   return api;

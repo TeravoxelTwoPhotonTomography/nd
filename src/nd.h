@@ -62,6 +62,8 @@ nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
 
 nd_t          ndreshape(nd_t a,unsigned ndim,const size_t *shape);
+
+nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data pointer: data+=o*stride[idim]
 #ifdef __cplusplus
 } //extern "C" {
 #endif

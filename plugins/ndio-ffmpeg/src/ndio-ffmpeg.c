@@ -26,6 +26,10 @@
 #include "src/io/interface.h"
 #include <string.h>
 
+// need to define inline before including av* headers on C89 compilers
+#ifdef _MSC_VER
+#define inline __forceinline
+#endif
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
@@ -43,7 +47,7 @@
     if(v<0 && v!=AVERROR_EOF)                               \
     { char buf[1024];                                       \
       av_strerror(v,buf,sizeof(buf));                       \
-      LOG("%s(%d):"ENDL "%s"ENDL "%s"ENDL "FFMPEG: %s"ENDL, \
+      LOG("%s(%d):"ENDL "\t%s"ENDL "\t%s"ENDL "\tFFMPEG: %s"ENDL, \
           __FILE__,__LINE__,#expr,(char*)msg,buf);          \
       goto Error;                                           \
     }                                                       \
@@ -51,17 +55,21 @@
 
 static int is_one_time_inited = 0; /// \todo should be mutexed
 
-struct _ndio_ffmpeg_t
-{ AVFormatContext   *fmt;    ///< The main handle to the open file
-  struct SwsContext *sws;    ///< software scaling context
-  int                ivideo; ///< stream index
+typedef struct _ndio_ffmpeg_t
+{ AVFormatContext   *fmt;     ///< The main handle to the open file
+  struct SwsContext *sws;     ///< software scaling context
+  AVFrame           *raw;     ///< frame buffer for holding data before translating it to the output nd_t format
+  AVFrame           *zeros;   ///< frame buffer with just zero'd out pixels.
+  int                istream; ///< stream index
+  int64_t            nframes;
 } *ndio_ffmpeg_t;
 
 /////
 ///// HELPERS
 /////
 
-#define CCTX(e) ((e)->ctx->streams[(e)->ivideo]->codec) ///< gets the AVCodecContext for the selected video stream
+#define CCTX(e)     ((e)->fmt->streams[(e)->istream]->codec)    ///< gets the AVCodecContext for the selected video stream
+#define DURATION(e) ((e)->fmt->streams[(e)->istream]->duration) ///< gets the duration in some sort of units
 
 /** One-time initialization for ffmpeg library.
 
@@ -79,16 +87,17 @@ static void maybe_init()
 
 #include <libavutil/pixdesc.h>
 int pixfmt_to_nd_type(int pxfmt, nd_type_id_t *type, int *nchan)
-{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].ncomponents;
+{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
+  int nbytes;
   TRY(ncomponents>0);
-  int bytes=(int)ceil(bits_per_pixel/ncomponents/8.0f);
+  nbytes=(int)ceil(bits_per_pixel/ncomponents/8.0f);
   *nchan=ncomponents;
   switch(nbytes)
-  { case 1: *type=u8;  return 1;
-    case 2: *type=u16; return 1;
-    case 4: *type=u32; return 1;
-    case 8: *type=u64; return 1;
+  { case 1: *type=nd_u8;  return 1;
+    case 2: *type=nd_u16; return 1;
+    case 4: *type=nd_u32; return 1;
+    case 8: *type=nd_u64; return 1;
     default:
       ;
   }
@@ -96,14 +105,14 @@ Error:
   return 0;
 }
 
-PIX_FMT pixfmt_to_output_pixfmt(int pxfmt)
-{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].ncomponents;
+int pixfmt_to_output_pixfmt(int pxfmt)
+{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
   int bytes=ncomponents?(int)ceil(bits_per_pixel/ncomponents/8.0f):0;
   return to_pixfmt(bytes,ncomponents);
 }
 
-PIX_FMT to_pixfmt(int nbytes, int ncomponents)
+int to_pixfmt(int nbytes, int ncomponents)
 {
   switch(ncomponents)
   { case 1:
@@ -123,7 +132,7 @@ PIX_FMT to_pixfmt(int nbytes, int ncomponents)
       break;
     case 4:
       switch(nbytes)
-      { case 1: return PIX_FMT_RGBA32;
+      { case 1: return PIX_FMT_RGBA;
         case 2: return PIX_FMT_RGBA64;
         default:;
       }
@@ -145,32 +154,55 @@ static unsigned is_ffmpeg(const char *path, const char *mode)
 { AVFormatContext *fmt=0;
   if(mode[0]!='r') return 0; // can only read for now
   // just check that container can be opened; don't worry about streams, etc...
-  if(avformat_open_input(&fmt,path,NULL/*input format*/,NULL/*options*/),path)
-  { av_close_input_file(fmt);
-    return 1;
+  if(0==avformat_open_input(&fmt,path,NULL/*input format*/,NULL/*options*/))
+  { 
+    int ok=(0<=avformat_find_stream_info(fmt,NULL));
+    if(ok) //check the codec
+    { AVCodec *codec=0;
+      AVCodecContext *cctx=0;
+      int i=av_find_best_stream(fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/);
+      if(!codec || codec->id==CODEC_ID_TIFF) //exclude tiffs because ffmpeg can't properly do multiplane tiff
+        ok=0;
+      cctx=fmt->streams[i]->codec;
+      if(cctx) avcodec_close(cctx);
+    }
+    av_close_input_file(fmt);
+    return ok;
   }
   return 0;
 }
 
-
 static void* open_ffmpeg(const char* path, const char *mode)
-{ ndio_ffmpeg_t *self=0;
+{ ndio_ffmpeg_t self=0;
   TRY(mode[0]=='r'); // only accept read for right now, write not implemented yet
   NEW(struct _ndio_ffmpeg_t,self,1);
   memset(self,0,sizeof(*self));
 
+  TRY(self->raw=avcodec_alloc_frame());
   AVTRY(avformat_open_input(&self->fmt,path,NULL/*input format*/,NULL/*options*/),path);
   AVTRY(avformat_find_stream_info(self->fmt,NULL),"Failed to find stream information.");
-  { AVCodec *codec=0;
-    AVTRY(self->ivideo=av_find_best_stream(self->fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/),"Failed to find a video stream.");
-    AVTRY(avcodec_open2(CCTX(self),codec,NULL/*options*/),"Cannot open video decoder."); // inits the selected stream's codec context
+  { AVCodec        *codec=0;
+    AVCodecContext *cctx=CCTX(self);
+    AVTRY(self->istream=av_find_best_stream(self->fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/),"Failed to find a video stream.");
+    AVTRY(avcodec_open2(cctx,codec,NULL/*options*/),"Cannot open video decoder."); // inits the selected stream's codec context
 
-    TRY(self->sws=sws_getContext(codec->width,codec->height,codec->pix_fmt,
-                                 codec->width,codec->height,pixfmt_to_output_pixfmt(codec->pix_fmt)));
+    TRY(self->sws=sws_getContext(cctx->width,cctx->height,cctx->pix_fmt,
+                                 cctx->width,cctx->height,pixfmt_to_output_pixfmt(cctx->pix_fmt),
+                                 SWS_BICUBIC,NULL,NULL,NULL));
+
+    /* NOTES - duration be crazy
+        - Had this at one point:
+          self->nframes  = ((DURATION(self)/(double)AV_TIME_BASE)*cctx->time_base.den);
+          Worked for the whisker tracker? But now seems DURATION(self) gives the
+          right number of frames.
+        - The AVFormatContext.duration/AV_TIME_BASE seems to be the duration in seconds
+    */       
+    self->nframes  = DURATION(self);
   }
 
   return self;
 Error:
+  if(self && self->raw) av_free(self->raw);
   if(self) free(self);
   return NULL;
 }
@@ -180,12 +212,13 @@ Error:
 #define LOG(...) ndioLogError(file,__VA_ARGS__)
 
 static void close_ffmpeg(ndio_t file)
-{ ndio_ffmpeg_t *self;
+{ ndio_ffmpeg_t self;
   if(!file) return;
   if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;
   if(CCTX(self)) avcodec_close(CCTX(self));
+  if(self->raw)  av_free(self->raw);
   if(self->sws)  sws_freeContext(self->sws);
-  if(self->ctx)  av_close_input_file(self->ctx);
+  if(self->fmt)  av_close_input_file(self->fmt);
   free(self);
 }
 
@@ -210,7 +243,7 @@ static size_t prod(const size_t *s, size_t n)
 static nd_t shape_ffmpeg(ndio_t file)
 { int w,h,d,c;
   nd_type_id_t type;
-  ndio_ffmpeg_t *self;
+  ndio_ffmpeg_t self;
   AVCodecContext *codec;
   TRY(file);
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
@@ -220,7 +253,7 @@ static nd_t shape_ffmpeg(ndio_t file)
   if( ret->pCtx->time_base.num > 1000 && ret->pCtx->time_base.den == 1 )
     ret->pCtx->time_base.den = 1000;
 #endif
-  d=(int)((self->ctx->duration/(double)AV_TIME_BASE)*codec->time_base.den);
+  d=self->nframes;
   w=codec->width;
   h=codec->height;
   TRY(pixfmt_to_nd_type(codec->pix_fmt,&type,&c));
@@ -236,17 +269,109 @@ Error:
   return NULL;
 }
 
+#if 0
+#define DEBUG_PRINT_PACKET_INFO \
+    printf("Packet - pts:%5d dts:%5d (%5d) - flag: %1d - finished: %3d - Frame pts:%5d %5d\n",   \
+        (int)packet.pts,(int)packet.dts,target,                                                  \
+        packet.flags,finished,                                                                   \
+        (int)self->raw->pts,(int)self->raw->best_effort_timestamp)
+#else
+#define DEBUG_PRINT_PACKET_INFO
+#endif
+
+/** Parse next packet from current video.
+    Advances to the next frame.
+
+    Caller is responsible for passing the correct, pre-allocated plane.
+
+    \returns 1 on success, 0 otherwise.
+ */
+static int next(ndio_t file,nd_t plane,int iframe)
+{ ndio_ffmpeg_t self;  
+  AVPacket packet = {0};
+  int finished = 0;
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  do
+  { finished=0;
+    av_free_packet( &packet );
+    AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");   // !!NOTE: see docs on packet.convergence_duration for proper seeking        
+    if(packet.stream_index!=self->istream)
+    { av_free_packet(&packet);
+      continue;
+    }    
+    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&finished,&packet),NULL); 
+    if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO && !finished)
+    { // ?necessary? avpicture_fill((AVPicture *)self->raw, self->blank, self->pCtx->pix_fmt,self->width, self->height ); // set to blank frame 
+      finished=1;
+    }
+    DEBUG_PRINT_PACKET_INFO;
+    if(!finished)
+      TRY(packet.pts!=AV_NOPTS_VALUE);    
+  } while(!finished || self->raw->best_effort_timestamp<iframe);
+
+  sws_scale(self->sws,              // sws context
+            self->raw->data,        // src slice
+            self->raw->linesize,    // src stride
+            0,                      // src slice origin y
+            CCTX(self)->height,     // src slice height
+            (uint8_t*)nddata(plane),          // dst
+            (int)ndstrides(plane)[1]);   // dst line stride
+  av_free_packet( &packet );
+  return 1;
+Error:
+  av_free_packet( &packet );
+  return 0;
+}
+
+/** \returns current frame on success, otherwise -1 */
+static int seek(ndio_t file, int64_t iframe)
+{ ndio_ffmpeg_t self;
+  int64_t duration,ts,tol;
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  duration = DURATION(self);
+  ts = av_rescale(duration,iframe,self->nframes);
+  tol = av_rescale(duration,1,2*self->nframes);
+  
+  TRY(iframe>=0 && iframe<self->nframes);
+  AVTRY(avformat_seek_file( self->fmt,       //format context
+                            self->istream,   //stream id
+                            0,ts,0,          //min,target,max timestamps
+                            0),//AVSEEK_FLAG_ANY),//flags
+                            "Failed to seek.");
+  avcodec_flush_buffers(CCTX(self));
+  //TRY(next(self,iframe));
+  return iframe;
+Error:
+  return -1;
+}
+
+static int64_t nframes(const ndio_t file)
+{ ndio_ffmpeg_t self;
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  return self->nframes;
+Error:
+  return 0;
+}
+
 /** Assumes:
-    1. Output ordering is w,h,d,c
-    2. All channels must have the same type
-    3. Array container has the correct size and type
+    1. Output ordering is c,w,h,d
+    2. Array container has the correct size and type
 */
 static unsigned read_ffmpeg(ndio_t file, nd_t a)
-{
+{ int64_t i;
+  void *o=nddata(a);
+  seek(file,0);
+  for(i=0;i<nframes(file);++i)
+    TRY(next(file,ndoffset(a,2,1),i),"Failed to load image");
+  ndref(a,o,ndnelem(a));
+  return 1;
+Error:
+  return 0;
 }
 
 static unsigned write_ffmpeg(ndio_t file, nd_t a)
-{
+{ LOG("%s(%d):"ENDL "\t%s"ENDL "\tNot implemented."ENDL,__FILE__,__LINE__,__FUNCTION__);
+  return 0;
 }
 
 /////

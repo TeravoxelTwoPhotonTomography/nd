@@ -19,7 +19,7 @@
 
 #define ENDL                         "\n"
 #define LOG(...)                     printf(__VA_ARGS__)
-#define TRY(e)                       do{if(!(e)) { LOG("%s(%d):"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,#e); goto Error;}} while(0)
+#define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define FAIL(msg)                    do{ LOG("%s(%d):"ENDL "\t%s"ENDL,__FILE__,__LINE__,msg); goto Error;} while(0)
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
@@ -87,7 +87,6 @@ Error:
 size_t        ndnelem   (const nd_t a)    {return a->strides[a->ndim]/a->strides[0];}
 size_t        ndnbytes  (const nd_t a)    {return a->strides[a->ndim];}
 void*         nddata    (const nd_t a)    {return ((uint8_t*)a->data);}
-void*         ndoffset  (const nd_t a,int64_t offset) {return ((uint8_t*)a->data)+a->strides[0]*offset;}
 size_t        ndndim    (const nd_t a)    {return a->ndim;}
 const size_t *ndshape   (const nd_t a)    {return a->shape;}
 const size_t *ndstrides (const nd_t a)    {return a->strides;}
@@ -193,6 +192,16 @@ nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
   for(i=0;i<ndim;++i)
     a->strides[i+1]*=a->strides[i];
   return a;
+Error:
+  return NULL;
+}
+
+
+/** increments data pointer: data+=o*stride[idim] */
+nd_t ndoffset(nd_t a, unsigned idim, int64_t o)
+{ TRY(a && a->data);
+  TRY(idim<a->ndim);
+  a->data=((uint8_t*)a->data)+a->strides[idim]*o;
 Error:
   return NULL;
 }
