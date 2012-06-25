@@ -202,6 +202,7 @@ nd_t ndoffset(nd_t a, unsigned idim, int64_t o)
 { TRY(a && a->data);
   TRY(idim<a->ndim);
   a->data=((uint8_t*)a->data)+a->strides[idim]*o;
+  return a;
 Error:
   return NULL;
 }

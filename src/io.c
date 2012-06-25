@@ -44,7 +44,6 @@ struct _ndio_t
 ///// HELPERS
 /////
 
-
 /** \todo make thread safe, needs a mutex */
 static int maybe_load_plugins()
 { if(!g_formats)

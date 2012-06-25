@@ -105,13 +105,6 @@ Error:
   return 0;
 }
 
-int pixfmt_to_output_pixfmt(int pxfmt)
-{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
-  int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
-  int bytes=ncomponents?(int)ceil(bits_per_pixel/ncomponents/8.0f):0;
-  return to_pixfmt(bytes,ncomponents);
-}
-
 int to_pixfmt(int nbytes, int ncomponents)
 {
   switch(ncomponents)
@@ -140,9 +133,16 @@ int to_pixfmt(int nbytes, int ncomponents)
     default:
       ;
   }
-Error:
   return PIX_FMT_NONE;
 }
+
+int pixfmt_to_output_pixfmt(int pxfmt)
+{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
+  int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
+  int bytes=ncomponents?(int)ceil(bits_per_pixel/ncomponents/8.0f):0;
+  return to_pixfmt(bytes,ncomponents);
+}
+
 
 /////
 ///// INTERFACE
@@ -269,10 +269,10 @@ Error:
   return NULL;
 }
 
-#if 0
+#if 1
 #define DEBUG_PRINT_PACKET_INFO \
     printf("Packet - pts:%5d dts:%5d (%5d) - flag: %1d - finished: %3d - Frame pts:%5d %5d\n",   \
-        (int)packet.pts,(int)packet.dts,target,                                                  \
+        (int)packet.pts,(int)packet.dts,iframe,                                                  \
         packet.flags,finished,                                                                   \
         (int)self->raw->pts,(int)self->raw->best_effort_timestamp)
 #else
@@ -309,13 +309,27 @@ static int next(ndio_t file,nd_t plane,int iframe)
       TRY(packet.pts!=AV_NOPTS_VALUE);    
   } while(!finished || self->raw->best_effort_timestamp<iframe);
 
-  sws_scale(self->sws,              // sws context
-            self->raw->data,        // src slice
-            self->raw->linesize,    // src stride
-            0,                      // src slice origin y
-            CCTX(self)->height,     // src slice height
-            (uint8_t*)nddata(plane),          // dst
-            (int)ndstrides(plane)[1]);   // dst line stride
+  /** Assume color's are last dimension.
+      Assume plane points to start of image for first color.
+      Assume at most four color planes.
+      Assume each color plane has identical stride.
+      Plane has full dimensionality of parent array; just offset.
+  */
+  { uint8_t *planes[4];
+    const int lst = (int) ndstrides(plane)[1],
+              cst = (int) ndstrides(plane)[ndndim(plane)-1];
+    const int lines[4] = {lst,lst,lst,lst};
+    int i;
+    for(i=0;i<countof(planes);++i)
+      planes[i]=(uint8_t*)nddata(plane)+cst*i;    
+    sws_scale(self->sws,              // sws context
+              self->raw->data,        // src slice
+              self->raw->linesize,    // src stride
+              0,                      // src slice origin y
+              CCTX(self)->height,     // src slice height
+              planes,                 // dst
+              lines);                 // dst line stride
+  }
   av_free_packet( &packet );
   return 1;
 Error:
@@ -326,16 +340,15 @@ Error:
 /** \returns current frame on success, otherwise -1 */
 static int seek(ndio_t file, int64_t iframe)
 { ndio_ffmpeg_t self;
-  int64_t duration,ts,tol;
+  int64_t duration,ts;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   duration = DURATION(self);
-  ts = av_rescale(duration,iframe,self->nframes);
-  tol = av_rescale(duration,1,2*self->nframes);
+  ts = iframe; //av_rescale(duration,iframe,self->nframes);  
   
   TRY(iframe>=0 && iframe<self->nframes);
   AVTRY(avformat_seek_file( self->fmt,       //format context
                             self->istream,   //stream id
-                            0,ts,0,          //min,target,max timestamps
+                            0,ts,ts,          //min,target,max timestamps
                             0),//AVSEEK_FLAG_ANY),//flags
                             "Failed to seek.");
   avcodec_flush_buffers(CCTX(self));
@@ -360,9 +373,9 @@ Error:
 static unsigned read_ffmpeg(ndio_t file, nd_t a)
 { int64_t i;
   void *o=nddata(a);
-  seek(file,0);
-  for(i=0;i<nframes(file);++i)
-    TRY(next(file,ndoffset(a,2,1),i),"Failed to load image");
+  //seek(file,0);
+  for(i=0;i<nframes(file);++i,ndoffset(a,2,1))
+    TRY(next(file,a,i),"Failed to load image");
   ndref(a,o,ndnelem(a));
   return 1;
 Error:

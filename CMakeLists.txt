@@ -79,7 +79,9 @@ if(GTEST_FOUND)
     ${CMAKE_THREAD_LIBS_INIT}
     libnd
     )
-  add_dependencies(libnd-tests ndio-tiff)
+  add_dependencies(libnd-tests
+    ndio-tiff
+    ndio-ffmpeg)
   add_test(TestLibND libnd-tests)
 endif()
 
