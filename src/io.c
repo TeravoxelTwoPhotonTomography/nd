@@ -56,9 +56,12 @@ Error:
 /** \returns the index of the detected format on sucess, otherwise -1 */
 static int detect_file_type(const char *filename, const char *mode)
 { size_t i;
+  TRY(filename);
+  TRY(mode);
   for(i=0;i<g_countof_formats;++i)
     if(g_formats[i]->is_fmt(filename,mode))
       return (int)i;
+Error:
   return -1;
 }
 

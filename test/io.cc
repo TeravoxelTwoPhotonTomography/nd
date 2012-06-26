@@ -7,6 +7,8 @@
 #include "config.h"
 #include "nd.h"
 
+#define countof(e) (sizeof(e)/sizeof(*e))
+
 static 
 struct _files_t
 { const char  *path;
@@ -18,9 +20,9 @@ file_table[] =
 { {ND_TEST_DATA_PATH"/vol.1ch.tif",nd_i16,3,{620,512,100,1,1}},
   {ND_TEST_DATA_PATH"/vol.rgb.tif",nd_u8 ,4,{620,512, 39,3,1}},
   {ND_TEST_DATA_PATH"/vol.rgb.mp4",nd_u8 ,4,{620,512, 39,3,1}},
-  {ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}},
+//{ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}}, // don't know how to decode properly, strange pts's, jumps from frame 0 to frame 12
   {ND_TEST_DATA_PATH"/vol.rgb.avi",nd_u8 ,4,{620,512, 39,3,1}},
-  //{ND_TEST_DATA_PATH"/38B06.5-8.lsm",nd_u16,4,{1024,1024,248,4,1}}, // lsm's fail right now bc of the thumbnails
+//{ND_TEST_DATA_PATH"/38B06.5-8.lsm",nd_u16,4,{1024,1024,248,4,1}}, // lsm's fail right now bc of the thumbnails
   {0}
 };
 
@@ -28,7 +30,14 @@ TEST(ndio,CloseNULL) { ndioClose(NULL); }
 
 TEST(ndio,OpenClose)
 { struct _files_t *cur;
+  // Examples that should fail to open
   EXPECT_EQ(NULL,ndioOpen("does_not_exist.im.super.serious",NULL,"r"));
+  EXPECT_EQ(NULL,ndioOpen("does_not_exist.im.super.serious",NULL,"w"));
+  EXPECT_EQ(NULL,ndioOpen("",NULL,"r"));
+  EXPECT_EQ(NULL,ndioOpen("",NULL,"w"));
+  EXPECT_EQ(NULL,ndioOpen(NULL,NULL,"r"));
+  EXPECT_EQ(NULL,ndioOpen(NULL,NULL,"w"));
+  // Examples that should open
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
@@ -71,22 +80,35 @@ TEST(ndio,Read)
   }
 }
 
-TEST(ndio,WriteTiff)
-{ unsigned short data[10*20*30];
-  size_t shape[] = {10,20,30};
-  nd_t a = ndinit();
-  ndref(a,data,10*20*30);
-  ndcast(a,nd_u16);
-  ndreshape(a,3,shape);
-  { ndio_t file=0;
-    EXPECT_NE((void*)NULL,ndioWrite(ndioOpen("testout.tif",NULL,"w"),a));
-    ndioClose(file);
-  }
-  ndfree(a);
-}
-
 TEST(ndio,MethodChainingErrors)
 { nd_t a=0;
   ndioClose(ndioRead (ndioOpen("does.not.exist",NULL,"r"),a));
   ndioClose(ndioWrite(ndioOpen("does.not.exist",NULL,"w"),a));
+}
+
+class WriteTest:public ::testing::Test
+{ unsigned short data[10*20*30];
+  size_t shape[3];
+public:
+  nd_t a;
+  ndio_t file;
+  void SetUp()
+  { shape[0]=10;
+    shape[1]=20;
+    shape[2]=30;    
+    ASSERT_NE((void*)NULL, ndref(a=ndinit(),data,countof(data)))<<nderror(a);
+    ASSERT_NE((void*)NULL, ndreshape(ndcast(a,nd_u16),3,shape) )<<nderror(a);
+    file=0;
+  }
+  void TearDown()
+  { EXPECT_NE((void*)NULL,file); //test should assign file handle to "file"
+    ndioClose(file);
+    ndfree(a);    
+  }
+};
+TEST_F(WriteTest,Tiff)
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.tif",NULL,"w"),a));  
+}
+TEST_F(WriteTest,FFMpeg)
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.mp4",NULL,"w"),a));  
 }

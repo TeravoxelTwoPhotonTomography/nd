@@ -48,9 +48,22 @@ Value_Type types_nd_to_mylib[] =
 static const char* name_tiff(void) { return "tiff/mylib"; }
 
 static unsigned is_tiff(const char *path, const char *mode)
-{ Tiff *t=Open_Tiff((char*)path,(char*)mode);
-  if(t) Close_Tiff(t);
-  return t!=NULL;
+{ switch(mode[0])
+  { case 'r':
+    { Tiff *t=Open_Tiff((char*)path,(char*)mode);
+      if(t) Close_Tiff(t);
+      return t!=NULL;
+    } break;
+    case 'w':
+    { const char *e,**ext,*exts[] = {".tif",".tiff",NULL};      
+      for(ext=exts;*ext;++ext)
+        if( 0==strcmp(*ext,(e=strrchr(path,'.'))?e:"") ) //output of strrchr is sanitized in case of no found '.'
+          return 1;
+      return 0;
+    } break;
+    default:
+      return 0;
+  }
 }
 
 static void* open_tiff(const char* path, const char *mode)

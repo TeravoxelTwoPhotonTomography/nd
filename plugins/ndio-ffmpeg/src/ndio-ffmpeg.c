@@ -150,9 +150,8 @@ int pixfmt_to_output_pixfmt(int pxfmt)
 
 static const char* name_ffmpeg(void) { return "ffmpeg"; }
 
-static unsigned is_ffmpeg(const char *path, const char *mode)
+static unsigned test_readable(const char *path)
 { AVFormatContext *fmt=0;
-  if(mode[0]!='r') return 0; // can only read for now
   // just check that container can be opened; don't worry about streams, etc...
   if(0==avformat_open_input(&fmt,path,NULL/*input format*/,NULL/*options*/))
   { 
@@ -168,6 +167,25 @@ static unsigned is_ffmpeg(const char *path, const char *mode)
     }
     av_close_input_file(fmt);
     return ok;
+  }
+}
+
+static unsigned test_writable(const char *path)
+{ AVCodec *codec=0;
+  const char *ext;
+  codec=avcodec_find_encoder_by_name((ext=strrchr(path,'.'))?ext:""); // match file extension against codec short name
+  if(!codec) return 0;
+  if(codec->type!=AVMEDIA_TYPE_VIDEO) return 0;
+  return 1;
+}
+
+static unsigned is_ffmpeg(const char *path, const char *mode)
+{ 
+  switch(mode[0])
+  { case 'r': return test_readable(path);
+    case 'w': return test_writable(path);
+    default:
+      ;
   }
   return 0;
 }
@@ -269,7 +287,7 @@ Error:
   return NULL;
 }
 
-#if 1
+#if 0
 #define DEBUG_PRINT_PACKET_INFO \
     printf("Packet - pts:%5d dts:%5d (%5d) - flag: %1d - finished: %3d - Frame pts:%5d %5d\n",   \
         (int)packet.pts,(int)packet.dts,iframe,                                                  \
