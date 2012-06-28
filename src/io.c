@@ -120,12 +120,12 @@ ndio_t ndioOpen(const char* filename, const char *format, const char *mode)
   file->log=NULL;
   return file;
 ErrorSpecificFormat:
-  LOG("%s(%d): %s"ENDL "\tCould not open %s for %s with specified format %s."ENDL,
-      __FILE__,__LINE__,__FUNCTION__,filename,(mode[0]=='r')?"reading":"writing",format);
+  LOG("%s(%d): %s"ENDL "\tCould not open \"%s\" for %s with specified format %s."ENDL,
+      __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing",format);
   return NULL;
 ErrorDetectFormat:
-  LOG("%s(%d): %s"ENDL "\tCould not open %s for %s."ENDL,
-      __FILE__,__LINE__,__FUNCTION__,filename,(mode[0]=='r')?"reading":"writing"); 
+  LOG("%s(%d): %s"ENDL "\tCould not open \"%s\" for %s."ENDL,
+      __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing"); 
   return NULL;
 Error:
   return NULL;

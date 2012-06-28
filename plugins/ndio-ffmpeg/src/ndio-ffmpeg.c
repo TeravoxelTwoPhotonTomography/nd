@@ -21,6 +21,21 @@
     \todo readable pixel formats?
           see pixdesc.[hc] and av_pix_fmt_descriptors[PIX_FMT_NB]
                                av_(write|read)_image_line
+    \todo for appropriate 1d data, use audio streams
+
+    \section ndio-ffmpeg-notes Notes                           
+      
+        - duration be crazy
+          - Had this at one point:
+            self->nframes  = ((DURATION(self)/(double)AV_TIME_BASE)*cctx->time_base.den);
+            Worked for the whisker tracker? But now seems DURATION(self) gives the
+            right number of frames.
+          - The AVFormatContext.duration/AV_TIME_BASE seems to be the duration in seconds
+
+        - FFMPEG API documentation has lots of examples, but it's hard to know which one's to 
+          use.  Some of the current examples use depricated APIs.
+          - The process of read/writing a container file is called demuxing/muxing.
+          - The process of unpacking/packing a video stream is called decoding/encoding.          
 */
 #include "nd.h"
 #include "src/io/interface.h"
@@ -33,13 +48,14 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
+#include <libavutil/pixdesc.h>
 
 #define ENDL              "\n"
 #define LOG(...)          fprintf(stderr,__VA_ARGS__)
-#define TRY(e)            do{if(!(e)) { LOG("%s(%d):"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,#e); goto Error;}} while(0)
+#define TRY(e)            do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)       if(e){free(e); (e)=NULL;}
-#define FAIL              do{ LOG("Execution should not have reached this point."ENDL); goto Error; }while(0)
+#define FAIL(msg)         do{ LOG("%s(%d): %s"ENDL "\tExecution should not have reached this point."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,msg); goto Error; }while(0)
 
 #define AVTRY(expr,msg) \
   do{                                                       \
@@ -59,9 +75,9 @@ typedef struct _ndio_ffmpeg_t
 { AVFormatContext   *fmt;     ///< The main handle to the open file
   struct SwsContext *sws;     ///< software scaling context
   AVFrame           *raw;     ///< frame buffer for holding data before translating it to the output nd_t format
-  AVFrame           *zeros;   ///< frame buffer with just zero'd out pixels.
   int                istream; ///< stream index
-  int64_t            nframes;
+  int64_t            nframes; ///< duration of video in frames (for reading)
+  AVDictionary      *opts;
 } *ndio_ffmpeg_t;
 
 /////
@@ -85,7 +101,6 @@ static void maybe_init()
   is_one_time_inited = 1;
 }
 
-#include <libavutil/pixdesc.h>
 int pixfmt_to_nd_type(int pxfmt, nd_type_id_t *type, int *nchan)
 { int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
@@ -168,15 +183,18 @@ static unsigned test_readable(const char *path)
     av_close_input_file(fmt);
     return ok;
   }
+  return 0;
 }
 
 static unsigned test_writable(const char *path)
-{ AVCodec *codec=0;
+{ AVOutputFormat *fmt=0;
   const char *ext;
-  codec=avcodec_find_encoder_by_name((ext=strrchr(path,'.'))?ext:""); // match file extension against codec short name
-  if(!codec) return 0;
-  if(codec->type!=AVMEDIA_TYPE_VIDEO) return 0;
-  return 1;
+  ext=(ext=strrchr(path,'.'))?(ext+1):""; // yields something like "mp4" or, if no extension found, "".
+  while( fmt=av_oformat_next(fmt) )
+  { if(0==strcmp(fmt->name,ext))
+      return fmt->video_codec!=CODEC_ID_NONE;
+  }
+  return 0;
 }
 
 static unsigned is_ffmpeg(const char *path, const char *mode)
@@ -190,9 +208,8 @@ static unsigned is_ffmpeg(const char *path, const char *mode)
   return 0;
 }
 
-static void* open_ffmpeg(const char* path, const char *mode)
+static ndio_ffmpeg_t open_reader(const char* path)
 { ndio_ffmpeg_t self=0;
-  TRY(mode[0]=='r'); // only accept read for right now, write not implemented yet
   NEW(struct _ndio_ffmpeg_t,self,1);
   memset(self,0,sizeof(*self));
 
@@ -208,21 +225,97 @@ static void* open_ffmpeg(const char* path, const char *mode)
                                  cctx->width,cctx->height,pixfmt_to_output_pixfmt(cctx->pix_fmt),
                                  SWS_BICUBIC,NULL,NULL,NULL));
 
-    /* NOTES - duration be crazy
-        - Had this at one point:
-          self->nframes  = ((DURATION(self)/(double)AV_TIME_BASE)*cctx->time_base.den);
-          Worked for the whisker tracker? But now seems DURATION(self) gives the
-          right number of frames.
-        - The AVFormatContext.duration/AV_TIME_BASE seems to be the duration in seconds
-    */       
     self->nframes  = DURATION(self);
   }
 
   return self;
 Error:
-  if(self && self->raw) av_free(self->raw);
-  if(self) free(self);
+  if(self)
+  { if(CCTX(self)) avcodec_close(CCTX(self));
+    if(self->opts) av_dict_free(&self->opts);
+    if(self->raw)  av_free(self->raw);
+    if(self->sws)  sws_freeContext(self->sws);
+    if(self->fmt)  avformat_free_context(self->fmt);
+    free(self);
+  }
   return NULL;
+}
+
+static ndio_ffmpeg_t open_writer(const char* path)
+{ ndio_ffmpeg_t self=0;
+  AVCodec *codec;
+  NEW(struct _ndio_ffmpeg_t,self,1);
+  memset(self,0,sizeof(*self));
+
+  AVTRY(avformat_alloc_output_context2(&self->fmt,NULL,NULL,path), "Failed to detect output file format from the file name.");
+  TRY(self->fmt->oformat && self->fmt->oformat->video_codec!=CODEC_ID_NONE); //Assert that this is a video output format
+  TRY(codec=avcodec_find_encoder(self->fmt->oformat->video_codec));
+  TRY(avformat_new_stream(self->fmt,codec));                       //returns the stream, assume it's index 0 from here on out (self->istream=0 is accurate)
+  // need to set some opts before call (set output pixfmt at least)
+  AVTRY(avcodec_open2(CCTX(self),codec,&self->opts),               "Failed to initialize encoder.");
+
+  // maybe open the output file
+  TRY(self->fmt->flags&AVFMT_NOFILE);                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
+  TRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE));  
+    
+  // Defer to first write when opts are filled out.  avformat_write_header(self->fmt,self->opts);
+
+  /* Notes from muxer example:
+     1. open the video stream, requires width, height and some options
+        ? when does this need to happen
+        - can use AVFormatContext streams pointer (and nb_streams field) and the streams will be 
+          freed when the format contaxt is freed. Confirmed [Y]
+           - do not need to alloc streams array, it is MAX_STREAMS long.
+        - allocs AVStream, sets codec, and codec params
+            - need stream for write_video_frame
+        - can just set defaults at this point?
+            - I think so...
+            - codec info (w,h,pixfmt) used to alloc temporary buffers     
+     2. open_video
+        1. avcodec_find_encoder
+        2. avcodec_open
+        3. (special case) raw picture
+        4. alloc_picture (desired output pixfmt)
+        5. maybe alloc_picture (YUV420P)
+     3. av_dump_format (prints debug info about format)
+     4. maybe open output file using avio_open (see AVFMT_NOFILE flag)
+     5. av_write_header
+     6. for all frames write_video_frame
+        1. maybe uses an sws context to conver to yuv420p
+        ...
+     7. av_write_trailer
+     8. close_video
+        1. free temp pictures
+        2. close codec
+     9. Free everything 
+        1. free streams (av_freep)
+        2. maybe avio_close
+        3. free context
+  */
+
+
+  FAIL("Not Implemented");
+  return self;
+Error:  
+  if(self->fmt->pb) avio_close(self->fmt->pb);
+  if(self->opts) av_dict_free(&self->opts);  
+  if(self)
+  { if(self->fmt)  avformat_free_context(self->fmt);
+    free(self);
+  }
+  return NULL;
+}
+
+static void* open_ffmpeg(const char* path, const char *mode)
+{ 
+  switch(mode[0])
+  { case 'r': return open_reader(path);    
+    case 'w': return open_writer(path);
+    default:
+      FAIL("Could not recognize mode.");
+  } 
+Error:
+  return 0;
 }
 
 // Following functions will log to the file object.
@@ -232,11 +325,18 @@ Error:
 static void close_ffmpeg(ndio_t file)
 { ndio_ffmpeg_t self;
   if(!file) return;
-  if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;
-  if(CCTX(self)) avcodec_close(CCTX(self));
-  if(self->raw)  av_free(self->raw);
-  if(self->sws)  sws_freeContext(self->sws);
-  if(self->fmt)  av_close_input_file(self->fmt);
+  if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;  
+  if(CCTX(self))    avcodec_close(CCTX(self));
+  if(self->opts)    av_dict_free(&self->opts);
+  if(self->raw)     av_free(self->raw);
+  if(self->sws)     sws_freeContext(self->sws);
+  if(self->fmt)
+  { if(self->fmt->oformat)
+    AVTRY(av_write_trailer(self->fmt),"Failed to write trailer.");
+Error: //ignore error
+    if(self->fmt->pb) avio_close(self->fmt->pb);
+    avformat_free_context(self->fmt);
+  }
   free(self);
 }
 
@@ -271,7 +371,7 @@ static nd_t shape_ffmpeg(ndio_t file)
   if( ret->pCtx->time_base.num > 1000 && ret->pCtx->time_base.den == 1 )
     ret->pCtx->time_base.den = 1000;
 #endif
-  d=self->nframes;
+  d=(int)self->nframes;
   w=codec->width;
   h=codec->height;
   TRY(pixfmt_to_nd_type(codec->pix_fmt,&type,&c));
@@ -297,6 +397,14 @@ Error:
 #define DEBUG_PRINT_PACKET_INFO
 #endif
 
+static void zero(AVFrame *p)
+{ int i,j;
+  for(j=0;j<AV_NUM_DATA_POINTERS;++j)
+    if(p->data[j])
+      for(i=0;i<p->height;++i)
+        memset(p->data[j]+p->linesize[j]*i,0,p->linesize[j]);
+}
+
 /** Parse next packet from current video.
     Advances to the next frame.
 
@@ -311,35 +419,38 @@ static int next(ndio_t file,nd_t plane,int iframe)
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   do
   { finished=0;
-    av_free_packet( &packet );
+    av_free_packet( &packet ); // no op when packet is null
     AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");   // !!NOTE: see docs on packet.convergence_duration for proper seeking        
-    if(packet.stream_index!=self->istream)
-    { av_free_packet(&packet);
+    if(packet.stream_index!=self->istream) 
       continue;
-    }    
     AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&finished,&packet),NULL); 
+    // Handle odd cases and debug
     if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO && !finished)
-    { // ?necessary? avpicture_fill((AVPicture *)self->raw, self->blank, self->pCtx->pix_fmt,self->width, self->height ); // set to blank frame 
+    { zero(self->raw); // Emit a blank frame.  Something off about the stream.
       finished=1;
     }
     DEBUG_PRINT_PACKET_INFO;
     if(!finished)
-      TRY(packet.pts!=AV_NOPTS_VALUE);    
+      TRY(packet.pts!=AV_NOPTS_VALUE);  // ?don't know what to do when codecs don't provide a pts    
   } while(!finished || self->raw->best_effort_timestamp<iframe);
+  av_free_packet(&packet);
 
-  /** Assume color's are last dimension.
+  /*  === Copy out data, translating to desired pixel format ===
+      Assume colors are last dimension.
       Assume plane points to start of image for first color.
       Assume at most four color planes.
       Assume each color plane has identical stride.
       Plane has full dimensionality of parent array; just offset.
   */
-  { uint8_t *planes[4];
+  { uint8_t *planes[AV_NUM_DATA_POINTERS]={0};
+    int lines[AV_NUM_DATA_POINTERS]={0};
     const int lst = (int) ndstrides(plane)[1],
               cst = (int) ndstrides(plane)[ndndim(plane)-1];
-    const int lines[4] = {lst,lst,lst,lst};
     int i;
     for(i=0;i<countof(planes);++i)
-      planes[i]=(uint8_t*)nddata(plane)+cst*i;    
+    { lines[i]=lst;
+      planes[i]=(uint8_t*)nddata(plane)+cst*i;
+    }
     sws_scale(self->sws,              // sws context
               self->raw->data,        // src slice
               self->raw->linesize,    // src stride
@@ -348,7 +459,7 @@ static int next(ndio_t file,nd_t plane,int iframe)
               planes,                 // dst
               lines);                 // dst line stride
   }
-  av_free_packet( &packet );
+  
   return 1;
 Error:
   av_free_packet( &packet );
