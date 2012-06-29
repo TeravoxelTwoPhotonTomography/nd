@@ -50,12 +50,12 @@ TEST(ndio,Shape)
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
     nd_t form;
-    EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
-    EXPECT_NE((void*)NULL,form=ndioShape(file));
-    EXPECT_EQ(cur->type,ndtype(form));
-    EXPECT_EQ(cur->ndim,ndndim(form));
+    EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"))<<cur->path;
+    ASSERT_NE((void*)NULL,form=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
+    EXPECT_EQ(cur->type,ndtype(form))<<cur->path;
+    EXPECT_EQ(cur->ndim,ndndim(form))<<cur->path;
     for(size_t i=0;i<cur->ndim;++i)
-      EXPECT_EQ(cur->shape[i],ndshape(form)[i]);
+      EXPECT_EQ(cur->shape[i],ndshape(form)[i])<<cur->path;
     ndfree(form);
     ndioClose(file);
   }
@@ -67,7 +67,7 @@ TEST(ndio,Read)
   { ndio_t file=0;
     nd_t vol;
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
-    EXPECT_NE((void*)NULL, vol=ndioShape(file));
+    ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
 
     { void *data;
       EXPECT_NE((void*)NULL,data=malloc(ndnbytes(vol)));

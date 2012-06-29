@@ -39,6 +39,7 @@
 */
 #include "nd.h"
 #include "src/io/interface.h"
+#include <stdint.h>
 #include <string.h>
 
 // need to define inline before including av* headers on C89 compilers
@@ -358,23 +359,39 @@ static size_t prod(const size_t *s, size_t n)
   return p;
 }
 
+/**
+ * \todo FIXME: Must decode first frame to ensure codec context has the proper width.
+ * \todo FIXME: side effect, seeks to begining of video.  Should leave current seek
+ *              point unmodified.
+ */ 
 static nd_t shape_ffmpeg(ndio_t file)
 { int w,h,d,c;
   nd_type_id_t type;
   ndio_ffmpeg_t self;
-  AVCodecContext *codec;
+  AVCodecContext *cctx;
+  AVPacket packet={0};
   TRY(file);
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
-  TRY(codec=CCTX(self));
+  TRY(cctx=CCTX(self));
+  // read first frame to update dimensions from first packet if necessary
+  { int fin=0;
+    do{
+      av_free_packet(&packet);
+      AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");
+    } while(packet.stream_index!=self->istream);
+    AVTRY(avcodec_decode_video2(cctx,self->raw,&fin,&packet),"Failed to decode frame."); 
+    av_free_packet(&packet);
+    AVTRY(av_seek_frame(self->fmt,self->istream,0,AVSEEK_FLAG_BACKWARD/*flags*/),"Failed to seek to beginning.");
+  }
 #if 0  // was in the loader for the whisker tracking code.  Don't remember why.
   /* Frame rate fix for some codecs */
   if( ret->pCtx->time_base.num > 1000 && ret->pCtx->time_base.den == 1 )
     ret->pCtx->time_base.den = 1000;
 #endif
   d=(int)self->nframes;
-  w=codec->width;
-  h=codec->height;
-  TRY(pixfmt_to_nd_type(codec->pix_fmt,&type,&c));
+  w=cctx->width;
+  h=cctx->height;
+  TRY(pixfmt_to_nd_type(cctx->pix_fmt,&type,&c));
   { nd_t out=ndinit();
     size_t k,shape[]={w,h,d,c};
     k=pack(shape,countof(shape));
@@ -384,6 +401,7 @@ static nd_t shape_ffmpeg(ndio_t file)
     return out;
   }
 Error:
+  av_free_packet(&packet);
   return NULL;
 }
 
@@ -442,8 +460,8 @@ static int next(ndio_t file,nd_t plane,int iframe)
       Assume each color plane has identical stride.
       Plane has full dimensionality of parent array; just offset.
   */
-  { uint8_t *planes[AV_NUM_DATA_POINTERS]={0};
-    int lines[AV_NUM_DATA_POINTERS]={0};
+  { uint8_t *planes[4]={0};
+    int lines[4]={0};
     const int lst = (int) ndstrides(plane)[1],
               cst = (int) ndstrides(plane)[ndndim(plane)-1];
     int i;
@@ -504,7 +522,7 @@ static unsigned read_ffmpeg(ndio_t file, nd_t a)
   void *o=nddata(a);
   //seek(file,0);
   for(i=0;i<nframes(file);++i,ndoffset(a,2,1))
-    TRY(next(file,a,i),"Failed to load image");
+    TRY(next(file,a,i));
   ndref(a,o,ndnelem(a));
   return 1;
 Error:
