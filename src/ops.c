@@ -7,7 +7,11 @@
     \todo refactor setting ndim and shape to it's own function
 */
 #include <stdint.h>
+#if defined(__APPLE__) || defined(__MACH__)
 #include <malloc/malloc.h>
+#else
+#include <malloc.h>
+#endif
 #include <stdio.h>
 #include "nd.h"
 

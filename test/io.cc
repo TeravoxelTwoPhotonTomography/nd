@@ -110,5 +110,5 @@ TEST_F(WriteTest,Tiff)
 { EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.tif",NULL,"w"),a));  
 }
 TEST_F(WriteTest,FFMpeg)
-{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.mp4",NULL,"w"),a));  
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.m4v",NULL,"w"),a));  
 }

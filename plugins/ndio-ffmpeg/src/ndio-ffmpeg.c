@@ -50,6 +50,8 @@
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libavutil/pixdesc.h>
+#include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
 
 #define ENDL              "\n"
 #define LOG(...)          fprintf(stderr,__VA_ARGS__)
@@ -246,86 +248,18 @@ static ndio_ffmpeg_t open_writer(const char* path)
   AVCodec *codec;
   NEW(struct _ndio_ffmpeg_t,self,1);
   memset(self,0,sizeof(*self));
+  TRY(self->raw=avcodec_alloc_frame());
 
   AVTRY(avformat_alloc_output_context2(&self->fmt,NULL,NULL,path), "Failed to detect output file format from the file name.");
   TRY(self->fmt->oformat && self->fmt->oformat->video_codec!=CODEC_ID_NONE); //Assert that this is a video output format
   TRY(codec=avcodec_find_encoder(self->fmt->oformat->video_codec));
   TRY(avformat_new_stream(self->fmt,codec)); //returns the stream, assume it's index 0 from here on out (self->istream=0 is accurate)
-  // need to set some codec parameters first
-#if 0
-  CCTX(self)->bit_rate=400000;
-  CCTX(self)->compression_level
-  CCTX(self)->flags  // CODEC_FLAG_*
-  CCTX(self)->flags2 // CODEC_FLAG2_* 
-  CCTX(self)->gop_size=12; //or 0 for intra_only
-  CCTX(self)->width=256;
-  CCTX(self)->height=256;
-  CCTX(self)->pix_fmt=PIX_FMT_YUV420P;
-  //bframes?
-  CCTX(self)->mpeg_quant=0;  //0->h263, 1->mpeg quant
-  CCTX(self)->i_quant_offest //qscale offset between P and I frames
-  CCTX(self)->lumi_masking   //(0->disabled) luminance masking
-  CCTX(self)->temporal_cplx_masking //(0->disabled) temporal complexity masking
-  CCTX(self)->spatial_cplx_masking  //(0->disabled) spatial complexity masking
-  CCTX(self)->p_masking             //(0->disabled) p block masking
-  CCTX(self)->dark_masking          //(0->disabled) darkness masking
-  CCTX(self)->prediction_method     // needed for huffyuv
-  CCTX(self)->me_cmp                // motion estimation comparison function
-  CCTX(self)->me_sub_cmp            // subpixel motion estimation comparison function
-  //CCTX(self)->mb_cmp                // (NOT SUPPORTED) macroblock comparison function
-  CCTX(self)->ildct_cmp             // interlaced DCT comparison function
-  CCTX(self)->dia_size              // ME diamond size and shape
-#endif
-#if 0 // HAX
-  { struct _t{char* key;char *value;} *d;
-    for(d=(struct _t*)(codec->defaults);d->key;++d)
-      LOG("%10s %10s"ENDL,d->key,d->value);
-  }
-#endif
-  av_dict_set(&self->opts,"b","2.5M",0);
-  AVTRY(avcodec_open2(CCTX(self),codec,&self->opts),               "Failed to initialize encoder.");
-
   // maybe open the output file
-  TRY(self->fmt->flags&AVFMT_NOFILE);                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
-  TRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE));  
-    
-  // Defer to first write when opts are filled out.  avformat_write_header(self->fmt,self->opts);
-
-  /* Notes from muxer example:
-     1. open the video stream, requires width, height and some options
-        ? when does this need to happen
-        - can use AVFormatContext streams pointer (and nb_streams field) and the streams will be 
-          freed when the format contaxt is freed. Confirmed [Y]
-           - do not need to alloc streams array, it is MAX_STREAMS long.
-        - allocs AVStream, sets codec, and codec params
-            - need stream for write_video_frame
-        - can just set defaults at this point?
-            - I think so...
-            - codec info (w,h,pixfmt) used to alloc temporary buffers     
-     2. open_video
-        1. avcodec_find_encoder
-        2. avcodec_open
-        3. (special case) raw picture
-        4. alloc_picture (desired output pixfmt)
-        5. maybe alloc_picture (YUV420P)
-     3. av_dump_format (prints debug info about format)
-     4. maybe open output file using avio_open (see AVFMT_NOFILE flag)
-     5. av_write_header
-     6. for all frames write_video_frame
-        1. maybe uses an sws context to conver to yuv420p
-        ...
-     7. av_write_trailer
-     8. close_video
-        1. free temp pictures
-        2. close codec
-     9. Free everything 
-        1. free streams (av_freep)
-        2. maybe avio_close
-        3. free context
-  */
-
-
-  FAIL("Not Implemented");
+  TRY(0==self->fmt->flags&AVFMT_NOFILE);                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
+  AVTRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE),"Failed to open output file.");  
+  
+  CCTX(self)->codec=codec; // setting this here so we can remember it later.
+  AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");  
   return self;
 Error:  
   if(self->fmt->pb) avio_close(self->fmt->pb);
@@ -335,6 +269,29 @@ Error:
     free(self);
   }
   return NULL;
+}
+
+static int maybe_init_codec_ctx(ndio_ffmpeg_t self, int width, int height, int fps, int src_pixfmt)
+{ AVCodecContext *cctx=CCTX(self);
+  AVCodec *codec=cctx->codec;
+  if(!cctx->width)
+  { cctx->width=width;
+    cctx->height=height;
+    cctx->time_base.num=1;
+    cctx->time_base.den=fps;
+    cctx->gop_size=12;
+    AVTRY(avcodec_open2(cctx,codec,&self->opts),"Failed to initialize encoder.");
+
+    TRY(self->sws=sws_getContext(
+      width,height,src_pixfmt,
+      width,height,cctx->pix_fmt,
+      SWS_BICUBIC,NULL,NULL,NULL));
+
+    TRY(av_image_alloc(self->raw->data,self->raw->linesize,width,height,cctx->pix_fmt,1));
+  }
+  return 1;
+Error:
+  return 0;
 }
 
 static void* open_ffmpeg(const char* path, const char *mode)
@@ -558,8 +515,60 @@ Error:
   return 0;
 }
 
+/** Assumes:
+    1. Input ordering is c,w,h,d
+    2. Appends d planes of a to the stream
+ */
 static unsigned write_ffmpeg(ndio_t file, nd_t a)
-{ LOG("%s(%d):"ENDL "\t%s"ENDL "\tNot implemented."ENDL,__FILE__,__LINE__,__FUNCTION__);
+{ ndio_ffmpeg_t self;
+  int c,w,h,d,i;
+  const size_t *s;
+  size_t planestride,colorstride,linestride;
+  int pixfmt;
+  AVPacket p={0};
+  int done;
+  AVCodecContext *cctx;
+
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  cctx=CCTX(self);
+  s=ndshape(a);
+  switch(ndndim(a))
+  { case 2:      c=1;      w=s[0];      h=s[1];      d=1;      break;// w,h
+    case 3:      c=1;      w=s[0];      h=s[1];      d=s[2];   break;// w,h,d
+    case 4:      c=s[0];   w=s[1];      h=s[2];      d=s[3];   break;// c,w,h,d
+    default:
+      FAIL("Unsupported number of dimensions.");
+  }
+  planestride=ndstrides(a)[ndndim(a)];
+  colorstride=ndstrides(a)[0];
+  TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt(colorstride,c)));
+  TRY(maybe_init_codec_ctx(self,w,h,25,pixfmt));
+  i=0; done=0;
+  while(i<(d-1) || !done) // this will push d planes, then repeat the last plane till done.
+  { const uint8_t* slice[4]={ 
+      ((uint8_t*)nddata(a))+planestride*i+colorstride*0,
+      ((uint8_t*)nddata(a))+planestride*i+colorstride*1,
+      ((uint8_t*)nddata(a))+planestride*i+colorstride*2,
+      ((uint8_t*)nddata(a))+planestride*i+colorstride*3};
+      const int stride[4]={planestride,planestride,planestride,planestride};
+    sws_scale(self->sws,slice,stride,0,h,self->raw->data,self->raw->linesize);
+    av_init_packet(&p);
+    p.stream_index=self->istream;
+    self->raw->pts=self->fmt->duration+i;
+    //if(cctx->coded_frame->pts!=AV_NOPTS_VALUE)
+    //  p.pts=av_rescale_q(cctx->coded_frame->pts,cctx->time_base,self->fmt->streams[self->istream]->time_base);
+    if(cctx->coded_frame->key_frame)
+      p.flags|=AV_PKT_FLAG_KEY;
+    AVTRY(avcodec_encode_video2(CCTX(self),&p,self->raw,&done),"Failed to encode packet.");
+    if(done)
+    { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");
+      av_destruct_packet(&p);      
+    }
+    if(i<(d-1)) ++i;
+  }  
+
+  return 1;
+Error:
   return 0;
 }
 
