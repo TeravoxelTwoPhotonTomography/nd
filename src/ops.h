@@ -11,7 +11,8 @@
 extern "C" {
 #endif
 
-typedef struct _nd_t* nd_t;
+// Required: Include "nd.h" before this header.  
+// typedef struct _nd_t* nd_t;
 
 /** If \a ndim is 0 or \a shape is NULL, these will be
     infered from \a src and dst.

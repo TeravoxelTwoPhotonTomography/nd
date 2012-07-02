@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 typedef struct _ndio_t* ndio_t;
-typedef struct _nd_t*   nd_t;
+//typedef struct _nd_t*   nd_t;
 
 int       ndioIsFile(const char *filename);
 

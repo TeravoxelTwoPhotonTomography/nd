@@ -17,6 +17,7 @@
 #include "io.h"
 #include "config.h"
 #include "io/plugin.h"
+#include "io/interface.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

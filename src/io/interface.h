@@ -20,8 +20,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  typedef struct _ndio_t* ndio_t;
-  typedef struct _nd_t*   nd_t;
+  //Required: include io.h and nd.h before this file
+  //typedef struct _ndio_t* ndio_t;
+  //typedef struct _nd_t*   nd_t;
 
   typedef const char* (*_ndio__fmt_name_t)(void);
   typedef unsigned    (*_ndio__is_fmt_t)(const char* path, const char *mode);

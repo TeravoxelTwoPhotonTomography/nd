@@ -7,7 +7,7 @@
     \todo refactor setting ndim and shape to it's own function
 */
 #include <stdint.h>
-#include <malloc.h>
+#include <malloc/malloc.h>
 #include <stdio.h>
 #include "nd.h"
 

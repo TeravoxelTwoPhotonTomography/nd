@@ -221,7 +221,6 @@ static ndio_ffmpeg_t open_reader(const char* path)
     AVCodecContext *cctx=CCTX(self);
     AVTRY(self->istream=av_find_best_stream(self->fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/),"Failed to find a video stream.");
     AVTRY(avcodec_open2(cctx,codec,NULL/*options*/),"Cannot open video decoder."); // inits the selected stream's codec context
-
     TRY(self->sws=sws_getContext(cctx->width,cctx->height,cctx->pix_fmt,
                                  cctx->width,cctx->height,pixfmt_to_output_pixfmt(cctx->pix_fmt),
                                  SWS_BICUBIC,NULL,NULL,NULL));
@@ -251,8 +250,39 @@ static ndio_ffmpeg_t open_writer(const char* path)
   AVTRY(avformat_alloc_output_context2(&self->fmt,NULL,NULL,path), "Failed to detect output file format from the file name.");
   TRY(self->fmt->oformat && self->fmt->oformat->video_codec!=CODEC_ID_NONE); //Assert that this is a video output format
   TRY(codec=avcodec_find_encoder(self->fmt->oformat->video_codec));
-  TRY(avformat_new_stream(self->fmt,codec));                       //returns the stream, assume it's index 0 from here on out (self->istream=0 is accurate)
-  // need to set some opts before call (set output pixfmt at least)
+  TRY(avformat_new_stream(self->fmt,codec)); //returns the stream, assume it's index 0 from here on out (self->istream=0 is accurate)
+  // need to set some codec parameters first
+#if 0
+  CCTX(self)->bit_rate=400000;
+  CCTX(self)->compression_level
+  CCTX(self)->flags  // CODEC_FLAG_*
+  CCTX(self)->flags2 // CODEC_FLAG2_* 
+  CCTX(self)->gop_size=12; //or 0 for intra_only
+  CCTX(self)->width=256;
+  CCTX(self)->height=256;
+  CCTX(self)->pix_fmt=PIX_FMT_YUV420P;
+  //bframes?
+  CCTX(self)->mpeg_quant=0;  //0->h263, 1->mpeg quant
+  CCTX(self)->i_quant_offest //qscale offset between P and I frames
+  CCTX(self)->lumi_masking   //(0->disabled) luminance masking
+  CCTX(self)->temporal_cplx_masking //(0->disabled) temporal complexity masking
+  CCTX(self)->spatial_cplx_masking  //(0->disabled) spatial complexity masking
+  CCTX(self)->p_masking             //(0->disabled) p block masking
+  CCTX(self)->dark_masking          //(0->disabled) darkness masking
+  CCTX(self)->prediction_method     // needed for huffyuv
+  CCTX(self)->me_cmp                // motion estimation comparison function
+  CCTX(self)->me_sub_cmp            // subpixel motion estimation comparison function
+  //CCTX(self)->mb_cmp                // (NOT SUPPORTED) macroblock comparison function
+  CCTX(self)->ildct_cmp             // interlaced DCT comparison function
+  CCTX(self)->dia_size              // ME diamond size and shape
+#endif
+#if 0 // HAX
+  { struct _t{char* key;char *value;} *d;
+    for(d=(struct _t*)(codec->defaults);d->key;++d)
+      LOG("%10s %10s"ENDL,d->key,d->value);
+  }
+#endif
+  av_dict_set(&self->opts,"b","2.5M",0);
   AVTRY(avcodec_open2(CCTX(self),codec,&self->opts),               "Failed to initialize encoder.");
 
   // maybe open the output file
@@ -343,7 +373,6 @@ Error: //ignore error
 
 #define countof(e) (sizeof(e)/sizeof(*e))
 
-
 static int pack(size_t *s, int n)
 { int i,c;
   for(i=0,c=0;i<n;++i)
@@ -417,7 +446,7 @@ Error:
 
 static void zero(AVFrame *p)
 { int i,j;
-  for(j=0;j<AV_NUM_DATA_POINTERS;++j)
+  for(j=0;j<4;++j)
     if(p->data[j])
       for(i=0;i<p->height;++i)
         memset(p->data[j]+p->linesize[j]*i,0,p->linesize[j]);
