@@ -8,11 +8,10 @@ endmacro()
 ################################################################################
 # CONFIG
 ################################################################################
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 set(ROOT_3RDPARTY_DIR ${PROJECT_SOURCE_DIR})
 
-find_package(ffmpeg)
+find_package(FFMPEG)
 if(FFMPEG_FOUND)
   include_directories(${FFMPEG_INCLUDE_DIRS})
 
@@ -31,6 +30,7 @@ if(FFMPEG_FOUND)
   # TARGETS
   ################################################################################
 
+  add_definitions(-fPIC)
   add_library(ndio-ffmpeg MODULE ${SRCS} ${HDRS})
   target_link_libraries(ndio-ffmpeg ${FFMPEG_LIBRARIES} libnd)
 

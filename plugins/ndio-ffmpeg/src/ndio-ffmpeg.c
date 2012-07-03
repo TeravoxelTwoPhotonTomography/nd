@@ -190,10 +190,10 @@ static unsigned test_readable(const char *path)
       int i=av_find_best_stream(fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/);
       if(!codec || codec->id==CODEC_ID_TIFF) //exclude tiffs because ffmpeg can't properly do multiplane tiff
         ok=0;
-      cctx=fmt->streams[i]->codec;
-      if(cctx) avcodec_close(cctx);
+      //cctx=fmt->streams[i]->codec;
+      //if(cctx) avcodec_close(cctx);
     }
-    av_close_input_file(fmt);
+    avformat_close_input(&fmt);
     return ok;
   }
   return 0;
@@ -298,6 +298,7 @@ static int maybe_init_codec_ctx(ndio_ffmpeg_t self, int width, int height, int f
       SWS_BICUBIC,NULL,NULL,NULL));
 
     TRY(av_image_alloc(self->raw->data,self->raw->linesize,width,height,cctx->pix_fmt,1));
+    AVTRY(avformat_write_header(self->fmt,&self->opts),"Failed to write header.");
   }
   return 1;
 Error:
@@ -466,7 +467,7 @@ static int next(ndio_t file,nd_t plane,int iframe)
       planes[i]=(uint8_t*)nddata(plane)+cst*i;
     }
     sws_scale(self->sws,              // sws context
-              self->raw->data,        // src slice
+              (const uint8_t*const*)self->raw->data, // src slice
               self->raw->linesize,    // src stride
               0,                      // src slice origin y
               CCTX(self)->height,     // src slice height
@@ -572,7 +573,7 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
     }
     AVTRY(avcodec_encode_video2(CCTX(self),&p,in,&done),"Failed to encode packet.");
     if(done)
-    { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");
+    { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");      
       av_destruct_packet(&p);      
     }
     if(i<d) ++i;

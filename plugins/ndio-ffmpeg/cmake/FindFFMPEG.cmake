@@ -95,6 +95,7 @@ MACRO(FFMPEG_FIND varname shortname headername)
     FIND_FILE(FFMPEG_${varname}_LIBRARIES
         NAMES
           "${shortname}.lib"
+          "lib${shortname}.so"
           "lib${shortname}.a"
         HINTS
           ${ROOT_3RDPARTY_DIR}

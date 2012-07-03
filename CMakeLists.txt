@@ -41,12 +41,16 @@ file(GLOB HDRS src/*.h src/io/*.h)
 # TARGETS
 ################################################################################
 
+add_definitions(-fPIC)
+
 add_library(libnd
   ${SRCS}
   ${HDRS}
   config.h.in
   ${PROJECT_BINARY_DIR}/config.h
   )
+target_link_libraries(libnd
+  ${CMAKE_DL_LIBS})
 
 # ndio plugins
 file(GLOB PLUGINS plugins/*)
