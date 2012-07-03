@@ -102,6 +102,16 @@ static void maybe_init()
   av_register_all();
   avformat_network_init();
   is_one_time_inited = 1;
+
+  av_log_set_level(0
+    |AV_LOG_DEBUG
+    |AV_LOG_VERBOSE
+    |AV_LOG_INFO
+    |AV_LOG_WARNING
+    |AV_LOG_ERROR
+    |AV_LOG_FATAL
+    |AV_LOG_PANIC
+    );
 }
 
 int pixfmt_to_nd_type(int pxfmt, nd_type_id_t *type, int *nchan)
@@ -544,27 +554,28 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
   TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt(colorstride,c)));
   TRY(maybe_init_codec_ctx(self,w,h,25,pixfmt));
   i=0; done=0;
-  while(i<(d-1) || !done) // this will push d planes, then repeat the last plane till done.
-  { const uint8_t* slice[4]={ 
-      ((uint8_t*)nddata(a))+planestride*i+colorstride*0,
-      ((uint8_t*)nddata(a))+planestride*i+colorstride*1,
-      ((uint8_t*)nddata(a))+planestride*i+colorstride*2,
-      ((uint8_t*)nddata(a))+planestride*i+colorstride*3};
+  while(i<d || !done) // this will push d planes, then repeat the last plane till done.
+  { AVFrame *in;   
+    av_init_packet(&p); // FIXME: for efficiency, probably want to preallocate packet
+    if(i<d)
+    { const uint8_t* slice[4]={ 
+        ((uint8_t*)nddata(a))+planestride*i+colorstride*0,
+        ((uint8_t*)nddata(a))+planestride*i+colorstride*1,
+        ((uint8_t*)nddata(a))+planestride*i+colorstride*2,
+        ((uint8_t*)nddata(a))+planestride*i+colorstride*3};
       const int stride[4]={planestride,planestride,planestride,planestride};
-    sws_scale(self->sws,slice,stride,0,h,self->raw->data,self->raw->linesize);
-    av_init_packet(&p);
-    p.stream_index=self->istream;
-    self->raw->pts=self->fmt->duration+i;
-    //if(cctx->coded_frame->pts!=AV_NOPTS_VALUE)
-    //  p.pts=av_rescale_q(cctx->coded_frame->pts,cctx->time_base,self->fmt->streams[self->istream]->time_base);
-    if(cctx->coded_frame->key_frame)
-      p.flags|=AV_PKT_FLAG_KEY;
-    AVTRY(avcodec_encode_video2(CCTX(self),&p,self->raw,&done),"Failed to encode packet.");
+      in=self->raw;
+      sws_scale(self->sws,slice,stride,0,h,self->raw->data,self->raw->linesize);
+      self->raw->pts=self->fmt->duration+i;
+    } else if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY) // FIXME: might want to move the close function to properly append data
+    { in=NULL;
+    }
+    AVTRY(avcodec_encode_video2(CCTX(self),&p,in,&done),"Failed to encode packet.");
     if(done)
     { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");
       av_destruct_packet(&p);      
     }
-    if(i<(d-1)) ++i;
+    if(i<d) ++i;
   }  
 
   return 1;

@@ -27,13 +27,14 @@
 # It also takes forever to build and configuration can be difficult.
 
 if(WIN32)
-  set(HASH a4c22e3)
+  set(HASH 3233ad4)
+  set(DATE 20120630)
   if(CMAKE_CL_64)
-    set(SYS   ffmpeg-git-${HASH}-win64-dev)
-    set(DLLS  ffmpeg-git-${HASH}-win64-shared)
+    set(SYS   ffmpeg-${DATE}-git-${HASH}-win64-dev)
+    set(DLLS  ffmpeg-${DATE}-git-${HASH}-win64-shared)
   else()
-    set(SYS ffmpeg-git-${HASH}-win32-dev)
-    set(DLLS ffmpeg-git-${HASH}-win32-shared)
+    set(SYS  ffmpeg-${DATE}-git-${HASH}-win32-dev)
+    set(DLLS ffmpeg-${DATE}-git-${HASH}-win32-shared)
   endif()
 
   set(FFMPEG_INCLUDE_PATH_SUFFIXES
