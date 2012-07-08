@@ -13,7 +13,7 @@ set(ROOT_3RDPARTY_DIR ${PROJECT_SOURCE_DIR})
 
 find_package(FFMPEG)
 if(FFMPEG_FOUND)
-  include_directories(${FFMPEG_INCLUDE_DIRS})
+  include_directories(${FFMPEG_INCLUDE_DIR})
 
   get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
 
@@ -33,6 +33,7 @@ if(FFMPEG_FOUND)
   add_definitions(-fPIC)
   add_library(ndio-ffmpeg MODULE ${SRCS} ${HDRS})
   target_link_libraries(ndio-ffmpeg ${FFMPEG_LIBRARIES} libnd)
+  add_dependencies(ndio-ffmpeg ffmpeg)
 
   ## Copy FFMPEG shared libs to plugin build dir so build functions in place
   #  (Not super sure what to do for non MSVC)

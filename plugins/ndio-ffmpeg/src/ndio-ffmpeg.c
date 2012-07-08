@@ -46,12 +46,12 @@
 #ifdef _MSC_VER
 #define inline __forceinline
 #endif
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
-#include <libavutil/pixdesc.h>
-#include <libavutil/opt.h>
-#include <libavutil/imgutils.h>
+#include "libavcodec/avcodec.h"
+#include "libavformat/avformat.h"
+#include "libswscale/swscale.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/opt.h"
+#include "libavutil/imgutils.h"
 
 #define ENDL              "\n"
 #define LOG(...)          fprintf(stderr,__VA_ARGS__)

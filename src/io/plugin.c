@@ -45,8 +45,9 @@
 
 ///// MACROS: Debugging and Error handling.
 //#define DEBUG_SEARCH
+
 #define ENDL       "\n"
-#define LOG(...)   fprintf(stderr,__VA_ARGS__)
+#define LOG(...)   fprintf(stdout,__VA_ARGS__)
 #define TRY(e,msg) do{ if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated to false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }} while(0)
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
 #if 0
@@ -191,8 +192,10 @@ static int recursive_load(apis_t *apis,DIR* dir,const char *path)
 #ifdef DEBUG_SEARCH
       puts(buf);
 #endif
-      TRY(child=opendir(buf),"Could not open child directory.");
+      TRY(child=opendir(buf),"Failed to open child directory.");
       TRY(recursive_load(apis,child,buf),"Search for plugins failed.");
+      closedir(child);
+      child=0;
     }
   }
 Finalize:

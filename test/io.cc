@@ -17,11 +17,12 @@ struct _files_t
   size_t       shape[5];
 } 
 file_table[] =
-{ {ND_TEST_DATA_PATH"/vol.1ch.tif",nd_i16,3,{620,512,100,1,1}},
-  {ND_TEST_DATA_PATH"/vol.rgb.tif",nd_u8 ,4,{620,512, 39,3,1}},
-  {ND_TEST_DATA_PATH"/vol.rgb.mp4",nd_u8 ,4,{620,512, 39,3,1}},
+{
+  {ND_TEST_DATA_PATH"/vol.1ch.tif",nd_i16,3,{620,512,100,1,1}},
+//{ND_TEST_DATA_PATH"/vol.rgb.tif",nd_u8 ,4,{620,512, 39,3,1}},
+//{ND_TEST_DATA_PATH"/vol.rgb.mp4",nd_u8 ,4,{620,512, 39,3,1}},
 //{ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}}, // don't know how to decode properly, strange pts's, jumps from frame 0 to frame 12
-  {ND_TEST_DATA_PATH"/vol.rgb.avi",nd_u8 ,4,{620,512, 39,3,1}},
+//{ND_TEST_DATA_PATH"/vol.rgb.avi",nd_u8 ,4,{620,512, 39,3,1}},
 //{ND_TEST_DATA_PATH"/38B06.5-8.lsm",nd_u16,4,{1024,1024,248,4,1}}, // lsm's fail right now bc of the thumbnails
   {0}
 };
@@ -109,6 +110,12 @@ public:
 TEST_F(WriteTest,Tiff)
 { EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.tif",NULL,"w"),a));  
 }
-TEST_F(WriteTest,FFMpeg)
+TEST_F(WriteTest,M4V)
 { EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.m4v",NULL,"w"),a));  
+}
+TEST_F(WriteTest,ogg)
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.ogg",NULL,"w"),a));  
+}
+TEST_F(WriteTest,webm)
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.webm",NULL,"w"),a));  
 }

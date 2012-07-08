@@ -1,215 +1,155 @@
-# Locate ffmpeg
+# Include this to generate and build FFMPEG
+# INPUT
+#   FFMPEG_GIT_REPOSITORY     has default
+#   FFMPEG_GIT_BRANCH         has deefalt
 #
-# Output
-# ------
-# FFMPEG_LIBRARIES
-# FFMPEG_FOUND
-# FFMPEG_INCLUDE_DIRS
-# FFMPEG_SHARED_LIBS
-#       dynamically loaded libraries that need to be
-#       distributed with any binaries
-#
-# Input
-# -----
-# ROOT_3RDPARTY_DIR
-#    Location of 3rd party libraries for a project
-#    It is searched last, so system libraries will be have priority.
-# FFMPEG_DIR       
-#    an environment variable that would
-#    correspond to the ./configure --prefix=$FFMPEG_DIR
-#
-# Created by Robert Osfield.
-# Modified by Nathan Clack.
+# OUTPUT
+#   FFMPEG_FOUND
+#   FFMPEG_LIBRARIES
+#   FFMPEG_INCLUDE_DIR
 
-# NOTES
-# 
-# FFMpeg changes all the time, sometimes in ways that break backwards compatibility.
-# It also takes forever to build and configuration can be difficult.
-
-if(WIN32)
-  set(HASH 3233ad4)
-  set(DATE 20120630)
-  if(CMAKE_CL_64)
-    set(SYS   ffmpeg-${DATE}-git-${HASH}-win64-dev)
-    set(DLLS  ffmpeg-${DATE}-git-${HASH}-win64-shared)
-  else()
-    set(SYS  ffmpeg-${DATE}-git-${HASH}-win32-dev)
-    set(DLLS ffmpeg-${DATE}-git-${HASH}-win32-shared)
+##
+## HANDLE INPUT VARIABLES
+##
+macro(_ffmpeg_setdefault var val)
+  if(NOT ${var})
+    set(${var} ${val})
   endif()
+endmacro(_ffmpeg_setdefault)
 
-  set(FFMPEG_INCLUDE_PATH_SUFFIXES
-            ffmpeg/${SYS}/include
-            ffmpeg/${SYS}/include/lib${shortname} 
+_ffmpeg_setdefault(FFMPEG_GIT_REPOSITORY https://github.com/FFmpeg/FFmpeg.git)
+_ffmpeg_setdefault(FFMPEG_GIT_BRANCH     n0.11.1)
+
+show(FFMPEG_GIT_REPOSITORY)
+show(FFMPEG_GIT_BRANCH)
+
+##
+## REQUIRED DEPENDENCIES
+##
+include(ExternalProject)
+ExternalProject_Add(yasm
+  URL               http://www.tortall.net/projects/yasm/releases/yasm-1.2.0.tar.gz
+  URL_MD5           4cfc0686cf5350dd1305c4d905eb55a6
+  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR>
   )
-  set(FFMPEG_LIB_PATH_SUFFIXES
-            ffmpeg/${SYS}/lib
-            ffmpeg/${SYS}/lib/lib${shortname}
-  )
-  file(GLOB _FFMPEG_SHARED_LIBS ${ROOT_3RDPARTY_DIR}/ffmpeg/${DLLS}/bin/*.dll)
-else()
-  set(FFMPEG_INCLUDE_PATH_SUFFIXES
-            ffmpeg
-            ffmpeg/lib${shortname}
-  )
-  set(FFMPEG_LIB_PATH_SUFFIXES
-            lib
-            lib64
-  )
-endif()
+get_target_property(YASM_ROOT_DIR yasm _EP_INSTALL_DIR)
 
 if(APPLE) #FFMPEG may rely on these Frameworks
   find_library(CF_LIBS  CoreFoundation)
   find_library(VDA_LIBS VideoDecodeAcceleration)
-  find_library(CV_LIBS CoreVideo)
+  find_library(CV_LIBS  CoreVideo)
+  set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${CF_LIBS} ${VDA_LIBS} ${CV_LIBS})
 endif()
 
-set(FFMPEG_SHARED_LIBS ${_FFMPEG_SHARED_LIBS})
+##
+## OPTIONAL DEPENDENCIES
+##
 
-# Macro to find header and lib directories
-# example: FFMPEG_FIND(AVFORMAT avformat avformat.h)
-MACRO(FFMPEG_FIND varname shortname headername)
-#message("++ ROOT: ${ROOT_3RDPARTY_DIR}")
-#message("++     : ${headername}")
-#message("++     : ${shortname}")
-    FIND_PATH(FFMPEG_${varname}_INCLUDE_DIRS lib${shortname}/${headername}
-        HINTS
-          ${ROOT_3RDPARTY_DIR}
-        PATHS
-          ${FFMPEG_ROOT}/include
-          $ENV{FFMPEG_DIR}/include
-          ~/Library/Frameworks
-          /Library/Frameworks
-          /usr/local/include
-          /usr/include
-          /sw/include # Fink
-          /opt/local/include # DarwinPorts
-          /opt/csw/include # Blastwave
-          /opt/include
-          /usr/freeware/include
-        PATH_SUFFIXES 
-          ${FFMPEG_INCLUDE_PATH_SUFFIXES}
-        DOC "Location of FFMPEG Headers"
-        NO_DEFAULT_PATH
-    )
+include(FeatureSummary)
 
-    FIND_FILE(FFMPEG_${varname}_LIBRARIES
-        NAMES
-          "${shortname}.lib"
-          "lib${shortname}.so"
-          "lib${shortname}.a"
-        HINTS
-          ${ROOT_3RDPARTY_DIR}
-        PATHS
-          ${FFMPEG_ROOT}
-          $ENV{FFMPEG_DIR}
-          ~/Library/Frameworks
-          /Library/Frameworks
-          /usr/local
-          /usr
-          /sw
-          /opt/local
-          /opt/csw
-          /opt
-          /usr/freeware
-        PATH_SUFFIXES 
-          ${FFMPEG_LIB_PATH_SUFFIXES}
-        DOC "Location of FFMPEG Libraries"
-    )
-
-  #message("++ ${FFMPEG_${varname}_LIBRARIES}")
-  #message("++ ${FFMPEG_${varname}_INCLUDE_DIRS}")
-    IF (FFMPEG_${varname}_LIBRARIES AND FFMPEG_${varname}_INCLUDE_DIRS)
-        SET(FFMPEG_${varname}_FOUND 1)
-    ENDIF(FFMPEG_${varname}_LIBRARIES AND FFMPEG_${varname}_INCLUDE_DIRS)
-
-ENDMACRO(FFMPEG_FIND)
-
-SET(FFMPEG_ROOT "$ENV{FFMPEG_DIR}" CACHE PATH "Location of FFMPEG")
-
-FFMPEG_FIND(LIBAVFORMAT avformat avformat.h)
-FFMPEG_FIND(LIBAVDEVICE avdevice avdevice.h)
-FFMPEG_FIND(LIBAVCODEC  avcodec  avcodec.h)
-FFMPEG_FIND(LIBAVUTIL   avutil   avutil.h)
-FFMPEG_FIND(LIBSWSCALE  swscale  swscale.h)
-
-SET(FFMPEG_FOUND "NO")
-IF   (FFMPEG_LIBAVFORMAT_FOUND AND FFMPEG_LIBAVDEVICE_FOUND AND FFMPEG_LIBAVCODEC_FOUND AND FFMPEG_LIBAVUTIL_FOUND AND FFMPEG_LIBSWSCALE_FOUND)
-
-    SET(FFMPEG_FOUND "YES")
-
-    SET(FFMPEG_INCLUDE_DIRS 
-        ${FFMPEG_LIBAVFORMAT_INCLUDE_DIRS}
-        )
-
-    SET(FFMPEG_LIBRARY_DIRS ${FFMPEG_LIBAVFORMAT_LIBRARY_DIRS})
-
-    if(WIN32) 
-      get_filename_component(
-          FFMPEG_KITCHEN_SINK_PATH
-          ${FFMPEG_LIBAVCODEC_LIBRARIES}
-          PATH)
-      FILE(GLOB FFMPEG_LIBRARIES ${FFMPEG_KITCHEN_SINK_PATH}/*.lib)
-#message("FFMPEG_KITCHEN_SINK_PATH is ${FFMPEG_KITCHEN_SINK_PATH}")        
-#message("FFMPEG_LIBRARIES is ${FFMPEG_LIBRARIES}")
+##
+# Modifies FFMPEG_DEP_LIBRARIES, _ffmpeg_conf, _ffmpeg_paths, and _ffmpeg_deps.
+# Adds libraries and configure lines if a library is found.
+# If <confname> is false, will only add include directories and feature description.
+#   The library won't be "enabled" or "disabled" in the FFMPEG config.
+macro(_ffmpeg_maybe_add name confname description url)
+  find_package(${name})
+  set_package_properties(${name} PROPERTIES
+    DESCRIPTION ${description}
+    URL         ${url}
+  )
+  string(TOUPPER ${name} uname)
+  add_feature_info(${name} ${uname}_FOUND ${description})
+  if(${uname}_FOUND)
+    include_directories(${uname}_INCLUDE_DIR)
+    set(_ffmpeg_conf ${_ffmpeg_conf} --enable-${confname})
+    if(${uname}_INCLUDE_DIRS)
+      foreach(dir ${${uname}_INCLUDE_DIRS})
+        set(_ffmpeg_paths ${_ffmpeg_paths} --extra-cflags=-I${dir})
+      endforeach()
     else()
-      find_package(ZLIB)
-      find_package(BZip2)
-      find_package(Vorbis)
-      find_package(Lame)
-      find_package(x264)
-      find_package(xvid)
-      find_package(theora)
-      find_package(va)
-      find_package(VPX)
-      find_package(Schroedinger)
-      find_package(Speex)
-      find_package(GSM)
-
-      set(CMAKE_THREAD_PREFER_PTHREAD)
-      find_package(Threads)
-      set(THREAD_LIBRARY ${CMAKE_THREAD_LIBS_INIT})
-
-macro(ADDLIB VAR NAME)
-  if(${NAME}_FOUND)
-    set(${VAR} ${${VAR}} ${${NAME}_LIBRARY})
-  endif()
-endmacro()
-macro(ADDLIBS VAR NAME)
-  if(${NAME}_FOUND)
-    set(${VAR} ${${VAR}} ${${NAME}_LIBRARIES})
-  endif()
-endmacro()
-
-      SET(FFMPEG_LIBRARIES
-          ${FFMPEG_DLLS}
-          ${FFMPEG_LIBAVFORMAT_LIBRARIES}
-          ${FFMPEG_LIBAVDEVICE_LIBRARIES}
-          ${FFMPEG_LIBAVCODEC_LIBRARIES}
-          ${FFMPEG_LIBSWSCALE_LIBRARIES}
-          ${FFMPEG_LIBAVUTIL_LIBRARIES}
-          ${ZLIB_LIBRARIES}
-          ${BZIP2_LIBRARIES}
-          ${OGG_LIBRARY}
-          ${VORBIS_LIBRARIES}
-          ${Lame_LIBRARY}
-          ${X264_LIBRARY}
-          ${XVID_LIBRARY}
-          ${THREAD_LIBRARY}
-          ${CF_LIBS}
-          ${VDA_LIBS}
-          ${CV_LIBS}
-          )
-      ADDLIBS(FFMPEG_LIBRARIES THEORA)
-      ADDLIB (FFMPEG_LIBRARIES VAAPI)
-      ADDLIB (FFMPEG_LIBRARIES VPX)
-      ADDLIB (FFMPEG_LIBRARIES SCHROEDINGER)
-      ADDLIB (FFMPEG_LIBRARIES SPEEX)
-      ADDLIB (FFMPEG_LIBRARIES GSM)
+      set(_ffmpeg_paths ${_ffmpeg_paths} --extra-cflags=-I${${uname}_INCLUDE_DIR})
     endif()
-    #message("FFMPEG_LIBRARIES are ${FFMPEG_LIBRARIES}")        
+    if(TARGET ${confname})
+      set(_ffmpeg_deps ${_ffmpeg_deps} ${confname}) #External project targets must correspond to confname's
+    endif()
+    if(${uname}_LIBRARIES)
+      set(FFMPEG_DEP_LIBRARIES ${FFMPEG_DEP_LIBRARIES} ${${uname}_LIBRARIES})
+    else()
+      set(FFMPEG_DEP_LIBRARIES ${FFMPEG_DEP_LIBRARIES} ${${uname}_LIBRARY})
+    endif()
+  else()
+      set(_ffmpeg_conf ${_ffmpeg_conf} --disable-${confname})
+  endif()
+endmacro(_ffmpeg_maybe_add)
 
-ELSE ()
+_ffmpeg_maybe_add(ZLIB   zlib      "A Massively Spiffy Yet Delicately Unobtrusive Compression Library" http://zlib.net)
+_ffmpeg_maybe_add(BZIP2  bzlib     "A freely available, patent free, high-quality data compressor."    http://www.bzip.org)
+_ffmpeg_maybe_add(x264   libx264   "A free library for encoding videos streams into the H.264/MPEG-4 AVC format" http://www.videolab.org/developers/x264.html)
+_ffmpeg_maybe_add(theora libtheora "Video compression for the OGG format from Xiph.org" http://www.theora.org)
+_ffmpeg_maybe_add(va     vaapi     "Enables hardware accelerated video decode/encode for prevailing standard formats." http://www.freedesktop.org/wiki/Software/vaapi)
+_ffmpeg_maybe_add(VPX    libvpx    "An open, royalty-free, media file format for the web." http://www.webmproject.org/code)
 
-    MESSAGE(STATUS "Could not find FFMPEG")
+## I haven't quite figured out xvid's build yet...It's hard to change the install prefix
+## using their build system.
+#_ffmpeg_maybe_add(xvid   libxvid   "The XVID video codec." http://www.xvid.org)
 
-ENDIF()
+#if(X264_FOUND) #X264 requires gpl
+#  set(_ffmpeg_conf ${_ffmpeg_conf} --enable-gpl)
+#endif()
+
+## Finish up - must be after _ffmpeg_maybe_add section
+#  Add library paths for each library to config's cflags
+foreach(lib ${FFMPEG_DEP_LIBRARIES})
+    get_filename_component(dir ${lib} PATH)
+    set(_ffmpeg_paths ${_ffmpeg_paths} --extra-ldflags=-L${dir})
+endforeach()
+
+##
+## EXTERNAL PROJECT CALL
+##
+
+show(_ffmpeg_conf)
+foreach(e ${_ffmpeg_paths})
+  show(e)
+endforeach()
+include(ExternalProject)
+ExternalProject_Add(ffmpeg
+  DEPENDS           ${_ffmpeg_deps} yasm
+  GIT_REPOSITORY    ${FFMPEG_GIT_REPOSITORY}
+  GIT_TAG           ${FFMPEG_GIT_BRANCH}
+  CONFIGURE_COMMAND 
+        <SOURCE_DIR>/configure
+          --prefix=<INSTALL_DIR>
+          --yasmexe=${YASM_ROOT_DIR}/bin/yasm
+          --enable-shared
+          --enable-gpl
+          --enable-version3
+          --extra-cflags=-g
+          ${_ffmpeg_conf}
+          ${_ffmpeg_paths}
+  BUILD_IN_SOURCE TRUE # hard to get ffmpeg not to do this ... maybe forces rebuilds T.T
+)
+get_target_property(FFMPEG_ROOT_DIR ffmpeg _EP_INSTALL_DIR)
+
+set(FFMPEG_INCLUDE_DIR ${FFMPEG_ROOT_DIR}/include CACHE PATH "Location of FFMPEG headers.")
+macro(FFMPEG_FIND name)
+  set(FFMPEG_${name}_LIBRARY
+    ${FFMPEG_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}
+    CACHE PATH "Location of lib${name} library." FORCE)
+  set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${FFMPEG_${name}_LIBRARY})
+endmacro()
+FFMPEG_FIND(avformat)
+FFMPEG_FIND(avdevice)
+FFMPEG_FIND(avcodec)
+FFMPEG_FIND(avutil)
+FFMPEG_FIND(swscale)
+
+##
+## OUTPUT
+##
+
+set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${FFMPEG_DEP_LIBRARIES})
+PRINT_ENABLED_FEATURES()
+PRINT_DISABLED_FEATURES()
+set(FFMPEG_FOUND 1)
