@@ -109,10 +109,11 @@ endforeach()
 ## EXTERNAL PROJECT CALL
 ##
 
-show(_ffmpeg_conf)
-foreach(e ${_ffmpeg_paths})
-  show(e)
-endforeach()
+  #show(_ffmpeg_conf)
+  #foreach(e ${_ffmpeg_paths})
+  #  show(e)
+  #endforeach()
+
 include(ExternalProject)
 ExternalProject_Add(ffmpeg
   DEPENDS           ${_ffmpeg_deps} yasm

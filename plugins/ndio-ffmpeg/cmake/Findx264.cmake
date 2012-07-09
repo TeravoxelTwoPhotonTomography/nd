@@ -10,7 +10,8 @@ find_library(X264_LIBRARY NAMES x264)
 if(NOT X264_LIBRARY OR NOT EXISTS ${X264_LIBRARY})
   include(ExternalProject)
   ExternalProject_Add(libx264
-    GIT_REPOSITORY git://git.videolan.org/x264.git
+    URL ftp://ftp.videolan.org/pub/x264/snapshots/last_x264.tar.bz2
+    #GIT_REPOSITORY https://git.videolan.org/x264.git
     CONFIGURE_COMMAND <SOURCE_DIR>/configure
           --prefix=<INSTALL_DIR>
           --enable-static
