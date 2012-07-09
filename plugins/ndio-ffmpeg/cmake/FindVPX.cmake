@@ -21,6 +21,7 @@ if(NOT VPX_LIBRARY OR NOT EXISTS ${VPX_LIBRARY})
         <SOURCE_DIR>/configure
           --prefix=<INSTALL_DIR>
           --enable-static
+          --enable-pic
           --disable-examples
           --disable-unit-tests
   )

@@ -84,7 +84,7 @@ macro(_ffmpeg_maybe_add name confname description url)
 endmacro(_ffmpeg_maybe_add)
 
 _ffmpeg_maybe_add(ZLIB   zlib      "A Massively Spiffy Yet Delicately Unobtrusive Compression Library" http://zlib.net)
-_ffmpeg_maybe_add(BZIP2  bzlib     "A freely available, patent free, high-quality data compressor."    http://www.bzip.org)
+_ffmpeg_maybe_add(BZip2  bzlib     "A freely available, patent free, high-quality data compressor."    http://www.bzip.org)
 _ffmpeg_maybe_add(x264   libx264   "A free library for encoding videos streams into the H.264/MPEG-4 AVC format" http://www.videolab.org/developers/x264.html)
 _ffmpeg_maybe_add(theora libtheora "Video compression for the OGG format from Xiph.org" http://www.theora.org)
 _ffmpeg_maybe_add(va     vaapi     "Enables hardware accelerated video decode/encode for prevailing standard formats." http://www.freedesktop.org/wiki/Software/vaapi)
@@ -125,6 +125,10 @@ ExternalProject_Add(ffmpeg
           --yasmexe=${YASM_ROOT_DIR}/bin/yasm
           --enable-shared
           --enable-gpl
+          --enable-pic
+          --disable-symver
+          --enable-hardcoded-tables
+          --enable-runtime-cpudetect
           --enable-version3
           --extra-cflags=-g
           ${_ffmpeg_conf}
@@ -135,9 +139,15 @@ get_target_property(FFMPEG_ROOT_DIR ffmpeg _EP_INSTALL_DIR)
 
 set(FFMPEG_INCLUDE_DIR ${FFMPEG_ROOT_DIR}/include CACHE PATH "Location of FFMPEG headers.")
 macro(FFMPEG_FIND name)
-  set(FFMPEG_${name}_LIBRARY
-    ${FFMPEG_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}
-    CACHE PATH "Location of lib${name} library." FORCE)
+  if(CMAKE_SYSTEM_NAME MATCHES Linux) #use shared (can't get fPIC to work)
+    set(ffmpeg_${name}_library
+      ${ffmpeg_root_dir}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      cache path "location of lib${name} library." force)
+  else() #use static
+    set(ffmpeg_${name}_library
+      ${ffmpeg_root_dir}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}
+      cache path "location of lib${name} library." force)
+  endif()
   set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${FFMPEG_${name}_LIBRARY})
 endmacro()
 FFMPEG_FIND(avformat)
