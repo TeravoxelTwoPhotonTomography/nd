@@ -13,7 +13,7 @@ find_library(THEORA_LIBRARY_DEC NAME theoradec)
 if(NOT THEORA_LIBRARY OR NOT EXISTS ${THEORA_LIBRARY}) # assume everything else was found ok based on this guy
   ## Try to download and build
   find_package(Ogg) #requires libogg
-  if(NOT EXISTS OGG_LIBRARY) #then it needs to be built, need to wait on target
+  if(NOT EXISTS ${OGG_LIBRARY}) #then it needs to be built, need to wait on target
     set(_theora_depends libogg)
   endif()
   include(ExternalProject)
