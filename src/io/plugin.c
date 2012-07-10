@@ -119,6 +119,7 @@ static ndio_fmt_t *load(const char *path, const char *fname)
 #ifdef _MSC_VER
   TRY(SetDllDirectory(path),estring());
   TRY(lib=LoadLibrary(fname),"There was a problem loading the specified library.");
+  SetDllDirectory(NULL); // reset
 #else
   { char *buf;
     const char *p[]={(char*)path,"/",(char*)fname}; // windows handles the "/" just fine

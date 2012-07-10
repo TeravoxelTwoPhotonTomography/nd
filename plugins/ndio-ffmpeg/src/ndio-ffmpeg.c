@@ -98,6 +98,9 @@ typedef struct _ndio_ffmpeg_t
 static void maybe_init()
 { if(is_one_time_inited)
     return;
+#ifdef _MSC_VER
+
+#endif
   avcodec_register_all();
   av_register_all();
   avformat_network_init();
