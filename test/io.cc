@@ -9,20 +9,20 @@
 
 #define countof(e) (sizeof(e)/sizeof(*e))
 
-static 
+static
 struct _files_t
 { const char  *path;
   nd_type_id_t type;
   size_t       ndim;
   size_t       shape[5];
-} 
+}
 file_table[] =
 {
   {ND_TEST_DATA_PATH"/vol.1ch.tif",nd_i16,3,{620,512,100,1,1}},
-//{ND_TEST_DATA_PATH"/vol.rgb.tif",nd_u8 ,4,{620,512, 39,3,1}},
-//{ND_TEST_DATA_PATH"/vol.rgb.mp4",nd_u8 ,4,{620,512, 39,3,1}},
-//{ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}}, // don't know how to decode properly, strange pts's, jumps from frame 0 to frame 12
-//{ND_TEST_DATA_PATH"/vol.rgb.avi",nd_u8 ,4,{620,512, 39,3,1}},
+  {ND_TEST_DATA_PATH"/vol.rgb.tif",nd_u8 ,4,{620,512, 39,3,1}},
+  {ND_TEST_DATA_PATH"/vol.rgb.mp4",nd_u8 ,4,{620,512, 39,3,1}},
+  {ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}}, // don't know how to decode properly, strange pts's, jumps from frame 0 to frame 12
+  {ND_TEST_DATA_PATH"/vol.rgb.avi",nd_u8 ,4,{620,512, 39,3,1}},
 //{ND_TEST_DATA_PATH"/38B06.5-8.lsm",nd_u16,4,{1024,1024,248,4,1}}, // lsm's fail right now bc of the thumbnails
   {0}
 };
@@ -69,10 +69,9 @@ TEST(ndio,Read)
     nd_t vol;
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
     ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
-
     { void *data;
       EXPECT_NE((void*)NULL,data=malloc(ndnbytes(vol)));
-      ndref(vol,data,ndnbytes(vol));
+      ndref(vol,data,ndnelem(vol));
       EXPECT_EQ(file,ndioRead(file,vol)); // could chain ndioClose(ndioRead(ndioOpen("file.name","r"),vol));
       if(data) free(data);
     }
@@ -88,34 +87,38 @@ TEST(ndio,MethodChainingErrors)
 }
 
 class WriteTest:public ::testing::Test
-{ unsigned short data[10*20*30];
-  size_t shape[3];
+{ void *data;
 public:
   nd_t a;
   ndio_t file;
+  WriteTest() :data(NULL) {}
   void SetUp()
-  { shape[0]=10;
-    shape[1]=20;
-    shape[2]=30;    
-    ASSERT_NE((void*)NULL, ndref(a=ndinit(),data,countof(data)))<<nderror(a);
-    ASSERT_NE((void*)NULL, ndreshape(ndcast(a,nd_u16),3,shape) )<<nderror(a);
-    file=0;
+  { ndio_t infile=0;
+    ASSERT_NE((void*)NULL,infile=ndioOpen(file_table[0].path,NULL,"r"));
+    ASSERT_NE((void*)NULL, a=ndioShape(infile))<<ndioError(infile)<<"\n\t"<<file_table[0].path;
+    { void *data;
+      ASSERT_NE((void*)NULL,data=malloc(ndnbytes(a)));
+      ndref(a,data,ndnelem(a));
+      ASSERT_EQ(infile,ndioRead(infile,a));
+    }
+    ndioClose(infile);
   }
   void TearDown()
   { EXPECT_NE((void*)NULL,file); //test should assign file handle to "file"
     ndioClose(file);
-    ndfree(a);    
+    ndfree(a);
+    if(data) free(data);
   }
 };
 TEST_F(WriteTest,Tiff)
-{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.tif",NULL,"w"),a));  
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.tif",NULL,"w"),a));
 }
 TEST_F(WriteTest,M4V)
-{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.m4v",NULL,"w"),a));  
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.m4v",NULL,"w"),a));
 }
 TEST_F(WriteTest,ogg)
-{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.ogg",NULL,"w"),a));  
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.ogg",NULL,"w"),a));
 }
 TEST_F(WriteTest,webm)
-{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.webm",NULL,"w"),a));  
+{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.webm",NULL,"w"),a));
 }
