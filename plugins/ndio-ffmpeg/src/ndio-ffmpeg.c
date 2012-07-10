@@ -15,16 +15,21 @@
     \author Nathan Clack
     \date   June 2012
 
-    \todo writer
+    Writer
+    -----
+    \todo I'm getting the duration or pts or something wrong.
+          VLC and browsers don't know how long the videos are.
+    \todo map signed ints to unsigned before encoding.  sws scale
+          doesn't know signed.
     \todo handle options
-    \todo channels as multiple video streams?
-    \todo readable pixel formats?
-          see pixdesc.[hc] and av_pix_fmt_descriptors[PIX_FMT_NB]
-                               av_(write|read)_image_line
+
+    Reader
+    ------
+    \todo what to do with multiple video streams?
     \todo for appropriate 1d data, use audio streams
 
-    \section ndio-ffmpeg-notes Notes                           
-      
+    \section ndio-ffmpeg-notes Notes
+
         - duration be crazy
           - Had this at one point:
             self->nframes  = ((DURATION(self)/(double)AV_TIME_BASE)*cctx->time_base.den);
@@ -32,10 +37,10 @@
             right number of frames.
           - The AVFormatContext.duration/AV_TIME_BASE seems to be the duration in seconds
 
-        - FFMPEG API documentation has lots of examples, but it's hard to know which one's to 
+        - FFMPEG API documentation has lots of examples, but it's hard to know which one's to
           use.  Some of the current examples use depricated APIs.
           - The process of read/writing a container file is called demuxing/muxing.
-          - The process of unpacking/packing a video stream is called decoding/encoding.          
+          - The process of unpacking/packing a video stream is called decoding/encoding.
 */
 #include "nd.h"
 #include "src/io/interface.h"
@@ -98,15 +103,13 @@ typedef struct _ndio_ffmpeg_t
 static void maybe_init()
 { if(is_one_time_inited)
     return;
-#ifdef _MSC_VER
-
-#endif
   avcodec_register_all();
   av_register_all();
   avformat_network_init();
   is_one_time_inited = 1;
 
   av_log_set_level(0
+#if 0
     |AV_LOG_DEBUG
     |AV_LOG_VERBOSE
     |AV_LOG_INFO
@@ -114,6 +117,7 @@ static void maybe_init()
     |AV_LOG_ERROR
     |AV_LOG_FATAL
     |AV_LOG_PANIC
+#endif
     );
 }
 
@@ -185,7 +189,7 @@ static unsigned test_readable(const char *path)
 { AVFormatContext *fmt=0;
   // just check that container can be opened; don't worry about streams, etc...
   if(0==avformat_open_input(&fmt,path,NULL/*input format*/,NULL/*options*/))
-  { 
+  {
     int ok=(0<=avformat_find_stream_info(fmt,NULL));
     if(ok) //check the codec
     { AVCodec *codec=0;
@@ -214,7 +218,7 @@ static unsigned test_writable(const char *path)
 }
 
 static unsigned is_ffmpeg(const char *path, const char *mode)
-{ 
+{
   switch(mode[0])
   { case 'r': return test_readable(path);
     case 'w': return test_writable(path);
@@ -269,14 +273,14 @@ static ndio_ffmpeg_t open_writer(const char* path)
   TRY(avformat_new_stream(self->fmt,codec)); //returns the stream, assume it's index 0 from here on out (self->istream=0 is accurate)
   // maybe open the output file
   TRY(0==self->fmt->flags&AVFMT_NOFILE);                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
-  AVTRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE),"Failed to open output file.");  
-  
+  AVTRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE),"Failed to open output file.");
+
   CCTX(self)->codec=codec; // setting this here so we can remember it later.
-  AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");  
+  AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");
   return self;
-Error:  
+Error:
   if(self->fmt->pb) avio_close(self->fmt->pb);
-  if(self->opts) av_dict_free(&self->opts);  
+  if(self->opts) av_dict_free(&self->opts);
   if(self)
   { if(self->fmt)  avformat_free_context(self->fmt);
     free(self);
@@ -309,13 +313,13 @@ Error:
 }
 
 static void* open_ffmpeg(const char* path, const char *mode)
-{ 
+{
   switch(mode[0])
-  { case 'r': return open_reader(path);    
+  { case 'r': return open_reader(path);
     case 'w': return open_writer(path);
     default:
       FAIL("Could not recognize mode.");
-  } 
+  }
 Error:
   return 0;
 }
@@ -327,7 +331,7 @@ Error:
 static void close_ffmpeg(ndio_t file)
 { ndio_ffmpeg_t self;
   if(!file) return;
-  if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;  
+  if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;
   if(CCTX(self))    avcodec_close(CCTX(self));
   if(self->opts)    av_dict_free(&self->opts);
   if(self->raw)     av_free(self->raw);
@@ -363,7 +367,7 @@ static size_t prod(const size_t *s, size_t n)
  * \todo FIXME: Must decode first frame to ensure codec context has the proper width.
  * \todo FIXME: side effect, seeks to begining of video.  Should leave current seek
  *              point unmodified.
- */ 
+ */
 static nd_t shape_ffmpeg(ndio_t file)
 { int w,h,d,c;
   nd_type_id_t type;
@@ -379,7 +383,7 @@ static nd_t shape_ffmpeg(ndio_t file)
       av_free_packet(&packet);
       AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");
     } while(packet.stream_index!=self->istream);
-    AVTRY(avcodec_decode_video2(cctx,self->raw,&fin,&packet),"Failed to decode frame."); 
+    AVTRY(avcodec_decode_video2(cctx,self->raw,&fin,&packet),"Failed to decode frame.");
     av_free_packet(&packet);
     AVTRY(av_seek_frame(self->fmt,self->istream,0,AVSEEK_FLAG_BACKWARD/*flags*/),"Failed to seek to beginning.");
   }
@@ -431,17 +435,17 @@ static void zero(AVFrame *p)
     \returns 1 on success, 0 otherwise.
  */
 static int next(ndio_t file,nd_t plane,int iframe)
-{ ndio_ffmpeg_t self;  
+{ ndio_ffmpeg_t self;
   AVPacket packet = {0};
   int finished = 0;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   do
   { finished=0;
     av_free_packet( &packet ); // no op when packet is null
-    AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");   // !!NOTE: see docs on packet.convergence_duration for proper seeking        
-    if(packet.stream_index!=self->istream) 
+    AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");   // !!NOTE: see docs on packet.convergence_duration for proper seeking
+    if(packet.stream_index!=self->istream)
       continue;
-    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&finished,&packet),NULL); 
+    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&finished,&packet),NULL);
     // Handle odd cases and debug
     if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO && !finished)
     { zero(self->raw); // Emit a blank frame.  Something off about the stream.
@@ -449,7 +453,7 @@ static int next(ndio_t file,nd_t plane,int iframe)
     }
     DEBUG_PRINT_PACKET_INFO;
     if(!finished)
-      TRY(packet.pts!=AV_NOPTS_VALUE);  // ?don't know what to do when codecs don't provide a pts    
+      TRY(packet.pts!=AV_NOPTS_VALUE);  // ?don't know what to do when codecs don't provide a pts
   } while(!finished || self->raw->best_effort_timestamp<iframe);
   av_free_packet(&packet);
 
@@ -477,7 +481,7 @@ static int next(ndio_t file,nd_t plane,int iframe)
               planes,                 // dst
               lines);                 // dst line stride
   }
-  
+
   return 1;
 Error:
   av_free_packet( &packet );
@@ -490,8 +494,8 @@ static int seek(ndio_t file, int64_t iframe)
   int64_t duration,ts;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   duration = DURATION(self);
-  ts = iframe; //av_rescale(duration,iframe,self->nframes);  
-  
+  ts = iframe; //av_rescale(duration,iframe,self->nframes);
+
   TRY(iframe>=0 && iframe<self->nframes);
   AVTRY(avformat_seek_file( self->fmt,       //format context
                             self->istream,   //stream id
@@ -553,21 +557,22 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
     default:
       FAIL("Unsupported number of dimensions.");
   }
-  planestride=ndstrides(a)[ndndim(a)];
+  planestride=ndstrides(a)[ndndim(a)-1];
+  linestride=ndstrides(a)[ndndim(a)-2];
   colorstride=ndstrides(a)[0];
   TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt(colorstride,c)));
-  TRY(maybe_init_codec_ctx(self,w,h,25,pixfmt));
+  TRY(maybe_init_codec_ctx(self,w,h,24,pixfmt));
   i=0; done=0;
   while(i<d || !done) // this will push d planes, then repeat the last plane till done.
-  { AVFrame *in;   
+  { AVFrame *in;
     av_init_packet(&p); // FIXME: for efficiency, probably want to preallocate packet
     if(i<d)
-    { const uint8_t* slice[4]={ 
+    { const uint8_t* slice[4]={
         ((uint8_t*)nddata(a))+planestride*i+colorstride*0,
         ((uint8_t*)nddata(a))+planestride*i+colorstride*1,
         ((uint8_t*)nddata(a))+planestride*i+colorstride*2,
         ((uint8_t*)nddata(a))+planestride*i+colorstride*3};
-      const int stride[4]={planestride,planestride,planestride,planestride};
+      const int stride[4]={linestride,linestride,linestride,linestride};
       in=self->raw;
       sws_scale(self->sws,slice,stride,0,h,self->raw->data,self->raw->linesize);
       self->raw->pts=self->fmt->duration+i;
@@ -576,11 +581,11 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
     }
     AVTRY(avcodec_encode_video2(CCTX(self),&p,in,&done),"Failed to encode packet.");
     if(done)
-    { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");      
-      av_destruct_packet(&p);      
+    { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");
+      av_destruct_packet(&p);
     }
     if(i<d) ++i;
-  }  
+  }
 
   return 1;
 Error:
