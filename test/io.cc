@@ -113,9 +113,9 @@ public:
 TEST_F(WriteTest,Tiff)
 { EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.tif",NULL,"w"),a));
 }
-TEST_F(WriteTest,M4V)
-{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.m4v",NULL,"w"),a));
-}
+//TEST_F(WriteTest,M4V)
+//{ EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.m4v",NULL,"w"),a));
+//}
 TEST_F(WriteTest,ogg)
 { EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout.ogg",NULL,"w"),a));
 }

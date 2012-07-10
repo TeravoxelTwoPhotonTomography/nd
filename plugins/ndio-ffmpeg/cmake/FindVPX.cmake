@@ -16,6 +16,7 @@ if(NOT VPX_LIBRARY OR NOT EXISTS ${VPX_LIBRARY})
   ExternalProject_Add(libvpx
     DEPENDS yasm
     GIT_REPOSITORY http://git.chromium.org/webm/libvpx.git
+    UPDATE_COMMAND    ""
     CONFIGURE_COMMAND
         AS=${YASM_ROOT_DIR}/bin/yasm
         <SOURCE_DIR>/configure

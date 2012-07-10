@@ -66,14 +66,17 @@ endmacro(_ffmpeg_maybe_add)
 # Modifies
 #   FFMPEG_LIBRARIES
 macro(FFMPEG_FIND name)
-  if(CMAKE_SYSTEM_NAME MATCHES Linux) #use shared (can't get fPIC to work)
-    SET(FFMPEG_${name}_LIBRARY
-      ${FFMPEG_ROOT_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      CACHE PATH "location of lib${name} library." FORCE)
-  else() #use static
-    SET(FFMPEG_${name}_LIBRARY
-      ${FFMPEG_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}
-      CACHE PATH "location of lib${name} library." FORCE)
+  find_library(FFMPEG_${name}_LIBRARY ${name})
+  if(NOT FFMPEG_${name}_LIBRARY)
+    if(CMAKE_SYSTEM_NAME MATCHES Linux) #use shared (can't get fPIC to work)
+      SET(FFMPEG_${name}_LIBRARY
+        ${FFMPEG_ROOT_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        CACHE PATH "location of lib${name} library." FORCE)
+    else() #use static
+      SET(FFMPEG_${name}_LIBRARY
+        ${FFMPEG_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}
+        CACHE PATH "location of lib${name} library." FORCE)
+    endif()
   endif()
   set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${FFMPEG_${name}_LIBRARY})
 endmacro()
@@ -131,6 +134,7 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
     DEPENDS           ${_ffmpeg_deps} yasm
     GIT_REPOSITORY    ${FFMPEG_GIT_REPOSITORY}
     GIT_TAG           ${FFMPEG_GIT_BRANCH}
+    UPDATE_COMMAND    ""
     CONFIGURE_COMMAND 
           <SOURCE_DIR>/configure
             --prefix=<INSTALL_DIR>
@@ -145,7 +149,6 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
             --extra-cflags=-g
             ${_ffmpeg_conf}
             ${_ffmpeg_paths}
-    BUILD_IN_SOURCE TRUE # hard to get ffmpeg not to do this ... maybe forces rebuilds T.T
   )
   get_target_property(FFMPEG_ROOT_DIR ffmpeg _EP_INSTALL_DIR)
 
@@ -161,6 +164,7 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
   ##
   PRINT_ENABLED_FEATURES()
   PRINT_DISABLED_FEATURES()
+  set(FFMPEG_ROOT_DIR    ${FFMPEG_ROOT_DIR} CACHE PATH "Path to root of ffmpeg installation.")
   set(FFMPEG_LIBRARIES   ${FFMPEG_LIBRARIES} ${FFMPEG_DEP_LIBRARIES} PARENT_SCOPE)
   set(FFMPEG_INCLUDE_DIR ${FFMPEG_INCLUDE_DIR} PARENT_SCOPE)
 endfunction(GenerateFFMPEG)
