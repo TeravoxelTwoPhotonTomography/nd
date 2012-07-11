@@ -1,6 +1,6 @@
-/** \file 
+/** \file
     N-Dimensional array type.
-  
+
     \author Nathan Clack
     \date   June 2012
  */
@@ -54,13 +54,13 @@ void ndLogError(nd_t a,const char *fmt,...)
 #endif
   va_end(args);
   if(!a->log) a->log=(char*)calloc(n,1);
-  //append 
+  //append
   o=strlen(a->log);
   a->log=(char*)realloc(a->log,n+o);
   memset(a->log+o,0,n);
   if(!a->log) goto Error;
   va_copy(args,args2);
-  vsnprintf(a->log+o,n,fmt,args2);  
+  vsnprintf(a->log+o,n,fmt,args2);
   va_end(args2);
 #if 0
   vfprintf(stderr,fmt,args);
@@ -71,11 +71,11 @@ Error:
   va_start(args2,fmt);
   vfprintf(stderr,fmt,args2); // print to stderr if logging fails.
   va_end(args2);
-  fprintf(stderr,"%s(%d): Logging failed."ENDL,__FILE__,__LINE__);  
+  fprintf(stderr,"%s(%d): Logging failed."ENDL,__FILE__,__LINE__);
 }
 
-size_t ndbpp(const nd_t a) 
-{ 
+size_t ndbpp(const nd_t a)
+{
   static const size_t _Bpp[]={1,2,4,8,1,2,4,8,4,8};
   TRY(a->type_desc>nd_id_unknown);
   TRY(a->type_desc<nd_id_count);
@@ -110,7 +110,7 @@ Error:
 }
 
 void ndfree(nd_t a)
-{ if(!a) return;  
+{ if(!a) return;
   SAFEFREE(a->shape);
   SAFEFREE(a->strides);
   if(a->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,a,a->log);
@@ -119,7 +119,7 @@ void ndfree(nd_t a)
 }
 
 void maybe_resize_array(nd_t a, unsigned ndim)
-{ if(a->ndim>=ndim) return; // nothing to do  
+{ if(a->ndim>=ndim) return; // nothing to do
   RESIZE(size_t,a->shape  ,ndim);
   RESIZE(size_t,a->strides,ndim+1);
   a->ndim=ndim;
@@ -129,7 +129,7 @@ Error:
 
 nd_t ndcast(nd_t a, nd_type_id_t desc)
 { size_t o,n,i;
-  nd_type_id_t old=a->type_desc;  
+  nd_type_id_t old=a->type_desc;
   TRY(o=ndbpp(a));
   a->type_desc = desc;
   TRY(n=ndbpp(a)); // checks for valid descriptor
@@ -142,10 +142,10 @@ Error:
 }
 
 nd_type_id_t ndtype(const nd_t a)
-{ return a->type_desc; 
+{ return a->type_desc;
 }
 
-/** initializes \a a so that it references \a buf. 
+/** initializes \a a so that it references \a buf.
 
     If the shape of the array \a is already set so that \nelem fits, then
     this just sets the data pointer and returns.
@@ -154,8 +154,8 @@ nd_type_id_t ndtype(const nd_t a)
 
     \todo Awkward.  I like binding the pointer so that I don't deal with
           memory management inside.  I don't like how this ends up getting
-          used.  The ndinit/ndref/ndcast/ndshape pattern sucks.  The 
-          multiple behaviors (trying to keep shape sometimes, changing it 
+          used.  The ndinit/ndref/ndcast/ndshape pattern sucks.  The
+          multiple behaviors (trying to keep shape sometimes, changing it
           other times) also sucks.
 */
 nd_t ndref(nd_t a, void *buf, size_t nelem)
@@ -166,7 +166,7 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
   a->shape[0]=nelem;
   a->strides[0]=ndbpp(a);
   a->strides[1]=ndbpp(a)*nelem;
-  
+
   return a;
 }
 

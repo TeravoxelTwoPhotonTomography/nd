@@ -17,10 +17,15 @@
 
     Writer
     -----
+    \todo progressive writing (append)
     \todo I'm getting the duration or pts or something wrong.
           VLC and browsers don't know how long the videos are.
     \todo map signed ints to unsigned before encoding.  sws scale
           doesn't know signed.
+          - convert by flipping the sign bit x^=(1<<7) for i8->u8
+          - where to do the conversion?
+            - could do it in a temporary buffer held by the context
+            - do it with array library?
     \todo handle options
 
     Reader
@@ -92,6 +97,7 @@ typedef struct _ndio_ffmpeg_t
 ///// HELPERS
 /////
 
+#define STREAM(e)   ((e)->fmt->streams[(e)->istream])
 #define CCTX(e)     ((e)->fmt->streams[(e)->istream]->codec)    ///< gets the AVCodecContext for the selected video stream
 #define DURATION(e) ((e)->fmt->streams[(e)->istream]->duration) ///< gets the duration in some sort of units
 
@@ -544,7 +550,7 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
   size_t planestride,colorstride,linestride;
   int pixfmt;
   AVPacket p={0};
-  int done;
+  int got_packet,oldtype=-1;
   AVCodecContext *cctx;
 
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
@@ -562,8 +568,16 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
   colorstride=ndstrides(a)[0];
   TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt(colorstride,c)));
   TRY(maybe_init_codec_ctx(self,w,h,24,pixfmt));
-  i=0; done=0;
-  while(i<d || !done) // this will push d planes, then repeat the last plane till done.
+  { // maybe flip signed ints to unsigned
+    static const nd_type_id_t tmap[] = {-1,-1,-1,-1,nd_u8,nd_u16,nd_u32,nd_u64,-1,-1};
+    nd_type_id_t t = tmap[ndtype(a)];
+    if(t>-1)
+    { oldtype=ndtype(a);
+      TRY(ndconvert_ip(a,t));
+    }
+  }
+  i=0; got_packet=0;
+  while(i<d || !got_packet)   // this will push d planes, then repeat the last plane till done.
   { AVFrame *in;
     av_init_packet(&p); // FIXME: for efficiency, probably want to preallocate packet
     if(i<d)
@@ -579,14 +593,16 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
     } else if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY) // FIXME: might want to move the close function to properly append data
     { in=NULL;
     }
-    AVTRY(avcodec_encode_video2(CCTX(self),&p,in,&done),"Failed to encode packet.");
-    if(done)
+    AVTRY(avcodec_encode_video2(CCTX(self),&p,in,&got_packet),"Failed to encode packet.");
+    if(got_packet)
     { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");
       av_destruct_packet(&p);
     }
     if(i<d) ++i;
   }
-
+  // maybe flip back to signed ints
+  if(oldtype>-1)
+    TRY(ndconvert_ip(a,oldtype));
   return 1;
 Error:
   return 0;

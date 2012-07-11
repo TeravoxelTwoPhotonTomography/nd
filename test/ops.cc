@@ -1,3 +1,9 @@
+/** Tests for basic nD-array operations.
+ *
+ *  \todo Add xor_ip test.
+    \todo test signed-unsigned conversion
+ *  \todo Add test that makes sure inplace op's work correctly over subvolumes.
+ */
 #include <gtest/gtest.h>
 #include "nd.h"
 #include "helpers.h"

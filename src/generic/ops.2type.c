@@ -1,9 +1,9 @@
 /** \file
-    Basic type generic operations for nD arrays.
+    Basic type generic operations on nD arrays that involve two types.
 
     \author Nathan Clack
     \date   2012
-  
+
     This should not be built with the main project.
     Instead include it at the top of the c file defining the
     public-facing interface for these algorithms.
@@ -15,17 +15,17 @@
     \code
     #define TSRC uint8_t
     #define TDST uint8_t
-    #include "generic/ops.gen.c" // will undef TDST at the end
+    #include "generic/ops.2type.c" // will undef TDST at the end
     #define TDST uint16_t
-    #include "generic/ops.gen.c"
+    #include "generic/ops.2type.c"
     ...
     #undef TSRC
     \endcode
 
     This will produce function definitions like:
     \code
-    copy_uint8_t(...)
-    copy_uint16_t(...)
+    copy_uint8_t_uint8_t(...)
+    copy_uint8_t_uint16_t(...)
     \endcode
 */
 #include <string.h>
@@ -105,7 +105,7 @@ static void NAME(project,TSRC,TDST)(stride_t N,
     size_t i;
     for(i=0;i<N;++i)
       _z[i*_zst]=(TDST)(a*_x[i*_xst]+b*_y[i*_yst]);
-  }  
+  }
   return;
 Error:
   exit(1);
@@ -153,7 +153,7 @@ static void NAME(fmad,TSRC,TDST)(stride_t N,
     size_t i;
     for(i=0;i<N;++i)
       _z[i*_zst]=(TDST)(a*_x[i*_xst]+b*_y[i*_yst]);
-  }  
+  }
   return;
 Error:
   exit(1);

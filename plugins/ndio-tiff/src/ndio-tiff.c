@@ -1,3 +1,8 @@
+/** \file
+    Plugin interface for Mylib's Tiff library.
+
+    \todo My tiff writer implementation seems slow.
+*/
 #include "nd.h"
 #include "src/io/interface.h"
 #include "image.h"
