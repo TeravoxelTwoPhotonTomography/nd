@@ -182,7 +182,7 @@ void ndioLogError(ndio_t file,const char *fmt,...)
 #ifdef _MSC_VER
   n=_vscprintf(fmt,args)+1; // add one for the null terminator
 #else
-  n=vsnprintf(NULL,0,fmt,args);
+  n=vsnprintf(NULL,0,fmt,args)+1;
 #endif
   va_end(args);
   if(!file->log) file->log=(char*)calloc(n,1);

@@ -13,6 +13,14 @@ T RMSE(size_t n, T* a, T* b)
 }
 
 template<class T>
+int firstdiff(size_t n, const T* a, const T* b)
+{ for(size_t i=0;i<n;++i)
+    if(a[i]!=b[i])
+      return i;
+  return -1;
+}
+
+template<class T>
 T* zeros(size_t ndim, size_t* shape)
 { size_t i,nelem;
   nelem = shape[0];

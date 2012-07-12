@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 #include "config.h"
+#include "helpers.h"
 #include "nd.h"
 
 #define countof(e) (sizeof(e)/sizeof(*e))
@@ -87,12 +88,12 @@ TEST(ndio,MethodChainingErrors)
   ndioClose(ndioWrite(ndioOpen("does.not.exist",NULL,"w"),a));
 }
 
-class WriteTest:public ::testing::Test
+class Write:public ::testing::Test
 { void *data;
 public:
   nd_t a;
   ndio_t file;
-  WriteTest() :data(NULL) {}
+  Write() :data(NULL) {}
   void SetUp()
   { ndio_t infile=0;
     ASSERT_NE((void*)NULL,infile=ndioOpen(file_table[0].path,NULL,"r"));
@@ -105,18 +106,29 @@ public:
     ndioClose(infile);
   }
   void TearDown()
-  { EXPECT_NE((void*)NULL,file); //test should assign file handle to "file"
-    ndioClose(file);
-    ndfree(a);
+  { ndfree(a);
     if(data) free(data);
   }
 };
+
 #define WriteTestInstance(ext) \
-  TEST_F(WriteTest,ext) \
-  { EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout." #ext,NULL,"w"),a)); \
+  TEST_F(Write,ext) \
+  { nd_t vol; \
+    ndio_t fin; \
+    EXPECT_NE((void*)NULL,ndioWrite(file=ndioOpen("testout."#ext,NULL,"w"),a)); \
+    ndioClose(file); \
+    EXPECT_NE((void*)NULL,fin=ndioOpen("testout."#ext,NULL,"r")); \
+    ASSERT_NE((void*)NULL, vol=ndioShape(fin))<<ndioError(fin)<<"\n\t"<<"testout."#ext; \
+    ndioClose(fin); \
+    { int i; \
+      EXPECT_EQ(-1,i=firstdiff(ndndim(a),ndshape(a),ndshape(vol)))\
+          << "\torig shape["<<i<<"]: "<< ndshape(a)[i] << "\n"  \
+          << "\tread shape["<<i<<"]: "<< ndshape(vol)[i] << "\n"; \
+    } \
   }
 WriteTestInstance(tif);
 WriteTestInstance(mp4);
 WriteTestInstance(m4v);
 WriteTestInstance(ogg);
 WriteTestInstance(webm);
+WriteTestInstance(mov);

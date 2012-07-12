@@ -36,11 +36,18 @@
     \section ndio-ffmpeg-notes Notes
 
         - duration be crazy
-          - Had this at one point:
-            self->nframes  = ((DURATION(self)/(double)AV_TIME_BASE)*cctx->time_base.den);
-            Worked for the whisker tracker? But now seems DURATION(self) gives the
-            right number of frames.
-          - The AVFormatContext.duration/AV_TIME_BASE seems to be the duration in seconds
+          - mostly because durations are stored with different time bases in different places
+          - self->fmt->duration
+            - seems like it's always set (not NOPTS)
+            - self->fmt->duration/AV_TIME_BASE -> duration in seconds
+          - self->fmt->streams[0]->duration
+            - sometimes not set (NOPTS)
+            - for mpeg and ogg, looks like this is just the number of frames
+          - the right thing to do looks like
+            1. get duration in secodns from format context
+            2. convert to frames using stream frame rate.
+               - stream->r_frame_rate looks more reliable than time_base
+                 - different than 1/time_base for webm/v8
 
         - FFMPEG API documentation has lots of examples, but it's hard to know which one's to
           use.  Some of the current examples use depricated APIs.
@@ -84,22 +91,31 @@
 
 static int is_one_time_inited = 0; /// \todo should be mutexed
 
+typedef enum _ffmpeg_mode_t
+{ MODE_NONE=0,
+  MODE_READ,
+  MODE_WRITE
+} ffmpeg_mode_t;
+
 typedef struct _ndio_ffmpeg_t
 { AVFormatContext   *fmt;     ///< The main handle to the open file
   struct SwsContext *sws;     ///< software scaling context
   AVFrame           *raw;     ///< frame buffer for holding data before translating it to the output nd_t format
   int                istream; ///< stream index
   int64_t            nframes; ///< duration of video in frames (for reading)
-  AVDictionary      *opts;
+  AVDictionary      *opts;    ///< (unused at the moment)
+  ffmpeg_mode_t      mode;    ///< keeps track of whether this is in read or write mode
 } *ndio_ffmpeg_t;
 
 /////
 ///// HELPERS
 /////
 
+static const AVRational ONE = {1,1};
+
 #define STREAM(e)   ((e)->fmt->streams[(e)->istream])
 #define CCTX(e)     ((e)->fmt->streams[(e)->istream]->codec)    ///< gets the AVCodecContext for the selected video stream
-#define DURATION(e) ((e)->fmt->streams[(e)->istream]->duration) ///< gets the duration in some sort of units
+#define DURATION(e) (av_rescale_q((e)->fmt->duration,av_mul_q(AV_TIME_BASE_Q,STREAM(e)->r_frame_rate),ONE)) ///< gets the duration in #frames
 
 /** One-time initialization for ffmpeg library.
 
@@ -252,7 +268,7 @@ static ndio_ffmpeg_t open_reader(const char* path)
 
     self->nframes  = DURATION(self);
   }
-
+  self->mode=MODE_READ;
   return self;
 Error:
   if(self)
@@ -283,6 +299,7 @@ static ndio_ffmpeg_t open_writer(const char* path)
 
   CCTX(self)->codec=codec; // setting this here so we can remember it later.
   AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");
+  self->mode=MODE_WRITE;
   return self;
 Error:
   if(self->fmt->pb) avio_close(self->fmt->pb);
@@ -292,6 +309,51 @@ Error:
     free(self);
   }
   return NULL;
+}
+
+/** Encodes the input frame, outputing any resulting packets to the output stream.
+ *
+ *  \param[in]      file    Output file context.  Passed in for logging purposes.
+ *  \param[in]      fmt     The output format context.
+ *  \param[in]      cctx    The encoding context.
+ *  \param[in]      stream  The stream context.
+ *  \param[in]      packet  Address of init'd (maybe pre-allocated) packet.
+ *  \param[in]      frame   The video frame to encode.
+ *  \param[out] got_packet  1 if encoding yielded a packet, 0 otherwise.
+ */
+static int push(ndio_t file, AVPacket *p, AVFrame *frame, int *got_packet)
+{ ndio_ffmpeg_t self=(ndio_ffmpeg_t)ndioContext(file);
+  AVFormatContext *fmt=self->fmt;
+  AVCodecContext *cctx=CCTX(self);
+  AVStream     *stream=STREAM(self);
+  *got_packet=0;
+  AVTRY(avcodec_encode_video2(cctx,p,frame,got_packet), "Failed to encode terminating frame.");
+  if(*got_packet)
+  { if (p->pts != AV_NOPTS_VALUE)
+      p->pts = av_rescale_q(p->pts, cctx->time_base, stream->time_base);
+    if (p->dts != AV_NOPTS_VALUE)
+      p->dts = av_rescale_q(p->dts, cctx->time_base, stream->time_base);
+    AVTRY(av_write_frame(fmt,p),"Failed to write packet.");
+    av_destruct_packet(p);
+  }
+  return 1;
+Error:
+  return 0;
+}
+
+static int close_writer(ndio_t file)
+{ ndio_ffmpeg_t self;
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY)
+  { AVPacket p={0};
+    int got_packet=1;
+    av_init_packet(&p);
+    while(got_packet)
+      TRY(push(file,&p,NULL,&got_packet));
+  }
+  return 1;
+Error:
+  return 0;
 }
 
 static int maybe_init_codec_ctx(ndio_ffmpeg_t self, int width, int height, int fps, int src_pixfmt)
@@ -338,6 +400,8 @@ static void close_ffmpeg(ndio_t file)
 { ndio_ffmpeg_t self;
   if(!file) return;
   if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;
+  if(self->mode==MODE_WRITE)
+    close_writer(file);
   if(CCTX(self))    avcodec_close(CCTX(self));
   if(self->opts)    av_dict_free(&self->opts);
   if(self->raw)     av_free(self->raw);
@@ -539,6 +603,7 @@ Error:
   return 0;
 }
 
+
 /** Assumes:
     1. Input ordering is c,w,h,d
     2. Appends d planes of a to the stream
@@ -576,30 +641,29 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
       TRY(ndconvert_ip(a,t));
     }
   }
-  i=0; got_packet=0;
-  while(i<d || !got_packet)   // this will push d planes, then repeat the last plane till done.
+  for(i=0;i<d;++i)
   { AVFrame *in;
     av_init_packet(&p); // FIXME: for efficiency, probably want to preallocate packet
-    if(i<d)
-    { const uint8_t* slice[4]={
-        ((uint8_t*)nddata(a))+planestride*i+colorstride*0,
-        ((uint8_t*)nddata(a))+planestride*i+colorstride*1,
-        ((uint8_t*)nddata(a))+planestride*i+colorstride*2,
-        ((uint8_t*)nddata(a))+planestride*i+colorstride*3};
+    { const uint8_t* plane=((uint8_t*)nddata(a))+planestride*i;
+      const uint8_t* slice[4]={ plane+colorstride*0,
+                                plane+colorstride*1,
+                                plane+colorstride*2,
+                                plane+colorstride*3};
       const int stride[4]={linestride,linestride,linestride,linestride};
       in=self->raw;
       sws_scale(self->sws,slice,stride,0,h,self->raw->data,self->raw->linesize);
       self->raw->pts=self->fmt->duration+i;
-    } else if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY) // FIXME: might want to move the close function to properly append data
-    { in=NULL;
     }
-    AVTRY(avcodec_encode_video2(CCTX(self),&p,in,&got_packet),"Failed to encode packet.");
-    if(got_packet)
-    { AVTRY(av_write_frame(self->fmt,&p),"Failed to write frame.");
-      av_destruct_packet(&p);
-    }
-    if(i<d) ++i;
+    TRY(push(file,&p,self->raw,&got_packet));
   }
+#if 0
+  if(cctx->codec->capabilities & CODEC_CAP_DELAY) // FIXME: might want to move the close function to properly append data
+  { do // keep popping those packets yo
+    { TRY(push(file,self->fmt,cctx,STREAM(self),&p,NULL,&got_packet));
+    } while(got_packet);
+  }
+#endif
+
   // maybe flip back to signed ints
   if(oldtype>-1)
     TRY(ndconvert_ip(a,oldtype));
