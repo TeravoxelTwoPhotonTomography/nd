@@ -207,7 +207,7 @@ static unsigned write_tiff(ndio_t file, nd_t a)
     const size_t chanstride = (c>1)?ndstrides(a)[3]:0;
     for(i=0;i<d;++i)
     { for(j=0;j<c;++j)
-      { Channel_Kind k= (Channel_Kind)((c<3)?(RED_CHAN+j):PLAIN_CHAN);
+      { Channel_Kind k= (Channel_Kind)((c<3)?PLAIN_CHAN:(RED_CHAN+j));
         plane->data=(void*)((uint8_t*)nddata(a)+i*ndstrides(a)[2]+j*chanstride);
         TRY(0==Add_IFD_Channel(ctx,plane,k));
       }
