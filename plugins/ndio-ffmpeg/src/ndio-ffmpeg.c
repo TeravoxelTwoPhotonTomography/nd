@@ -91,12 +91,6 @@
 
 static int is_one_time_inited = 0; /// \todo should be mutexed
 
-typedef enum _ffmpeg_mode_t
-{ MODE_NONE=0,
-  MODE_READ,
-  MODE_WRITE
-} ffmpeg_mode_t;
-
 typedef struct _ndio_ffmpeg_t
 { AVFormatContext   *fmt;     ///< The main handle to the open file
   struct SwsContext *sws;     ///< software scaling context
@@ -104,7 +98,6 @@ typedef struct _ndio_ffmpeg_t
   int                istream; ///< stream index
   int64_t            nframes; ///< duration of video in frames (for reading)
   AVDictionary      *opts;    ///< (unused at the moment)
-  ffmpeg_mode_t      mode;    ///< keeps track of whether this is in read or write mode
 } *ndio_ffmpeg_t;
 
 /////
@@ -268,7 +261,6 @@ static ndio_ffmpeg_t open_reader(const char* path)
 
     self->nframes  = DURATION(self);
   }
-  self->mode=MODE_READ;
   return self;
 Error:
   if(self)
@@ -296,10 +288,8 @@ static ndio_ffmpeg_t open_writer(const char* path)
   // maybe open the output file
   TRY(0==self->fmt->flags&AVFMT_NOFILE);                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
   AVTRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE),"Failed to open output file.");
-
-  CCTX(self)->codec=codec; // setting this here so we can remember it later.
+  CCTX(self)->codec=codec;
   AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");
-  self->mode=MODE_WRITE;
   return self;
 Error:
   if(self->fmt->pb) avio_close(self->fmt->pb);
@@ -327,7 +317,7 @@ static int push(ndio_t file, AVPacket *p, AVFrame *frame, int *got_packet)
   AVCodecContext *cctx=CCTX(self);
   AVStream     *stream=STREAM(self);
   *got_packet=0;
-  AVTRY(avcodec_encode_video2(cctx,p,frame,got_packet), "Failed to encode terminating frame.");
+  AVTRY(avcodec_encode_video2(cctx,p,frame,got_packet), frame?"Failed to encode frame.":"Failed to encode terminating frame.");
   if(*got_packet)
   { if (p->pts != AV_NOPTS_VALUE)
       p->pts = av_rescale_q(p->pts, cctx->time_base, stream->time_base);
@@ -344,6 +334,7 @@ Error:
 static int close_writer(ndio_t file)
 { ndio_ffmpeg_t self;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  TRY(CCTX(self)->codec); // codec might not have been opened
   if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY)
   { AVPacket p={0};
     int got_packet=1;
@@ -351,8 +342,10 @@ static int close_writer(ndio_t file)
     while(got_packet)
       TRY(push(file,&p,NULL,&got_packet));
   }
+  AVTRY(av_write_trailer(self->fmt),"Failed to write trailer.");
   return 1;
 Error:
+  if(self->fmt->pb) avio_close(self->fmt->pb);
   return 0;
 }
 
@@ -400,19 +393,15 @@ static void close_ffmpeg(ndio_t file)
 { ndio_ffmpeg_t self;
   if(!file) return;
   if(!(self=(ndio_ffmpeg_t)ndioContext(file)) ) return;
-  if(self->mode==MODE_WRITE)
-    close_writer(file);
-  if(CCTX(self))    avcodec_close(CCTX(self));
+  if(self->fmt)
+  { if(self->fmt->oformat)
+      close_writer(file);
+    if(CCTX(self))  avcodec_close(CCTX(self));
+    avformat_free_context(self->fmt);
+  }
   if(self->opts)    av_dict_free(&self->opts);
   if(self->raw)     av_free(self->raw);
   if(self->sws)     sws_freeContext(self->sws);
-  if(self->fmt)
-  { if(self->fmt->oformat)
-    AVTRY(av_write_trailer(self->fmt),"Failed to write trailer.");
-Error: //ignore error
-    if(self->fmt->pb) avio_close(self->fmt->pb);
-    avformat_free_context(self->fmt);
-  }
   free(self);
 }
 
@@ -507,24 +496,24 @@ static void zero(AVFrame *p)
 static int next(ndio_t file,nd_t plane,int iframe)
 { ndio_ffmpeg_t self;
   AVPacket packet = {0};
-  int finished = 0;
+  int yielded = 0;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   do
-  { finished=0;
+  { yielded=0;
     av_free_packet( &packet ); // no op when packet is null
     AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");   // !!NOTE: see docs on packet.convergence_duration for proper seeking
     if(packet.stream_index!=self->istream)
       continue;
-    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&finished,&packet),NULL);
+    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&yielded,&packet),NULL);
     // Handle odd cases and debug
-    if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO && !finished)
+    if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO && !yielded)
     { zero(self->raw); // Emit a blank frame.  Something off about the stream.
-      finished=1;
+      yielded=1;
     }
     DEBUG_PRINT_PACKET_INFO;
-    if(!finished)
-      TRY(packet.pts!=AV_NOPTS_VALUE);  // ?don't know what to do when codecs don't provide a pts
-  } while(!finished || self->raw->best_effort_timestamp<iframe);
+    if(!yielded && packet.size==0) // packet.size==0 usually means EOF
+        break;
+  } while(!yielded || self->raw->best_effort_timestamp<iframe);
   av_free_packet(&packet);
 
   /*  === Copy out data, translating to desired pixel format ===
