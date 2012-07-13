@@ -42,7 +42,7 @@ if(FFMPEG_FOUND)
       file(COPY ${FFMPEG_SHARED_LIBS} DESTINATION "${PROJECT_BINARY_DIR}/${cfg}") 
     endforeach(cfg)
   else()
-    file(COPY ${FFMPEG_SHARED_LIBS} DESTINATION ${PROJECT_BINARY_DIR}) 
+    file(COPY ${FFMPEG_SHARED_LIBS} DESTINATION ${PROJECT_BINARY_DIR})
   endif()
 
 endif(FFMPEG_FOUND)
@@ -64,3 +64,13 @@ if(DOXYGEN_FOUND)
     VERBATIM
     )
 endif()
+
+###############################################################################
+#  Install
+###############################################################################
+install(TARGETS ndio-ffmpeg
+  EXPORT ndio-ffmpeg-targets
+  LIBRARY DESTINATION bin/${NDIO_PLUGIN_PATH}
+)
+export(TARGETS ndio-ffmpeg FILE ndio-ffmpeg-targets.cmake)
+install(EXPORT ndio-ffmpeg-targets DESTINATION cmake)

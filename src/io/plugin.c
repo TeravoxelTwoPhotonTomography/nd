@@ -215,7 +215,7 @@ ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
   TRY(recursive_load(&apis,dir,path),"Search for plugins failed.");
   *n=apis.n;
 Finalize:
-  closedir(dir);
+  if(dir) closedir(dir);
   return apis.v;
 Error:
   if(n) *n=0;

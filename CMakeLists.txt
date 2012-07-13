@@ -1,6 +1,3 @@
-# TODO: copy test data to build directory
-# TODO: copy plugins to proper place in build
-#
 cmake_minimum_required(VERSION 2.8)
 project(nd)
 
@@ -10,6 +7,8 @@ set(CPACK_PACKAGE_VERSION_PATCH 0a)
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
   "N-Dimensional Scalar Volume Library"
   )
+
+#set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/install CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
 
 set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -58,13 +57,7 @@ endforeach(PLUGIN)
 #  Testing
 ###############################################################################
 
-find_path(GTEST_ROOT
-  CMakeLists.txt
-  HINTS ${ROOT_3RDPARTY_PATH}
-  PATH_SUFFIXES
-    gtest-1.6.0
-  DOC "The root directory of the gtest install prefix")
-find_package(GTest)
+include(GenerateGoogleTest)
 find_package(Threads)
 if(GTEST_FOUND)
   enable_testing()
@@ -80,6 +73,7 @@ if(GTEST_FOUND)
     libnd
     )
   add_dependencies(libnd-tests
+    gtest
     ndio-tiff
     ndio-ffmpeg)
   add_test(TestLibND libnd-tests)
@@ -106,3 +100,14 @@ endif()
 ###############################################################################
 #  Install
 ###############################################################################
+install(TARGETS libnd libnd-tests
+  EXPORT libnd-targets
+  RUNTIME DESTINATION bin/
+  LIBRARY DESTINATION lib/
+  ARCHIVE DESTINATION lib/static
+  PUBLIC_HEADER DESTINATION include/nd
+)
+export(TARGETS libnd libnd-tests FILE libnd-targets.cmake)
+install(EXPORT libnd-targets DESTINATION cmake/)
+
+

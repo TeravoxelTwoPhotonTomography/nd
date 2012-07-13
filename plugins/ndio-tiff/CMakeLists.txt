@@ -50,3 +50,13 @@ if(DOXYGEN_FOUND)
     VERBATIM
     )
 endif()
+
+###############################################################################
+#  Install
+###############################################################################
+install(TARGETS ndio-tiff
+  EXPORT ndio-tiff-targets
+  LIBRARY DESTINATION bin/${NDIO_PLUGIN_PATH}
+)
+export(TARGETS ndio-tiff FILE ndio-tiff-targets.cmake)
+install(EXPORT ndio-tiff-targets DESTINATION cmake)

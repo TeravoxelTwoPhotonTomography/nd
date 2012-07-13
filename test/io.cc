@@ -98,7 +98,7 @@ class Write:public ::testing::Test
 public:
   nd_t a;
   ndio_t file;
-  Write() :data(NULL) {}
+  Write() :a(0),file(0),data(NULL) {}
   void SetUp()
   { ndio_t infile=0;
     ASSERT_NE((void*)NULL,infile=ndioOpen(file_table[0].path,NULL,"r"));
