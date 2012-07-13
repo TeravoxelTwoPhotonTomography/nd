@@ -1,3 +1,8 @@
+/** \file
+ *  Helper functions for test suite.
+ *
+ *  @cond TEST
+ */
 #pragma once
 #define TOL_F32 1e-5
 #include <cmath>
@@ -29,4 +34,4 @@ T* zeros(size_t ndim, size_t* shape)
   T* v = new T[nelem];
   memset(v,0,nelem*sizeof(T));
 }
-
+/// @endcond

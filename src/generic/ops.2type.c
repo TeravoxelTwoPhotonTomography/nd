@@ -1,33 +1,33 @@
 /** \file
-    Basic type generic operations on nD arrays that involve two types.
-
-    \author Nathan Clack
-    \date   2012
-
-    This should not be built with the main project.
-    Instead include it at the top of the c file defining the
-    public-facing interface for these algorithms.
-
-    Before including this file two macros, \a TSRC \a TDST must be defined that
-    names the basic source and destination types.
-
-    It should look something like this:
-    \code
-    #define TSRC uint8_t
-    #define TDST uint8_t
-    #include "generic/ops.2type.c" // will undef TDST at the end
-    #define TDST uint16_t
-    #include "generic/ops.2type.c"
-    ...
-    #undef TSRC
-    \endcode
-
-    This will produce function definitions like:
-    \code
-    copy_uint8_t_uint8_t(...)
-    copy_uint8_t_uint16_t(...)
-    \endcode
-*/
+ *  Basic type generic operations on nD arrays that involve two types.
+ *
+ *  This should not be built with the main project.  Instead include it at the
+ *  top of the c file defining the public-facing interface for these
+ *  algorithms.
+ *
+ *  Before including this file two macros, \a TSRC \a TDST must be defined that
+ *  names the basic source and destination types.
+ *
+ *  It should look something like this:
+ *  \code
+ *  #define TSRC uint8_t
+ *  #define TDST uint8_t
+ *  #include "generic/ops.2type.c" // will undef TDST at the end
+ *  #define TDST uint16_t
+ *  #include "generic/ops.2type.c"
+ *  ...
+ *  #undef TSRC
+ *  \endcode
+ *
+ *  This will produce function definitions like:
+ *  \code
+ *  copy_uint8_t_uint8_t(...)
+ *  copy_uint8_t_uint16_t(...)
+ *  \endcode
+ *
+ *  \author Nathan Clack
+ *  \date   2012
+ */
 #include <string.h>
 
 #ifndef TDST
@@ -43,10 +43,20 @@
 #endif
 
 #ifndef NAME
-#define NAME(ROOT,a,b)  _NAME(ROOT,a,b)
-#define _NAME(ROOT,a,b) ROOT##_##a##_##b
+#define NAME(ROOT,a,b)  _NAME(ROOT,a,b)      ///< Macro for c-style "templated" functions
+#define _NAME(ROOT,a,b) ROOT##_##a##_##b     ///< Macro for c-style "templated" functions
 #endif
 
+/** 1d copy.
+ * Optimized to use memcpy when possible.
+ * \param[in]   N     The number of elements to copy.
+ * \param[in]   z     The destination buffer.
+ * \param[in]   zst   The number of bytes between consecutive destination elements.
+ * \param[in]   x     The source buffer.
+ * \param[in]   xst   The number of bytes between consecutive source elements.
+ * \param[in] param   Ignored.
+ * \param[in] nbtyes  Ignored.
+ */
 static void NAME(copy,TSRC,TDST)(stride_t N,
                                  void* restrict z,stride_t zst,
                                  const void* restrict x,stride_t xst,

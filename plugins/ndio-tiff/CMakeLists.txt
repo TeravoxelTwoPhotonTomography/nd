@@ -31,6 +31,22 @@ if(MYLIB_FOUND)
 
   add_library(ndio-tiff MODULE ${SRCS} ${HDRS})
   target_link_libraries(ndio-tiff ${MYLIB_LIBRARIES} libnd)
-
-
 endif(MYLIB_FOUND)
+
+###############################################################################
+#  Documentation
+###############################################################################
+
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+  configure_file(${PROJECT_SOURCE_DIR}/doc/Doxyfile.in
+                 ${PROJECT_BINARY_DIR}/doc/Doxyfile
+                 @ONLY
+                 )
+  add_custom_target(ndio-tiff-docs
+    ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/doc/Doxyfile
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    COMMENT           "Generating Docs for Tiff IO Plugin"
+    VERBATIM
+    )
+endif()

@@ -1,8 +1,11 @@
-/** Tests for basic nD-array operations.
+/** \file
+ *  Tests for basic nD-array operations.
  *
  *  \todo Add xor_ip test.
-    \todo test signed-unsigned conversion
+ *  \todo test signed-unsigned conversion
  *  \todo Add test that makes sure inplace op's work correctly over subvolumes.
+ *
+ *  @cond TEST
  */
 #include <gtest/gtest.h>
 #include "nd.h"
@@ -203,3 +206,5 @@ TEST_F(Ops3DF32, Add)
 //  ASSERT_NEAR(0.0, RMSE<f32>(strides[3],e1,e2), TOL_F32);
 //}
 //
+
+/// @endcond

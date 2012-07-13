@@ -15,6 +15,7 @@
 #pragma warning( push )
 #pragma warning( disable:4996 ) //unsafe function
 
+/// @cond DEFINES
 #define restrict __restrict
 
 #define ENDL                         "\n"
@@ -24,19 +25,23 @@
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
+/// @endcond
 
+/// \brief N-dimensional array type.  Implementation of the abstract type nd_t.
 struct _nd_t
-{ size_t    ndim;               ///< the number of dimensions
-  nd_type_id_t type_desc;       ///< element type descriptor
-  nd_kind_t kind;
-  size_t   *shape;              ///< array of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
-  size_t   *strides;            ///< array of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i
+{ size_t    ndim;               ///< The number of dimensions
+  nd_type_id_t type_desc;       ///< Element type descriptor. \see nd_type_id_t
+  nd_kind_t kind;               ///< Kind descriptor. \see nd_kind_t
+  size_t   *shape;              ///< Buffer of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
+  size_t   *strides;            ///< Buffer of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i
   char     *log;                ///< If non-null, holds error message log.
-  void     *restrict data;      ///< a buffer with the data
+  void     *restrict data;      ///< A poitner to the data.
 };
 
+/// @cond DEFINES
 #undef LOG
 #define LOG(...) ndLogError(a,__VA_ARGS__)
+/// @endcond
 
 /** Appends message to error log for \a a
     and prints it to \c stderr.
@@ -50,7 +55,7 @@ void ndLogError(nd_t a,const char *fmt,...)
 #ifdef _MSC_VER
   n=_vscprintf(fmt,args)+1; // add one for the null terminator
 #else
-  n=vsnprintf(NULL,0,fmt,args);
+  n=vsnprintf(NULL,0,fmt,args)+1;
 #endif
   va_end(args);
   if(!a->log) a->log=(char*)calloc(n,1);

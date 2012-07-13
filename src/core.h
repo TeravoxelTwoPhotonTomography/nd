@@ -25,6 +25,7 @@
 extern "C" {
 #endif
 
+/** Type identifiers */
 typedef enum _nd_type_id_t
 {
   nd_id_unknown=-1,
@@ -41,14 +42,20 @@ typedef enum _nd_type_id_t
   nd_id_count
 } nd_type_id_t;
 
+/** Kind identifiers.
+ *
+ *  Different in-memory representations may demand different implementations of
+ *  algorithms.  The "kind" helps determine which implementation should be 
+ *  chosen, if one is available.
+ */
 typedef enum _nd_kind_t
 { nd_unknown_kind=-1,
-  nd_cpu,                                                 ///< default
-  nd_gpu_cuda,
+  nd_cpu,                                                 ///< default. Linear storage in machine local RAM.
+  nd_gpu_cuda,                                            ///< stored on CUDA compatible device memory.
   nd_kind_count
 } nd_kind_t;                                              ///< The "kind" is used to select the implementation of certain algorithms
 
-typedef struct _nd_t* nd_t;
+typedef struct _nd_t* nd_t;                               ///< Abstract data type representing an N-dimensional array.
 
 nd_t          ndinit();                                   ///< allocates an empty array.
 void          ndfree(nd_t a);                             ///< frees resources used by the array.  Will not generate an error.

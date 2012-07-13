@@ -8,14 +8,18 @@
 #include "image.h"
 #include <string.h>
 
+/// @cond DEFINES
+#define countof(e) (sizeof(e)/sizeof(*e))
 #define ENDL              "\n"
 #define LOG(...)          fprintf(stderr,__VA_ARGS__)
 #define TRY(e)            do{if(!(e)) { LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)       if(e){free(e); (e)=NULL;}
 #define FAIL              do{ LOG("Execution should not have reached this point."ENDL); goto Error; }while(0)
+/// @endcond
 
 // Type Translation Tables
+/** Type translation: mylib --> nd_t */
 static const
 nd_type_id_t types_mylib_to_nd[] =
   {
@@ -31,6 +35,7 @@ nd_type_id_t types_mylib_to_nd[] =
     nd_f64,
   };
 
+/** Type translation: nd_t --> mylib */
 static const
 Value_Type types_nd_to_mylib[] =
   {
@@ -46,9 +51,9 @@ Value_Type types_nd_to_mylib[] =
     FLOAT64_TYPE
   };
 
-/////
-///// INTERFACE
-/////
+//-//
+//-// INTERFACE
+//-//
 
 static const char* name_tiff(void) { return "tiff/mylib"; }
 
@@ -76,8 +81,10 @@ static void* open_tiff(const char* path, const char *mode)
 }
 
 // Following functions will log to the file object.
+/// @cond DEFINE
 #undef  LOG
 #define LOG(...) ndioLogError(file,__VA_ARGS__)
+/// @endcond
 
 static void close_tiff(ndio_t file)
 { Tiff *ctx;
@@ -101,8 +108,9 @@ static size_t prod(const size_t *s, size_t n)
   return p;
 }
 
-#define countof(e) (sizeof(e)/sizeof(*e))
 
+/** Determines the shape of the array needed to read \a file.
+ */
 static nd_t shape_tiff(ndio_t file)
 { 
   int w,h,c,d;
@@ -131,7 +139,13 @@ Error:
   return 0;
 }
 
-/** Assumes:
+/**
+  Read the data from \a file into the array \a a.
+
+  The caller is responsible for making \a has the correct size, shape, and that
+  it references a large enough buffer.
+
+  Assumes:
     1. All planes have the same size
     2. Output ordering is w,h,d,c
     3. All channels must have the same type
@@ -177,6 +191,7 @@ Error:
   goto Finalize;
 }
 
+/** Write \a a to \a file */
 static unsigned write_tiff(ndio_t file, nd_t a)
 { size_t w,h,d,c;
   Tiff  *ctx;
@@ -223,16 +238,19 @@ Error:
   goto Finalize;
 }
 
-/////
-///// EXPORT
-/////
+//-//
+//-// EXPORT
+//-//
 
+/// @cond DEFINES
 #ifdef _MSC_VER
 #define shared __declspec(dllexport)
 #else
 #define shared
 #endif
+/// @endcond
 
+/** Expose the interface as an ndio plugin */
 shared const ndio_fmt_t* ndio_get_format_api(void)
 { static ndio_fmt_t api = {0};
   api.name   = name_tiff;

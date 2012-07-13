@@ -12,10 +12,6 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
   )
 
 set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
-set(ROOT_3RDPARTY_PATH
-  $ENV{USERPROFILE}/Desktop/src/3rdParty
-  ~/src/3rdParty
-  )
 
 macro(show v)
   message("${v} is ${${v}}")
@@ -100,10 +96,13 @@ if(DOXYGEN_FOUND)
                  @ONLY
                  )
   add_custom_target(libnd-docs
-    ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/doc/Doxyfile
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
     COMMENT           "Generating API Docs"
     VERBATIM
     )
 endif()
 
+###############################################################################
+#  Install
+###############################################################################

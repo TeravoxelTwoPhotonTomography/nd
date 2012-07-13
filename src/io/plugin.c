@@ -2,27 +2,6 @@
  * \file
  * Loader for plugin based file input and output.
  *
- * \addtogroup ndioplugins Plugins
- *
- * File IO handled through the \a ndio_t interface is mediated by a
- * plugin-based system.  Plugins are shared libraries that live in a
- * specific location (so they may be found at run-time) and that 
- * implement a specific interface.  The interface expected here 
- * consists of a single function named ndio_get_format_api() with
- * the following type:
- *
- * \code
- * typedef const ndio_fmt_t* (*ndio_get_format_api_t)(void);
- * \endcode
- *
- * See io/interface.h for more.
- *
- * A plugin system is used for file IO because supporting a wide variety of
- * useful formats requires incorporating existing third-party libraries.  These
- * third-party libraries are dependencies that aren't related to the core
- * functionality provided by this library.  Using a plugin interface helps
- * decouple concerns about IO from the main library.
- *
  * \author Nathan Clack
  * \date   June 2012
  */
@@ -43,7 +22,8 @@
 #pragma warning( push )
 #pragma warning( disable:4996 ) //unsafe function
 
-///// MACROS: Debugging and Error handling.
+//-// MACROS: Debugging and Error handling.
+/// @cond DEFINES
 //#define DEBUG_SEARCH
 
 #define ENDL       "\n"
@@ -57,7 +37,7 @@
 #endif
 #define HERE DBG("HERE %s(%d): %s"ENDL,__FILE__,__LINE__,__FUNCTION__)
 
-///// MACROS: 
+//-// MACROS: 
 //    Alias the dyld interface to Window's shared library API.
 //    Use the dirent (posix) interface for directory traversal.
 #ifdef _MSC_VER
@@ -81,6 +61,8 @@ const char* estring();
 #else
 #define EXTENSION "so"
 #endif
+
+/// @endcond
 
 /** Detects loadable libraries based on filename */
 static int is_shared_lib(const char *fname,size_t n)
@@ -211,11 +193,20 @@ Error:
  * Recursively descends a directory tree starting at \a path searching for 
  * plugins to load.
  *
+ * This function is used internally by the ndio libarary to load plugins from
+ * a specific location.  It is exposed as part of the ndio library interface,
+ * just in case you wanted to load plugins from another location.  However,
+ * that's not possible at present.  A function to register a set of plugins
+ * loaded by the user needs to be added.
+ *
+ * \todo Add ndioRegisterPlugins().
+ *
  * \param[in]     path The path to the plugins folder.
  * \param[out]    n    The number of elements in the returned array.
  * \returns 0 on failure, otherwise an array of loaded plugin interfaces.  
  *          The caller is responsible for calling ndioFreePlugins() on the
  *          result when done with the array.
+ * \ingroup ndioplugins
  */
 ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
 { apis_t apis = {0};
@@ -232,7 +223,10 @@ Error:
   goto Finalize;
 }
 
-/** Releases resources acquired to load plugins and frees the array. */
+/**
+ * Releases resources acquired to load plugins and frees the array.
+ * \ingroup ndioplugins
+ */
 void ndioFreePlugins(ndio_fmts_t fmts, size_t n)
 { size_t i;
   if(!fmts) return;

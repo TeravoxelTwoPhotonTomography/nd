@@ -1,3 +1,8 @@
+/** \file
+ *  Test suite for basic nd-array interface.
+ *
+ *  @cond TEST
+ */
 #include <gtest/gtest.h>
 #include "nd.h"
 
@@ -70,3 +75,4 @@ TYPED_TEST(Example,Reshape)
   EXPECT_EQ(500,ndshape(this->a)[1]);
   EXPECT_EQ(100,ndshape(this->a)[2]);
 }
+/// @endcond

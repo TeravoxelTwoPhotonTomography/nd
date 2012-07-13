@@ -1,3 +1,9 @@
+/** \file
+ *  dirent API for Microscoft Visual Studio.
+ *  \author Toni Ronkko
+ *  \date   2006
+ */
+/// @cond PRIVATE
 /*****************************************************************************
  * dirent.h - dirent API for Microsoft Visual Studio
  *
@@ -370,3 +376,4 @@ static void rewinddir(DIR* dirp)
 }
 #endif
 #endif /*DIRENT_H*/
+/// @endcond

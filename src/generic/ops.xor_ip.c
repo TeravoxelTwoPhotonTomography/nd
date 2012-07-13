@@ -83,8 +83,8 @@ static void xor_ip_f64(stride_t N,
 #endif
 
 #ifndef NAME
-#define NAME(ROOT,a)  _NAME(ROOT,a)
-#define _NAME(ROOT,a) ROOT##_##a
+#define NAME(ROOT,a)  _NAME(ROOT,a)  ///< Macro for c-style "templated" functions
+#define _NAME(ROOT,a) ROOT##_##a     ///< Macro for c-style "templated" functions
 #endif
 
 /** In-place xor with a constant.

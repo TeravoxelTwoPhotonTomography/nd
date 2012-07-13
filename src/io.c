@@ -26,19 +26,24 @@
 #define va_copy(a,b) (a=b)
 #endif
 
+/// @cond DEFINES
 #define ENDL                         "\n"
 #define LOG(...)                     fprintf(stderr,__VA_ARGS__)
 #define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
+/// @endcond
 
-static ndio_fmts_t g_formats=NULL;
-static size_t      g_countof_formats=0;
+static ndio_fmts_t g_formats=NULL;      ///< List of loaded plugins
+static size_t      g_countof_formats=0; ///< The number of loaded plugins
 
+/** File handle.
+ *  Implementation for the abstract type, \a ndio_t.
+ */
 struct _ndio_t
-{ ndio_fmt_t *fmt;
-  void       *context;
-  char       *log;
+{ ndio_fmt_t *fmt;       ///< The plugin API used to operate on the file.
+  void       *context;   ///< The data that the plugin uses to operate on the file.  A plugin-specific file handle.
+  char       *log;       ///< Used to store the error log.  NULL if no errors, otherwise a NULL terminated string.
 };
 
 /////
@@ -145,8 +150,11 @@ nd_t ndioShape(ndio_t file)
 { return file?file->fmt->shape(file):0;
 }
 
+/// @cond DEFINES
 #undef LOG
 #define LOG(...) ndLogError(a,__VA_ARGS__)
+/// @endcond
+
 ndio_t ndioRead(ndio_t file, nd_t a)
 { TRY(file);
   TRY(file->fmt->read(file,a));

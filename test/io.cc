@@ -1,6 +1,11 @@
 /** \file
     Testing reading and writing of nD volumes to various file types.
     \todo RGB tiff stack gets opened by ffmpeg, but as a single plane
+    \todo append test
+    \todo Write tests will fail if rgb is loaded because tiff reader loads
+          colors to last dim, but ffmpeg writer assumes color is first dim.
+          Need dimension annotation and transpose.
+    @cond TEST
 */
 
 #include <gtest/gtest.h>
@@ -23,7 +28,7 @@ file_table[] =
   {ND_TEST_DATA_PATH"/vol.1ch.tif",nd_i16,3,{620,512,100,1,1}},
   {ND_TEST_DATA_PATH"/vol.rgb.tif",nd_u8 ,4,{620,512, 39,3,1}},
   {ND_TEST_DATA_PATH"/vol.rgb.mp4",nd_u8 ,4,{620,512, 39,3,1}},
-//{ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}}, // don't know how to decode properly, strange pts's, jumps from frame 0 to frame 12
+  {ND_TEST_DATA_PATH"/vol.rgb.ogg",nd_u8 ,4,{620,512, 39,3,1}}, // don't know how to decode properly, strange pts's, jumps from frame 0 to frame 12
   {ND_TEST_DATA_PATH"/vol.rgb.avi",nd_u8 ,4,{620,512, 39,3,1}},
 //{ND_TEST_DATA_PATH"/38B06.5-8.lsm",nd_u16,4,{1024,1024,248,4,1}}, // lsm's fail right now bc of the thumbnails
   {0}
@@ -132,3 +137,4 @@ WriteTestInstance(m4v);
 WriteTestInstance(ogg);
 WriteTestInstance(webm);
 WriteTestInstance(mov);
+/// @endcond

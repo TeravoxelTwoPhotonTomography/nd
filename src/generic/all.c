@@ -1,7 +1,6 @@
 /** \file
     Source file for instancing generic definitions.
-
-    \see ops.2type.c for the actual definitions.
+    Beware the dark magics here.
 
     This should is included by nd/ops.c.  This file should
     not be compiled on it's own.
@@ -9,6 +8,7 @@
     \author Nathan Clack
     \date   June 2012
 */
+/// @cond PRIVATE
 
 //
 // ONE TYPE OPS
@@ -266,3 +266,5 @@
 #define TDST f64
 #include "ops.2type.c"
 #undef TSRC
+
+/// @endcode

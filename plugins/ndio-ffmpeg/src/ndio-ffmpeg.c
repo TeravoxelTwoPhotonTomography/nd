@@ -1,5 +1,5 @@
 /** \file
-    FFMPEG Interface for nD IO.
+    Plugin interface to FFMPEG.
 
     \section ndio-ffmpeg-read
 
@@ -22,10 +22,10 @@
           VLC and browsers don't know how long the videos are.
     \todo map signed ints to unsigned before encoding.  sws scale
           doesn't know signed.
-          - convert by flipping the sign bit x^=(1<<7) for i8->u8
-          - where to do the conversion?
-            - could do it in a temporary buffer held by the context
-            - do it with array library?
+          * convert by flipping the sign bit x^=(1<<7) for i8->u8
+          * where to do the conversion?
+            * could do it in a temporary buffer held by the context
+            * do it with array library?
     \todo handle options
 
     Reader
@@ -35,24 +35,24 @@
 
     \section ndio-ffmpeg-notes Notes
 
-        - duration be crazy
-          - mostly because durations are stored with different time bases in different places
-          - self->fmt->duration
-            - seems like it's always set (not NOPTS)
-            - self->fmt->duration/AV_TIME_BASE -> duration in seconds
-          - self->fmt->streams[0]->duration
-            - sometimes not set (NOPTS)
-            - for mpeg and ogg, looks like this is just the number of frames
-          - the right thing to do looks like
+        * duration be crazy
+          * mostly because durations are stored with different time bases in different places
+          * self->fmt->duration
+            * seems like it's always set (not NOPTS)
+            * self->fmt->duration/AV_TIME_BASE -> duration in seconds
+          * self->fmt->streams[0]->duration
+            * sometimes not set (NOPTS)
+            * for mpeg and ogg, looks like this is just the number of frames
+          * the right thing to do looks like
             1. get duration in secodns from format context
             2. convert to frames using stream frame rate.
-               - stream->r_frame_rate looks more reliable than time_base
-                 - different than 1/time_base for webm/v8
+               * stream->r_frame_rate looks more reliable than time_base
+                 * different than 1/time_base for webm/v8
 
-        - FFMPEG API documentation has lots of examples, but it's hard to know which one's to
+        * FFMPEG API documentation has lots of examples, but it's hard to know which one's to
           use.  Some of the current examples use depricated APIs.
-          - The process of read/writing a container file is called demuxing/muxing.
-          - The process of unpacking/packing a video stream is called decoding/encoding.
+          * The process of read/writing a container file is called demuxing/muxing.
+          * The process of unpacking/packing a video stream is called decoding/encoding.
 */
 #include "nd.h"
 #include "src/io/interface.h"
@@ -70,13 +70,14 @@
 #include "libavutil/opt.h"
 #include "libavutil/imgutils.h"
 
+/// @cond DEFINES
+#define countof(e)        (sizeof(e)/sizeof(*e))
 #define ENDL              "\n"
 #define LOG(...)          fprintf(stderr,__VA_ARGS__)
 #define TRY(e)            do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)       if(e){free(e); (e)=NULL;}
 #define FAIL(msg)         do{ LOG("%s(%d): %s"ENDL "\tExecution should not have reached this point."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,msg); goto Error; }while(0)
-
 #define AVTRY(expr,msg) \
   do{                                                       \
     int v=(expr);                                           \
@@ -89,26 +90,28 @@
     }                                                       \
   }while(0)
 
-static int is_one_time_inited = 0; /// \todo should be mutexed
-
-typedef struct _ndio_ffmpeg_t
-{ AVFormatContext   *fmt;     ///< The main handle to the open file
-  struct SwsContext *sws;     ///< software scaling context
-  AVFrame           *raw;     ///< frame buffer for holding data before translating it to the output nd_t format
-  int                istream; ///< stream index
-  int64_t            nframes; ///< duration of video in frames (for reading)
-  AVDictionary      *opts;    ///< (unused at the moment)
-} *ndio_ffmpeg_t;
-
-/////
-///// HELPERS
-/////
-
 static const AVRational ONE = {1,1};
-
 #define STREAM(e)   ((e)->fmt->streams[(e)->istream])
 #define CCTX(e)     ((e)->fmt->streams[(e)->istream]->codec)    ///< gets the AVCodecContext for the selected video stream
 #define DURATION(e) (av_rescale_q((e)->fmt->duration,av_mul_q(AV_TIME_BASE_Q,STREAM(e)->r_frame_rate),ONE)) ///< gets the duration in #frames
+/// @endcond
+
+static int is_one_time_inited = 0; /// Tracks whether avcodec has been init'd.  \todo should be mutexed
+
+/** File context used for operating on video files with FFMPEG */
+typedef struct _ndio_ffmpeg_t
+{ AVFormatContext   *fmt;     ///< The main handle to the open file
+  struct SwsContext *sws;     ///< Software scaling context
+  AVFrame           *raw;     ///< The frame buffer for holding data before translating it to the output nd_t format
+  int                istream; ///< The stream index.
+  int64_t            nframes; ///< Duration of video in frames (for reading)
+  AVDictionary      *opts;    ///< (unused at the moment)
+} *ndio_ffmpeg_t;
+
+//-//
+//-// HELPERS
+//-//
+
 
 /** One-time initialization for ffmpeg library.
 
@@ -136,6 +139,7 @@ static void maybe_init()
     );
 }
 
+/** FFMPEG to nd_t type conversion */
 int pixfmt_to_nd_type(int pxfmt, nd_type_id_t *type, int *nchan)
 { int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
@@ -155,6 +159,7 @@ Error:
   return 0;
 }
 
+/** Recommend pixel type based on nd_t type attributes. */
 int to_pixfmt(int nbytes, int ncomponents)
 {
   switch(ncomponents)
@@ -186,6 +191,7 @@ int to_pixfmt(int nbytes, int ncomponents)
   return PIX_FMT_NONE;
 }
 
+/** Recommend output pixel format based on intermediate pixel format. */
 int pixfmt_to_output_pixfmt(int pxfmt)
 { int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
@@ -194,12 +200,14 @@ int pixfmt_to_output_pixfmt(int pxfmt)
 }
 
 
-/////
-///// INTERFACE
-/////
+//-//
+//-// INTERFACE
+//-//
 
+/** Returns the plugin name. */
 static const char* name_ffmpeg(void) { return "ffmpeg"; }
 
+/** \returns true if the file is readible using this interface. */
 static unsigned test_readable(const char *path)
 { AVFormatContext *fmt=0;
   // just check that container can be opened; don't worry about streams, etc...
@@ -221,6 +229,7 @@ static unsigned test_readable(const char *path)
   return 0;
 }
 
+/** \returns true if the file is writable using this interface. */
 static unsigned test_writable(const char *path)
 { AVOutputFormat *fmt=0;
   const char *ext;
@@ -232,6 +241,7 @@ static unsigned test_writable(const char *path)
   return 0;
 }
 
+/** \returns true if the plugin may be used with the file at \a path according to the \a mode. */
 static unsigned is_ffmpeg(const char *path, const char *mode)
 {
   switch(mode[0])
@@ -243,6 +253,7 @@ static unsigned is_ffmpeg(const char *path, const char *mode)
   return 0;
 }
 
+/** Opens the file at \a path for reading */
 static ndio_ffmpeg_t open_reader(const char* path)
 { ndio_ffmpeg_t self=0;
   NEW(struct _ndio_ffmpeg_t,self,1);
@@ -274,6 +285,7 @@ Error:
   return NULL;
 }
 
+/** Opens the file at \a path for writing */
 static ndio_ffmpeg_t open_writer(const char* path)
 { ndio_ffmpeg_t self=0;
   AVCodec *codec;
@@ -331,6 +343,7 @@ Error:
   return 0;
 }
 
+/** Flushes frames, writes the footer and closes the output file. */
 static int close_writer(ndio_t file)
 { ndio_ffmpeg_t self;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
@@ -349,6 +362,7 @@ Error:
   return 0;
 }
 
+/** Intializes the codec context if necessary. */
 static int maybe_init_codec_ctx(ndio_ffmpeg_t self, int width, int height, int fps, int src_pixfmt)
 { AVCodecContext *cctx=CCTX(self);
   AVCodec *codec=cctx->codec;
@@ -373,6 +387,7 @@ Error:
   return 0;
 }
 
+/** Opens the file at \a path according to the specified \a mode. */
 static void* open_ffmpeg(const char* path, const char *mode)
 {
   switch(mode[0])
@@ -386,9 +401,12 @@ Error:
 }
 
 // Following functions will log to the file object.
+/// @cond DEFINES
 #undef  LOG
 #define LOG(...) ndioLogError(file,__VA_ARGS__)
+/// @endcond
 
+/** Closes the file and performs any necessary cleanup */
 static void close_ffmpeg(ndio_t file)
 { ndio_ffmpeg_t self;
   if(!file) return;
@@ -405,8 +423,9 @@ static void close_ffmpeg(ndio_t file)
   free(self);
 }
 
-#define countof(e) (sizeof(e)/sizeof(*e))
-
+/** Packs a shape array, removing dimensions of size 1.
+ *  \returns the number of dimensions after packing.
+ */
 static int pack(size_t *s, int n)
 { int i,c;
   for(i=0,c=0;i<n;++i)
@@ -416,13 +435,16 @@ static int pack(size_t *s, int n)
   return c;
 }
 
+/** Prefix scan with multiplication as the operator. */
 static size_t prod(const size_t *s, size_t n)
 { size_t i,p=1;
   for(i=0;i<n;++i) p*=s[i];
   return p;
 }
 
-/**
+/**Computes the shape of the array in \a file.
+ * \returns an nd_t with the shape, stride, and type that will be read from file.
+ *          The array references no data; That is \code nddata(a)==NULL \endcode
  * \todo FIXME: Must decode first frame to ensure codec context has the proper width.
  * \todo FIXME: side effect, seeks to begining of video.  Should leave current seek
  *              point unmodified.
@@ -468,6 +490,7 @@ Error:
   return NULL;
 }
 
+/// @cond DEFINES
 #if 0
 #define DEBUG_PRINT_PACKET_INFO \
     printf("Packet - pts:%5d dts:%5d (%5d) - flag: %1d - finished: %3d - Frame pts:%5d %5d\n",   \
@@ -477,7 +500,9 @@ Error:
 #else
 #define DEBUG_PRINT_PACKET_INFO
 #endif
+/// @endcond
 
+/** Fills \a p with zeros. */
 static void zero(AVFrame *p)
 { int i,j;
   for(j=0;j<4;++j)
@@ -568,6 +593,7 @@ Error:
   return -1;
 }
 
+/** Returns the number of frames in \a file */
 static int64_t nframes(const ndio_t file)
 { ndio_ffmpeg_t self;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
@@ -576,7 +602,12 @@ Error:
   return 0;
 }
 
-/** Assumes:
+/**
+  Reads the data in \a file into the array \a a.
+  The caller must allocate \a a, make sure it has the correct shape,
+  kind, and references a big enough destination buffer.
+
+  Assumes:
     1. Output ordering is c,w,h,d
     2. Array container has the correct size and type
 */
@@ -593,7 +624,10 @@ Error:
 }
 
 
-/** Assumes:
+/**
+  Writes the data in \a to the file \a file.
+
+  Assumes:
     1. Input ordering is c,w,h,d
     2. Appends d planes of a to the stream
  */
@@ -661,16 +695,19 @@ Error:
   return 0;
 }
 
-/////
-///// EXPORT
-/////
+//-//
+//-// EXPORT
+//-//
 
+/// @cond DEFINES
 #ifdef _MSC_VER
 #define shared __declspec(dllexport)
 #else
 #define shared
 #endif
+/// @endcond
 
+/** Expose the interface as an ndio plugin. */
 shared const ndio_fmt_t* ndio_get_format_api(void)
 { static ndio_fmt_t api = {0};
   maybe_init();

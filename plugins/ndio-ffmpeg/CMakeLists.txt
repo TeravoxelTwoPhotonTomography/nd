@@ -46,3 +46,21 @@ if(FFMPEG_FOUND)
   endif()
 
 endif(FFMPEG_FOUND)
+
+###############################################################################
+#  Documentation
+###############################################################################
+
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+  configure_file(${PROJECT_SOURCE_DIR}/doc/Doxyfile.in
+                 ${PROJECT_BINARY_DIR}/doc/Doxyfile
+                 @ONLY
+                 )
+  add_custom_target(ndio-ffmpeg-docs
+    ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/doc/Doxyfile
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    COMMENT           "Generating Docs for FFMPEG IO Plugin"
+    VERBATIM
+    )
+endif()
