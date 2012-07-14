@@ -1,6 +1,7 @@
 /** \file
  *  Test suite for basic nd-array interface.
  *
+ *  \todo Add commutivity tests for operations that should commute.
  *  @cond TEST
  */
 #include <gtest/gtest.h>

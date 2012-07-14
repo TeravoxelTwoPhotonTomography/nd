@@ -135,6 +135,7 @@ Error:
 nd_t ndcast(nd_t a, nd_type_id_t desc)
 { size_t o,n,i;
   nd_type_id_t old=a->type_desc;
+  maybe_resize_array(a,1);
   TRY(o=ndbpp(a));
   a->type_desc = desc;
   TRY(n=ndbpp(a)); // checks for valid descriptor
