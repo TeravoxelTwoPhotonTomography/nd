@@ -105,10 +105,21 @@ nd_t ndsetkind(nd_t a,nd_kind_t kind)
   return a;
 }
 
+void maybe_resize_array(nd_t a, unsigned ndim)
+{ if(a->ndim>=ndim) return; // nothing to do
+  RESIZE(size_t,a->shape  ,ndim);
+  RESIZE(size_t,a->strides,ndim+1);
+  a->ndim=ndim;
+Error:
+  ;
+}
+
 nd_t ndinit(void)
 { nd_t a;
   NEW(struct _nd_t,a,1);
   memset(a,0,sizeof(struct _nd_t));
+  maybe_resize_array(a,1);
+  a->strides[0]=1;
   return a;
 Error:
   return NULL; // if allocation fails, error message is buried.
@@ -121,15 +132,6 @@ void ndfree(nd_t a)
   if(a->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,a,a->log);
   SAFEFREE(a->log);
   free(a);
-}
-
-void maybe_resize_array(nd_t a, unsigned ndim)
-{ if(a->ndim>=ndim) return; // nothing to do
-  RESIZE(size_t,a->shape  ,ndim);
-  RESIZE(size_t,a->strides,ndim+1);
-  a->ndim=ndim;
-Error:
-  ;
 }
 
 nd_t ndcast(nd_t a, nd_type_id_t desc)
