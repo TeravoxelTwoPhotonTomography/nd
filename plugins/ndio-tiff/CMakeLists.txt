@@ -30,7 +30,7 @@ if(MYLIB_FOUND)
   ################################################################################
 
   add_library(ndio-tiff MODULE ${SRCS} ${HDRS})
-  target_link_libraries(ndio-tiff ${MYLIB_LIBRARIES} libnd)
+  target_link_libraries(ndio-tiff ${MYLIB_LIBRARIES} nd)
 endif(MYLIB_FOUND)
 
 ###############################################################################

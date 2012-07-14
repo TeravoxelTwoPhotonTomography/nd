@@ -38,13 +38,13 @@ file(GLOB HDRS src/*.h src/io/*.h)
 
 add_definitions(-fPIC)
 
-add_library(libnd
+add_library(nd
   ${SRCS}
   ${HDRS}
   config.h.in
   ${PROJECT_BINARY_DIR}/config.h
   )
-target_link_libraries(libnd
+target_link_libraries(nd
   ${CMAKE_DL_LIBS})
 
 # ndio plugins
@@ -70,7 +70,7 @@ if(GTEST_FOUND)
   target_link_libraries(libnd-tests
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
-    libnd
+    nd
     )
   add_dependencies(libnd-tests
     gtest
@@ -100,14 +100,14 @@ endif()
 ###############################################################################
 #  Install
 ###############################################################################
-install(TARGETS libnd libnd-tests
+install(TARGETS nd libnd-tests
   EXPORT libnd-targets
   RUNTIME DESTINATION bin/
   LIBRARY DESTINATION lib/
   ARCHIVE DESTINATION lib/static
   PUBLIC_HEADER DESTINATION include/nd
 )
-export(TARGETS libnd libnd-tests FILE libnd-targets.cmake)
+export(TARGETS nd libnd-tests FILE libnd-targets.cmake)
 install(EXPORT libnd-targets DESTINATION cmake/)
 
 
