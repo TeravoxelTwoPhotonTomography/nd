@@ -272,6 +272,7 @@ static size_t min_sz_t(size_t a, size_t b)
  *  \param[in]    shape   The copy is restricted to a sub-volume with this shape.
  *                        If NULL, the smallest shape common to \a x, \a y, and \a z will
  *                        be used.
+ *  \returns \a dst on success, or NULL otherwise.
  *  \ingroup ndops
  */
 nd_t ndcopy(nd_t dst, const nd_t src, size_t ndim, size_t *shape)
@@ -324,6 +325,7 @@ Error:
  * \param[in]    shape    Computation is restricted to a sub-volume with this shape.
  *                        If NULL, the smallest shape common to \a x, \a y, and \a z will
  *                        be used.
+ *  \returns \a z on success, or NULL otherwise.
  * \ingroup ndops
  */
 nd_t ndadd(nd_t z, const nd_t x, const nd_t y, size_t ndim, size_t *shape)
@@ -391,6 +393,7 @@ Error:
  *  \param[in] shape   Computation is restricted to a sub-volume with this shape.
  *                     If NULL, the smallest shape common to \a x, \a y, and \a z will
  *                     be used.
+ *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
 nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, size_t *shape)
@@ -453,6 +456,7 @@ Error:
  *                        operate.  If 0, will use the dimensionality of \a z.
  *  \param[in]      shape The shape of the subvolume on which to operate.
  *                        If NULL, will use the full shape of \a z.
+ *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
 nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
@@ -511,6 +515,7 @@ Error:
  *  Reversing the order of operations would give <tt>112(0x70),128(0x80)</tt>.  I don't
  *  know which answer is best, so I just picked one.
  *
+ *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type)
