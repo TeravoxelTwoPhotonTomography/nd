@@ -88,6 +88,23 @@ static int get_format_by_name(const char *format)
 void* ndioContext(ndio_t file) { return file?file->context:0; }
 char* ndioError  (ndio_t file) { return file?file->log:0; }
 
+/** Preload's plugins from the default plugin path.
+ *
+ *  If the plugins have already been loaded, this does nothing.
+ *
+ *  Normally, calling this function is not required; plugin's are loaded
+ *  automatically on demand.
+ *
+ *  However, when a plugin is loaded, it may load another library that requires
+ *  it's initialization is done only in the master thread.  For example, this
+ *  is true of the CoreVideo framework on OS X, which is used by FFMPEG.
+ *
+ *  \returns 1 on success, 0 otherwise.
+ */
+int ndioPreloadPlugins()
+{ return maybe_load_plugins();
+}
+
 /** Determines if the file can be read by any of the file formats. */
 int ndioIsFile(const char *filename)
 { maybe_load_plugins();

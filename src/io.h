@@ -15,6 +15,8 @@ extern "C" {
 typedef struct _ndio_t* ndio_t;
 //typedef struct _nd_t*   nd_t;
 
+int       ndioPreloadPlugins();
+
 int       ndioIsFile(const char *filename);
 
 ndio_t    ndioOpen  (const char *filename, const char *format, const char *mode);

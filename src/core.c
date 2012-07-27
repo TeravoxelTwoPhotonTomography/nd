@@ -95,7 +95,7 @@ void*         nddata    (const nd_t a)    {return ((uint8_t*)a->data);}
 size_t        ndndim    (const nd_t a)    {return a->ndim;}
 const size_t *ndshape   (const nd_t a)    {return a->shape;}
 const size_t *ndstrides (const nd_t a)    {return a->strides;}
-char*         nderror   (const nd_t a)    {return a->log;}
+char*         nderror   (const nd_t a)    {return a?a->log:0;}
 void          ndResetLog(nd_t a)          {SAFEFREE(a->log);}
 nd_kind_t     ndkind    (const nd_t a)    {return a->kind;}
 
