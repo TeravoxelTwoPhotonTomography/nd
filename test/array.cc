@@ -47,7 +47,7 @@ struct Example:public ::testing::Test
   }
   void TearDown()
   { EXPECT_EQ(0,nderror(a));
-    ndfree(a);    
+    ndfree(a);
   }
 private:
   void fill(){for(int i=0;i<countof(buf);++i) buf[i]=i;}
@@ -58,11 +58,11 @@ TYPED_TEST(Example,Reshape)
 { // initial shape
   EXPECT_EQ(1,ndndim(this->a));
   EXPECT_EQ(countof(this->buf),ndshape(this->a)[0]);
-  
+
   // failed reshape
-  { size_t s[] = {13,15,231};    
+  { size_t s[] = {130,150,231};
     EXPECT_EQ((void*)NULL,ndreshape(this->a,3,s) )<<nderror(this->a);
-  }  
+  }
   ndResetLog(this->a);
   EXPECT_EQ(1,ndndim(this->a));
   EXPECT_EQ(countof(this->buf),ndshape(this->a)[0]);
@@ -70,7 +70,7 @@ TYPED_TEST(Example,Reshape)
   // successful reshape
   { size_t s[] = {20,500,100};
     EXPECT_NE((void*)NULL,ndreshape(this->a,3,s) )<<nderror(this->a);
-  }  
+  }
   EXPECT_EQ(3,ndndim(this->a));
   EXPECT_EQ(20,ndshape(this->a)[0]);
   EXPECT_EQ(500,ndshape(this->a)[1]);

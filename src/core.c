@@ -180,7 +180,7 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
 
 /** Reshapes the array.
 
-    The new shape must contain the same number of total elements.
+    The new shape must fit in the current capacity of the array.
     If the new shape does not conform, an error is generated and
     there is no change to the array.
 
@@ -191,7 +191,7 @@ nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
   unsigned i;
   for(i=0,nelem=1;i<ndim;++i)
     nelem*=shape[i];
-  TRY(nelem==ndnelem(a));
+  TRY(nelem<=ndnelem(a));
 
   maybe_resize_array(a,ndim);
   memcpy(a->shape    ,shape,sizeof(*shape)*ndim);
