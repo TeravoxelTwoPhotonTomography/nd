@@ -268,7 +268,6 @@ ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
     TRY(buf=(char*)alloca(n),"Out of stack space.");
     cat(buf,n,3,p);
   }
-  LOG("buf: %s"ENDL,buf);
   TRY(dir=opendir(buf),strerror(errno));
   TRY(recursive_load(&apis,dir,buf),"Search for plugins failed.");
   *n=apis.n;
