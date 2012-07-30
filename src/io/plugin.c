@@ -29,6 +29,7 @@
 #define ENDL       "\n"
 #define LOG(...)   fprintf(stdout,__VA_ARGS__)
 #define TRY(e,msg) do{ if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated to false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }} while(0)
+#define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)),"Memory allocation failed.")
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
 #if 0
 #define DBG(...) LOG(__VA_ARGS__)
@@ -147,6 +148,55 @@ Error:
   return 0;
 }
 
+#if   defined(_MSC_VER)
+#error "TODO: implement and test"
+#elif defined(__MACH__)
+#include <mach-o/dyld.h>
+#elif defined(__linux)
+#error "TODO: implement and test"
+#else
+#error "Unsupported operating system/environment."
+#endif
+
+/**
+ * Return the absolute path to the calling executable (the runtime path).
+ * The plugin path is resolved relative to this directory.
+ * Getting this is strongly system dependendant.
+ *
+ * I'll add systems as I come across them.
+ *
+ * The caller must free the returned string.
+ *
+ * \see http://stackoverflow.com/questions/1023306/finding-current-executables-path-without-proc-self-exe
+ */
+static char* rpath(void)
+{ char* out=NULL;
+#if   defined(_MSC_VER)
+#error "TODO: implement and test"
+#elif defined(__MACH__)
+  { uint32_t bufsize=0;
+    char *tmp;
+    _NSGetExecutablePath(NULL,&bufsize);
+    NEW(char,out,bufsize+1);
+    TRY(0==_NSGetExecutablePath(out,&bufsize),"Could not get path to executable.");
+    out[bufsize]='\0';
+    TRY(tmp=realpath(out,NULL),"Translation to real path failed."); // will heap alloc result
+    free(out);
+    { char* e=strrchr(tmp,'/');
+      if(e) *e='\0';
+    }
+    return tmp;
+  }
+#elif defined(__linux)
+#error "TODO: implement and test"
+#else
+#error "Unsupported operating system/environment."
+#endif
+Error:
+  if(out) free(out);
+  return NULL;
+}
+
 /**
  * Recursively descends a directory tree starting at \a dir searching for 
  * plugins to load.
@@ -211,11 +261,20 @@ Error:
 ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
 { apis_t apis = {0};
   DIR*           dir;
-  TRY(dir=opendir(path),strerror(errno));
-  TRY(recursive_load(&apis,dir,path),"Search for plugins failed.");
+  char *buf=0,
+       *exepath=rpath();
+  { size_t n=strlen(exepath)+strlen(path)+2; // +1 for the directory seperator and +1 for the terminating null
+    const char *p[]={exepath,"/",path};
+    TRY(buf=(char*)alloca(n),"Out of stack space.");
+    cat(buf,n,3,p);
+  }
+  LOG("buf: %s"ENDL,buf);
+  TRY(dir=opendir(buf),strerror(errno));
+  TRY(recursive_load(&apis,dir,buf),"Search for plugins failed.");
   *n=apis.n;
 Finalize:
   if(dir) closedir(dir);
+  if(exepath) free(exepath);
   return apis.v;
 Error:
   if(n) *n=0;
