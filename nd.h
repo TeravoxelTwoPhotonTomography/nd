@@ -1,7 +1,7 @@
 /** \file
     Master header for the library.
 
-    Include this file into your project in order to access of libnd's functions.
+    Imports the public interface for libnd.
 */
 
 #include "src/core.h"

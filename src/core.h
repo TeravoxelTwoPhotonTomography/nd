@@ -1,11 +1,11 @@
-/** \file 
-    N-Dimensional array type. 
+/** \file
+    N-Dimensional array type.
 
     \section nd-notes Notes
 
     - Keep a ref count against data?  Don't do memory management, so might not need one.  Could be useful to emit an
       event when the last reference is free'd.
-      
+
     - Why slices?  Iterating on dims isn't so hard.
       - opportunity to abstract next()/seek()
         - on demand loading of frames from a video
@@ -45,7 +45,7 @@ typedef enum _nd_type_id_t
 /** Kind identifiers.
  *
  *  Different in-memory representations may demand different implementations of
- *  algorithms.  The "kind" helps determine which implementation should be 
+ *  algorithms.  The "kind" helps determine which implementation should be
  *  chosen, if one is available.
  */
 typedef enum _nd_kind_t
@@ -82,6 +82,9 @@ nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
 
 nd_t          ndreshape(nd_t a,unsigned ndim,const size_t *shape);
+nd_t          ndShapeSet(nd_t a, unsigned idim, size_t val);
+nd_t          ndInsertDim(nd_t a, unsigned idim);
+nd_t          ndRemoveDim(nd_t a, unsigned idim);
 
 nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data pointer: data+=o*stride[idim]
 

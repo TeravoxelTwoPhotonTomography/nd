@@ -10,9 +10,11 @@
 #include <gtest/gtest.h>
 #include "nd.h"
 #include "helpers.h"
+#include "stdlib.h"
 
 typedef float f32;
 #define TOL_F32 1e-5
+#define NEW(T,e,N) EXPECT_NE((void*)NULL,(e)=(T*)malloc(sizeof(T)*N));
 
 // DATA
 
@@ -20,15 +22,15 @@ static const f32 data01[] = {
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -38,15 +40,15 @@ static const f32 data02[] = {
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-  
+
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-  
+
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-  
+
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
   1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
@@ -56,15 +58,15 @@ static const f32 expt01[] = {
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-  
+
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -74,15 +76,15 @@ static const f32 expt02[] = {
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -92,15 +94,15 @@ static const f32 expt03[] = {
   2.0f, 2.0f, 0.0f, 0.0f, 0.0f,
   2.0f, 2.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
   1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-  
+
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
   0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -122,12 +124,12 @@ class Ops3DF32:public ::testing::Test
 
   virtual void SetUp()
   { length = sizeof(data01)/sizeof(f32);
-    zeros  = new f32[length];
-    ones   = new f32[length];
-    e1     = new f32[length];
-    e2     = new f32[length];
-    e3     = new f32[length];
-    result = new f32[length];
+    NEW(f32,zeros,length);
+    NEW(f32,ones,length);
+    NEW(f32,e1,length);
+    NEW(f32,e2,length);
+    NEW(f32,e3,length);
+    NEW(f32,result,length);
     memcpy(zeros,data01,sizeof(data01));
     memcpy(ones,data02,sizeof(data02));
     memcpy(e1,expt01,sizeof(expt01));
@@ -146,11 +148,12 @@ class Ops3DF32:public ::testing::Test
   }
 
   virtual void TearDown()
-  { delete [] zeros;
-    delete [] e1;
-    delete [] e2;    
-    delete [] e3;
-    delete [] result;
+  { free(zeros);
+    free(ones);
+    free(e1);
+    free(e2);
+    free(e3);
+    free(result);
     ndfree(x);
     ndfree(y);
     ndfree(z);
@@ -158,8 +161,8 @@ class Ops3DF32:public ::testing::Test
 };
 
 TEST_F(Ops3DF32,Copy)
-{ 
-  size_t sh[]  = {3,3,2};  
+{
+  size_t sh[]  = {3,3,2};
   EXPECT_NE((void*)NULL,
     ndreshape( ndcast( ndref(x,ones,length), nd_f32),3,shape))
     <<nderror(x);
@@ -168,7 +171,7 @@ TEST_F(Ops3DF32,Copy)
     <<nderror(z);
   EXPECT_NE((void*)NULL,
     ndcopy(z,x,3,sh))
-    <<nderror(z);  
+    <<nderror(z);
   EXPECT_NEAR(0.0f,RMSE<f32>(strides[3],zeros,e1),TOL_F32);
 }
 
@@ -185,6 +188,58 @@ TEST_F(Ops3DF32, Add)
       ndadd(z,x,y,3,sh))
       <<nderror(z);
   ASSERT_NEAR(0.0, RMSE<f32>(strides[3],zeros,e3), TOL_F32);
+}
+
+TEST_F(Ops3DF32,Cat)
+{ nd_t e=0,t=0;
+  // setup source array
+  EXPECT_NE((void*)NULL,
+    ndreshape(ndcast(ndref(e=ndinit(),(void*)expt01,length),nd_f32),3,shape))
+    <<nderror(e);
+  ndRemoveDim(e,1);
+  // setup arg arrays
+  { nd_t   arrs[]={x,y};
+    size_t xsh[]={2,12},ysh[]={3,12},
+           *s[]={xsh,ysh};
+    for(int i=0;i<2;++i)
+    { EXPECT_NE((void*)NULL,
+        ndreshape(ndcast(arrs[i],nd_f32),2,s[i]))
+        <<nderror(arrs[i]);
+      EXPECT_NE((void*)NULL,
+        ndref(arrs[i],malloc(ndnbytes(arrs[i])),ndnelem(arrs[i])))
+        <<nderror(arrs[i]);
+    }
+    ndcopy(x,e,0,NULL);
+    ndoffset(e,0,2);
+    ndcopy(y,e,0,NULL);
+    ndoffset(e,0,-2);
+  }
+  // cat and check vals
+  EXPECT_NE((void*)NULL,
+    t=ndcat(x,y,0))
+    <<nderror(x);
+  if(t)
+    EXPECT_NEAR(0.0, RMSE<f32>(ndnelem(e),(f32*)nddata(e),(f32*)nddata(t)),TOL_F32);
+  // cleanup
+  free(nddata(x));
+  free(nddata(y));
+  ndfree(e);
+  if(t) free(nddata(t));
+  ndfree(t);
+}
+
+TEST_F(Ops3DF32,CatIP)
+{ nd_t arrs[]={x,y};
+  void *bufs[]={e1,e1+2*5*3};
+  size_t shape[]={5,3,2};
+  for(int i=0;i<2;++i)
+    EXPECT_NE((void*)NULL,
+      ndreshape( ndcast( ndref(arrs[i],bufs[i],length), nd_f32),3,shape))
+      <<nderror(arrs[i]);
+  EXPECT_NE((void*)NULL,
+      ndcat_ip(x,y))
+      <<nderror(x);
+  /// \todo check shape and conetents
 }
 
 //TEST_F(Ops3DF32, Swap)

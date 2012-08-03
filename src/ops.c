@@ -58,6 +58,7 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #define LOG(...) fprintf(stderr,__VA_ARGS__)
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
+#define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
 /// @endcond
 
 //-//
@@ -258,19 +259,19 @@ static size_t min_sz_t(size_t a, size_t b)
 
 /** Strided copy.
  *
- *  The caller must set up \a dst by allocating memory and making sure it has the
+ *  The caller must set up \a dst by allocating memory and make sure it has the
  *  correct type and shape.
  *
- *  This uses the strided order in \src and \dst to determine which elements get copied
- *  where.
+ *  This uses the strided order in \src and \dst to determine which elements
+ *  get copied where.
  *
  *  \param[in,out]  dst   The output array.
  *  \param[in]      src   The input array.
  *  \param[in]     ndim   The number of dimensions in the sub-volume described by \a shape.
- *                        If 0, this is set to the largest dimension that still fits \a x,
- *                        \a y, and \a z.
+ *                        If 0, this is set to the largest dimension that still fits \a src
+ *                        and \a dst.
  *  \param[in]    shape   The copy is restricted to a sub-volume with this shape.
- *                        If NULL, the smallest shape common to \a x, \a y, and \a z will
+ *                        If NULL, the smallest shape common to \a src and \a dst will
  *                        be used.
  *  \returns \a dst on success, or NULL otherwise.
  *  \ingroup ndops
@@ -400,7 +401,7 @@ nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, si
 { nd_t args[] = {z,x,y};
   size_t i;
   float param[] = {a,b};
-  TRY(ndkind(x)==ndkind(y));      // Require x and y have the same type, z type may vary
+  TRY(ndtype(x)==ndtype(y));      // Require x and y have the same type, z type may vary
   for(i=0;i<countof(args);++i)
     TRY(ndkind(args[i])==nd_cpu); // this implementation won't work for gpu based arrays
   // set shape and dim if necessary

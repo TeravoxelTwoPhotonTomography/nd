@@ -105,8 +105,11 @@ nd_t ndsetkind(nd_t a,nd_kind_t kind)
   return a;
 }
 
+/** Resizes strides and shapes array, but does not initialize memory. */
+static
 void maybe_resize_array(nd_t a, unsigned ndim)
-{ if(a->ndim>=ndim) return; // nothing to do
+{ size_t odim=a->ndim;
+  if(a->ndim>=ndim) return; // nothing to do
   RESIZE(size_t,a->shape  ,ndim);
   RESIZE(size_t,a->strides,ndim+1);
   a->ndim=ndim;
@@ -114,11 +117,14 @@ Error:
   ;
 }
 
+/** Produces an empty array.
+ *  An empty array has zero dimension.
+ */
 nd_t ndinit(void)
 { nd_t a;
   NEW(struct _nd_t,a,1);
   memset(a,0,sizeof(struct _nd_t));
-  maybe_resize_array(a,1);
+  NEW(size_t,a->strides,1);
   a->strides[0]=1;
   return a;
 Error:
@@ -137,7 +143,7 @@ void ndfree(nd_t a)
 nd_t ndcast(nd_t a, nd_type_id_t desc)
 { size_t o,n,i;
   nd_type_id_t old=a->type_desc;
-  maybe_resize_array(a,1);
+  //maybe_resize_array(a,1);
   TRY(o=ndbpp(a));
   a->type_desc = desc;
   TRY(n=ndbpp(a)); // checks for valid descriptor
@@ -179,20 +185,18 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
 }
 
 /** Reshapes the array.
-
-    The new shape must fit in the current capacity of the array.
-    If the new shape does not conform, an error is generated and
-    there is no change to the array.
-
-    \returns 0 on error, otherwise the array \a a.
-*/
+ *
+ *  This function assumes you know what you're doing with the shape.  It does
+ *  not do any bounds checking.
+ *
+ *  \returns 0 on error, otherwise the array \a a.
+ */
 nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
 { size_t nelem;
   unsigned i;
   for(i=0,nelem=1;i<ndim;++i)
     nelem*=shape[i];
-  TRY(nelem<=ndnelem(a));
-
+  //TRY(nelem<=ndnelem(a));
   maybe_resize_array(a,ndim);
   memcpy(a->shape    ,shape,sizeof(*shape)*ndim);
   memcpy(a->strides+1,shape,sizeof(*shape)*ndim);
@@ -204,6 +208,67 @@ Error:
   return NULL;
 }
 
+/** Sets the shape for dimension \a idim to \a val.
+ *  Updates the strides to reflects the new shape.
+ *
+ *  The arrays dimensionality will be increased to fit \a idim if necessary.
+ *
+ *  \param[in]    a     The array on which to operate.
+ *  \param[in]    idim  The dimension to change.
+ *  \param[in]    val   The new size of the dimension \a idim.
+ *  \returns The input array \a a.
+ */
+nd_t ndShapeSet(nd_t a, unsigned idim, size_t val)
+{ size_t i;
+  if(idim>=a->ndim)
+    TRY(ndInsertDim(a,idim));
+  a->shape[idim]=val;
+  memcpy(a->strides+1,a->shape,sizeof(*a->shape)*a->ndim);
+  a->strides[0]=ndbpp(a);
+  for(i=0;i<a->ndim;++i)
+    a->strides[i+1]*=a->strides[i];
+  return a;
+Error:
+  return NULL;
+}
+
+/** Inserts an extra dimension at \a idim.
+ *  The new dimension will have size 1.
+ *
+ *  Example:
+ *  \code{c}
+ *  ndInsertDim(a,x);
+ *  ndshape(a)[x]==1; // should be true
+ *  \endcode
+ */
+nd_t ndInsertDim(nd_t a, unsigned idim)
+{ size_t i,
+         odim=a->ndim,
+         ndim=((idim<odim)?odim:idim)+1;
+  maybe_resize_array(a,ndim);
+  // pad out with singleton dims if necessary
+  for(i=odim+1;i<=ndim;++i) a->strides[i]=a->strides[odim];
+  for(i=odim;i<ndim;++i) a->shape[i]=1;   // shape[x]=stride[x+1]/stride[x]
+  // insert singleton dimension at idim
+  memmove(a->shape+idim+1,a->shape+idim,sizeof(*(a->shape))*(ndim-idim-1));
+  a->shape[idim]=1;
+  memmove(a->strides+idim+1,a->strides+idim,sizeof(*(a->strides))*(ndim-idim));
+  return a;
+}
+
+/** Removes dimension \a idim merging it with the next dimension.
+ */
+nd_t ndRemoveDim(nd_t a, unsigned idim)
+{ size_t odim;
+  if((odim=ndndim(a))<=idim) return a; // do nothing
+  if(odim!=idim+1)
+  { a->shape[idim+1]*=a->shape[idim];
+    memmove(a->shape+idim,a->shape+idim+1,sizeof(*(a->shape))*(odim-idim-1));
+    memmove(a->strides+idim+1,a->strides+idim+2,sizeof(*(a->strides))*(odim-idim-1));
+  }
+  --a->ndim;
+  return a;
+}
 
 /** increments data pointer: data+=o*stride[idim] */
 nd_t ndoffset(nd_t a, unsigned idim, int64_t o)
