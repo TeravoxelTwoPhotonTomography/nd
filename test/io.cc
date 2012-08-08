@@ -1,6 +1,5 @@
 /** \file
     Testing reading and writing of nD volumes to various file types.
-    \todo RGB tiff stack gets opened by ffmpeg, but as a single plane
     \todo append test
     \todo Write tests will fail if rgb is loaded because tiff reader loads
           colors to last dim, but ffmpeg writer assumes color is first dim.
@@ -22,7 +21,7 @@ struct _files_t
   size_t       ndim;
   size_t       shape[5];
 }
-
+ 
 file_table[] =
 {
   {ND_TEST_DATA_PATH"/vol.1ch.tif",nd_i16,3,{620,512,100,1,1}},
@@ -51,6 +50,40 @@ TEST(ndio,OpenClose)
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
     ndioClose(file);
   }
+}
+
+TEST(ndio,Name)
+{ struct _files_t *cur;
+  EXPECT_EQ("(error)",ndioFormatName(NULL));
+  // Examples that should open
+  for(cur=file_table;cur->path!=NULL;++cur)
+  { ndio_t file=0;
+    const char* n;
+    EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
+    EXPECT_NE("(error)",n=ndioFormatName(file));
+    printf("%s\n",n);
+    ndioClose(file);
+  }
+}
+
+TEST(ndio,Get)
+{ void *param;
+  size_t nbytes;
+  ndio_t file;
+  EXPECT_NE((void*)NULL,file=ndioOpen(file_table[0].path,"tiff/mylib","r"));
+  // Get not supported for first file format
+  EXPECT_EQ((void*)NULL,ndioGet(file,&param,&nbytes));
+  ndioClose(file);
+}
+
+TEST(ndio,Set)
+{ char param[] = {1,2,3,4};
+  size_t nbytes = sizeof(param);
+  ndio_t file;
+  EXPECT_NE((void*)NULL,file=ndioOpen(file_table[0].path,"tiff/mylib","r"));
+  // Set not supported for first file format
+  EXPECT_EQ((void*)NULL,ndioSet(file,(void*)param,nbytes));
+  ndioClose(file);
 }
 
 TEST(ndio,Shape)

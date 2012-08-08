@@ -50,8 +50,10 @@ typedef enum _nd_type_id_t
  */
 typedef enum _nd_kind_t
 { nd_unknown_kind=-1,
-  nd_cpu,                                                 ///< default. Linear storage in machine local RAM.
-  nd_gpu_cuda,                                            ///< stored on CUDA compatible device memory.
+  nd_heap,                                                ///< (default) Linear storage in machine local RAM.
+  nd_static,                                              ///< data is statically allocated in RAM.
+  nd_gpu_cuda,                                            ///< data is stored on CUDA compatible device memory.
+  nd_file,                                                ///< data pointer is an ndio_t file context.
   nd_kind_count
 } nd_kind_t;                                              ///< The "kind" is used to select the implementation of certain algorithms
 

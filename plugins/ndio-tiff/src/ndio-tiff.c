@@ -8,11 +8,14 @@
 #include "image.h"
 #include <string.h>
 
+#include "src/private/kind.c"
+
 /// @cond DEFINES
 #define countof(e) (sizeof(e)/sizeof(*e))
 #define ENDL              "\n"
 #define LOG(...)          fprintf(stderr,__VA_ARGS__)
 #define TRY(e)            do{if(!(e)) { LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
+#define TRYMSG(e,msg)     do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)       if(e){free(e); (e)=NULL;}
 #define FAIL              do{ LOG("Execution should not have reached this point."ENDL); goto Error; }while(0)
@@ -159,7 +162,8 @@ static unsigned read_tiff(ndio_t file, nd_t a)
   Array *plane=0;
   
   TRY(ctx=(Tiff*)ndioContext(file));           /// \todo these checks should be done by the higher level interface, and the documentation should reflect that these pointers are gauranteed not null.
-  TRY(ndkind(a)==nd_cpu && (d=nddata(a))!=NULL);
+  REQUIRE(a,PTR_ARITHMETIC|CAN_MEMCPY);
+  TRY((d=nddata(a))!=NULL);
 
   TRY(ndndim(a)>=2);
 
@@ -198,7 +202,8 @@ static unsigned write_tiff(ndio_t file, nd_t a)
   Array *plane=0;
   int    is_ok=1;
   TRY(ctx=(Tiff*)ndioContext(file));           /// \todo these checks should be done by the higher level interface, and the documentation should reflect that these pointers are gauranteed not null.
-  TRY(ndkind(a)==nd_cpu && nddata(a)!=NULL);
+  REQUIRE(a,PTR_ARITHMETIC|CAN_MEMCPY);
+  TRY(nddata(a)!=NULL);
   switch(ndndim(a))
   { case 0:
     case 1: TRY(ndndim(a)>1); //reject 0d or 1d

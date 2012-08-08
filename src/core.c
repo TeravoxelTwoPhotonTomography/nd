@@ -21,11 +21,18 @@
 #define ENDL                         "\n"
 #define LOG(...)                     printf(__VA_ARGS__)
 #define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
+#define TRYMSG(e,msg)                do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL(msg)                    do{ LOG("%s(%d):"ENDL "\t%s"ENDL,__FILE__,__LINE__,msg); goto Error;} while(0)
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
 /// @endcond
+
+#if 0
+struct _nd_slice_t
+{ size_t beg,cur,end;
+};
+#endif
 
 /// \brief N-dimensional array type.  Implementation of the abstract type nd_t.
 struct _nd_t
@@ -37,6 +44,8 @@ struct _nd_t
   char     *log;                ///< If non-null, holds error message log.
   void     *restrict data;      ///< A poitner to the data.
 };
+
+#include "private/kind.c"
 
 /// @cond DEFINES
 #undef LOG
@@ -274,6 +283,7 @@ nd_t ndRemoveDim(nd_t a, unsigned idim)
 nd_t ndoffset(nd_t a, unsigned idim, int64_t o)
 { TRY(a && a->data);
   TRY(idim<a->ndim);
+  REQUIRE(a,PTR_ARITHMETIC);
   a->data=((uint8_t*)a->data)+a->strides[idim]*o;
   return a;
 Error:

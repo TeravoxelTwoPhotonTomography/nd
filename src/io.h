@@ -13,9 +13,11 @@ extern "C" {
 #endif
 
 typedef struct _ndio_t* ndio_t;
+typedef struct _ndio_fmt_t ndio_fmt_t;
 //typedef struct _nd_t*   nd_t;
 
 int       ndioPreloadPlugins();
+int       ndioAddPlugin(ndio_fmt_t *api);
 
 int       ndioIsFile(const char *filename);
 
@@ -25,6 +27,10 @@ void      ndioClose (ndio_t file);
 nd_t      ndioShape (ndio_t file);  // caller must free the returned object
 ndio_t    ndioRead  (ndio_t file, nd_t dst);
 ndio_t    ndioWrite (ndio_t file, nd_t src);
+
+const char* ndioFormatName(ndio_t file);
+ndio_t    ndioSet(ndio_t file, void *param, size_t nbytes);
+ndio_t    ndioGet(ndio_t file, void **param, size_t *nbytes);
 
 char*     ndioError(ndio_t file);
 void      ndioLogError(ndio_t file, const char *fmt, ...);

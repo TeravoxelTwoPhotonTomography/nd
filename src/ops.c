@@ -50,6 +50,9 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #include "generic/all.c"
 #include "generic/macros.h"
 
+//-// import kind capabilities
+#include "private/kind.c"
+
 //-//
 //-// Error handling
 //-//
@@ -57,6 +60,7 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #define ENDL     "\n"
 #define LOG(...) fprintf(stderr,__VA_ARGS__)
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
+#define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
 #define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
 /// @endcond
@@ -277,8 +281,8 @@ static size_t min_sz_t(size_t a, size_t b)
  *  \ingroup ndops
  */
 nd_t ndcopy(nd_t dst, const nd_t src, size_t ndim, size_t *shape)
-{
-  TRY(ndkind(src)==nd_cpu); // this implementation won't work for gpu based arrays
+{ REQUIRE(src,PTR_ARITHMETIC|CAN_MEMCPY);
+  REQUIRE(dst,PTR_ARITHMETIC|CAN_MEMCPY);
   // if shape or ndims is unspecified use smallest
   if(!ndim)
     ndim=min_sz_t(ndndim(dst),ndndim(src));
@@ -335,7 +339,7 @@ nd_t ndadd(nd_t z, const nd_t x, const nd_t y, size_t ndim, size_t *shape)
   u8 param[8*2];
   TRY(ndkind(x)==ndkind(y));      // Require x and y have the same type, z type may vary
   for(i=0;i<countof(args);++i)
-    TRY(ndkind(args[i])==nd_cpu);       // this implementation won't work for gpu based arrays
+    REQUIRE(args[i],PTR_ARITHMETIC|CAN_MEMCPY);
   // set shape and dim if necessary
   if(!ndim)
   { for(i=1,ndim=ndndim(args[0]);i<countof(args);++i)
@@ -403,7 +407,7 @@ nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, si
   float param[] = {a,b};
   TRY(ndtype(x)==ndtype(y));      // Require x and y have the same type, z type may vary
   for(i=0;i<countof(args);++i)
-    TRY(ndkind(args[i])==nd_cpu); // this implementation won't work for gpu based arrays
+    REQUIRE(args[i],PTR_ARITHMETIC|CAN_MEMCPY);
   // set shape and dim if necessary
   if(!ndim)
   { for(i=1,ndim=ndndim(args[0]);i<countof(args);++i)
@@ -463,7 +467,7 @@ Error:
 nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
 { size_t i;
   u64 param[] = {c};
-  TRY(ndkind(z)==nd_cpu); // this implementation won't work for gpu based arrays
+  REQUIRE(z,PTR_ARITHMETIC|CAN_MEMCPY);
   // set shape and dim if necessary
   if(!ndim)
   { ndim=ndndim(z);

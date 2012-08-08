@@ -4,9 +4,12 @@
 #include "nd.h"
 #include "ops.h"
 
+#include "private/kind.c"
+
 /// @cond DEFINES
 #define ENDL     "\n"
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
+#define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
 #define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
 
@@ -39,7 +42,7 @@ nd_t ndcat(nd_t x, nd_t y, size_t idim)
   int cleanup=0;
   TRY(ndtype(x)==ndtype(y));// Require input arrays to have the same type
   TRY(ndkind(x)==ndkind(y));// Require input arrays to have the same kind
-  TRY(ndkind(x)==nd_cpu);   // this implementation won't work for gpu based arrays
+  REQUIRE(x,PTR_ARITHMETIC|CAN_MALLOC|CAN_REALLOC|CAN_MEMCPY);
   if(ndndim(x)!=ndndim(y))  // do the sensible thing if arrays are different # of dims.
   { if(ndndim(x)>ndndim(y))
       swap(&x,&y);          // ensure x is the array with more dims
@@ -87,7 +90,7 @@ nd_t ndcat_ip(nd_t dst, nd_t src)
 { nd_t out=0;
   int cleanup=0;
   size_t idim;
-  TRY(ndkind(dst)==nd_cpu); // require realloc() for dst buffer.
+  REQUIRE(dst,PTR_ARITHMETIC|CAN_REALLOC|CAN_MEMCPY);
   // handle differing shape.  src is still acceptable as proper subvolume
   if(ndndim(dst)<ndndim(src))
   { TRY((ndndim(src)-ndndim(dst))==1);

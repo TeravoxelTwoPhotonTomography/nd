@@ -15,9 +15,9 @@
 
 #include "nd.h"
 #include "io.h"
-#include "config.h"
-#include "io/plugin.h"
 #include "io/interface.h"
+#include "io/plugin.h"
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -29,7 +29,7 @@
 /// @cond DEFINES
 #define ENDL                         "\n"
 #define LOG(...)                     fprintf(stderr,__VA_ARGS__)
-#define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
+#define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
 /// @endcond
@@ -81,9 +81,9 @@ static int get_format_by_name(const char *format)
   return -1;
 }
 
-/////
-///// INTERFACE
-/////
+//-//
+//-// INTERFACE
+//-//
 
 void* ndioContext(ndio_t file) { return file?file->context:0; }
 char* ndioError  (ndio_t file) { return file?file->log:0; }
@@ -103,6 +103,31 @@ char* ndioError  (ndio_t file) { return file?file->log:0; }
  */
 int ndioPreloadPlugins()
 { return maybe_load_plugins();
+}
+
+/** Adds the interface specified by \a plugin to the internal list of file
+ *  format interfaces.
+ *
+ *  This is useful for adding a custom reader at run time, for example, for 
+ *  loading files from a specific directory structure or specialized database.
+ *
+ *  If the plugin->is_fmt() function always returns false, \a plugin will not
+ *  interfere with automatic format detection.  It can be addressed
+ *  specifically, by using ndioOpen() with the plugin's name (as returned by
+ *  plugin->name()).
+ *
+ *
+ * \param[in] plugin  Should be allocated using malloc().  The ndio library
+ *                    takes ownership of the object.  Be sure \c plugin->lib is
+ *                    set to 0 if the interface did not come from a shared
+ *                    library load.
+ */
+int ndioAddPlugin(ndio_fmt_t* plugin)
+{ TRY(g_formats=realloc(g_formats,sizeof(*g_formats)*(g_countof_formats+1)));
+  g_formats[g_countof_formats++]=plugin;
+  return 1;
+Error:
+  return 0;
 }
 
 /** Determines if the file can be read by any of the file formats. */
@@ -194,6 +219,58 @@ Error:
 }
 #undef LOG
 
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndioLogError(file,__VA_ARGS__)
+/// @endcond
+
+/** Set format specific data.
+ *
+ *  \param[in] file   An open file.
+ *  \param[in] param  A buffer of size \a nbytes.  The contents required
+ *                    depend on the specific format of the file.
+ *  \param[in] nbyets The number of bytes in the \a param buffer.
+ *  \returns 0 on failure, otherwise \a file.
+ */
+ndio_t ndioSet(ndio_t file, void *param, size_t nbytes)
+{ TRY(file);
+  TRY(file->fmt->set); // some formats may not implement set()
+  TRY(file->fmt->set(file,param,nbytes));
+Error:
+  return NULL;
+}
+
+/**
+ * \param[in] An ndio_t object.
+ * \returns The name of the plugin used to read/write \a file,
+ *          or the string "(error)" if there was an error.
+ */
+const char* ndioFormatName(ndio_t file)
+{ TRY(file);
+  TRY(file->fmt->name);
+  return file->fmt->name();
+Error:
+  return "(error)";
+}
+
+/** Set format specific data.
+ *
+ *  \param[in]  file   An open file.
+ *  \param[out] param  Pointer to a buffer of size \a nbytes.  The contents
+ *                     required depend on the specific format of the file.
+ *                     The lifetime of the buffer may also depend on the format.
+ *  \param[out] nbytes The number of bytes in the \a param buffer.
+ *  \returns 0 on failure, otherwise \a file.
+ */
+
+ndio_t ndioGet(ndio_t file, void **param, size_t *nbytes)
+{ TRY(file);
+  TRY(file->fmt->get); // some formats may not implement get()
+  TRY(file->fmt->get(file,param,nbytes));
+Error:
+  return NULL;
+}
+#undef LOG
 
 /** Appends message to error log for \a file
     and prints it to \c stderr.
