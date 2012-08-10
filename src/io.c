@@ -256,17 +256,13 @@ Error:
 /** Set format specific data.
  *
  *  \param[in]  file   An open file.
- *  \param[out] param  Pointer to a buffer of size \a nbytes.  The contents
- *                     required depend on the specific format of the file.
- *                     The lifetime of the buffer may also depend on the format.
- *  \param[out] nbytes The number of bytes in the \a param buffer.
- *  \returns 0 on failure, otherwise \a file.
+ *  \returns 0 on failure, otherwise a pointer to format specific data.
  */
 
-ndio_t ndioGet(ndio_t file, void **param, size_t *nbytes)
+void* ndioGet(ndio_t file)
 { TRY(file);
   TRY(file->fmt->get); // some formats may not implement get()
-  TRY(file->fmt->get(file,param,nbytes));
+  return file->fmt->get(file);
 Error:
   return NULL;
 }

@@ -29,8 +29,11 @@
 /// @endcond
 
 #if 0
+// signed beg,cur,end should act like they do in python
+// (-1) is the end, and so on
 struct _nd_slice_t
-{ size_t beg,cur,end;
+{ size_t  idim;
+  int64_t beg,cur,end,step;
 };
 #endif
 

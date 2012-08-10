@@ -70,9 +70,10 @@ TEST(ndio,Get)
 { void *param;
   size_t nbytes;
   ndio_t file;
+  malloc(1024);
   EXPECT_NE((void*)NULL,file=ndioOpen(file_table[0].path,"tiff/mylib","r"));
   // Get not supported for first file format
-  EXPECT_EQ((void*)NULL,ndioGet(file,&param,&nbytes));
+  EXPECT_EQ((void*)NULL,ndioGet(file));
   ndioClose(file);
 }
 

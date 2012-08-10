@@ -16,6 +16,7 @@
  *  \todo Add some facility to set paramters. e.g. Tiff Compression, or bitrate for a lossy compression.
  *        Should be some key-value store, or each plugin should expose a special header that exposes a
  *        parameters struct.
+ *  \todo Describe the contract for each interface function in more detail.
  */
 
 #pragma once
@@ -34,8 +35,8 @@ extern "C" {
   typedef nd_t        (*_ndio__shape_t )(ndio_t file);                          ///< Gets the shape of the data in \a file. \returns 0 on failure, otherwise returns the shape, dimensions, and type of the data in a dummy nd_t object.  Caller is responsible for freeing the returned object.
   typedef unsigned    (*_ndio__read_t  )(ndio_t file, nd_t dst);                ///< Reads the data in \a file to \a a. \returns 0 on failure, otherwise returns \a self.  \param[out] dst Destination container for the file's contents. Should have been allocated with enough storage to hold the data.
   typedef unsigned    (*_ndio__write_t )(ndio_t file, nd_t src);                ///< Writes the data in \a a to \a file. \returns 0 on failure, otherwise returns \a self.  \param[in]  src The data to save to the file.  Should be treated as an append operation.  Append vs overwrite behavior should be handled on opening the file.
-  typedef unsigned    (*_ndio__set_t)(ndio_t file, void *param, size_t nbytes);   ///< (optional) Set format specific options or metadata.
-  typedef unsigned    (*_ndio__get_t)(ndio_t file, void **param, size_t *nbytes); ///< (optional) Get format specific options or metadata.
+  typedef unsigned    (*_ndio__set_t)(ndio_t file, void *param, size_t nbytes); ///< (optional) Set format specific options or metadata.
+  typedef void*       (*_ndio__get_t)(ndio_t file);                             ///< (optional) Get format specific options or metadata.
 
   /**
    * An ndio plugin must implement the functions in this interface.

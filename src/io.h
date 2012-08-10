@@ -30,7 +30,7 @@ ndio_t    ndioWrite (ndio_t file, nd_t src);
 
 const char* ndioFormatName(ndio_t file);
 ndio_t    ndioSet(ndio_t file, void *param, size_t nbytes);
-ndio_t    ndioGet(ndio_t file, void **param, size_t *nbytes);
+void*     ndioGet(ndio_t file);
 
 char*     ndioError(ndio_t file);
 void      ndioLogError(ndio_t file, const char *fmt, ...);

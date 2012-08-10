@@ -130,6 +130,7 @@ class Ops3DF32:public ::testing::Test
     NEW(f32,e2,length);
     NEW(f32,e3,length);
     NEW(f32,result,length);
+    //malloc(1024);
     memcpy(zeros,data01,sizeof(data01));
     memcpy(ones,data02,sizeof(data02));
     memcpy(e1,expt01,sizeof(expt01));
