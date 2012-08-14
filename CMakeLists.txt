@@ -62,7 +62,7 @@ find_package(Threads)
 if(GTEST_FOUND)
   enable_testing()
   include_directories(${PROJECT_SOURCE_DIR})
-  include_directories(${GTEST_INCLUDE_DIRS})
+  include_directories(${GTEST_INCLUDE_DIR})
   file(GLOB TEST_SOURCES test/*.cc)
   add_executable(libnd-tests
     ${TEST_SOURCES}

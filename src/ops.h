@@ -20,6 +20,7 @@ extern "C" {
 // typedef struct _nd_t* nd_t;
 
 nd_t ndcopy       (nd_t dst,nd_t src,size_t ndim,size_t* shape);
+nd_t ndtranspose  (nd_t dst, const nd_t src, unsigned i, unsigned j, size_t ndim, size_t *shape);
 nd_t ndcat        (nd_t x,nd_t y, size_t idim);
 nd_t ndcat_ip     (nd_t dst,nd_t src);
 nd_t ndadd        (nd_t z,nd_t x,nd_t y,size_t ndim,size_t* shape);

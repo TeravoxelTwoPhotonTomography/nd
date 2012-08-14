@@ -313,6 +313,76 @@ Error:
   return NULL;
 }
 
+/** Transpose two dimensions \a i and \a j.
+ *
+ *  The caller must set up \a dst by allocating memory and make sure it has the
+ *  correct type and shape.  This operations act as if the data was first copied
+ *  from \a src to \a dst (as in ndcopy()), and then the \a dst array is transposed
+ *  in place.
+ *
+ *  In reality, the transpose is accomplised during the copy by manipulating the
+ *  shape and strides of \a dst.
+ *
+ *  Example:
+ *  \code{c}
+ *  // transpose vol
+ *  { nd_t dst=ndinit();
+ *    ndref(dst,malloc(ndnbytes(vol)),ndnelem(vol));
+ *    ndreshape(ndcast(dst,ndtype(vol)),ndndim(vol),ndshape(vol));
+ *    EXPECT_EQ(dst,ndtranspose(dst,vol,2,3,0,NULL)); 
+ *    // replace original volume with transposed version
+ *    free(nddata(vol));  
+ *    ndfree(vol);
+ *    vol=dst;
+ *  }
+ *  \endcode
+ *
+ *  \param[in,out]  dst   The output array.
+ *  \param[in]      src   The input array.
+ *  \param[in]     ndim   The number of dimensions in the sub-volume described by \a shape.
+ *                        If 0, this is set to the largest dimension that still fits \a src
+ *                        and \a dst.
+ *  \param[in]    shape   The copy is restricted to a sub-volume with this shape.
+ *                        If NULL, the smallest shape common to \a src and \a dst will
+ *                        be used.  The shape should be specified in the source space
+ *                        (before transposition).
+ *  \param[in]        i   This dimension will be switched with dimension \a j.
+ *  \param[in]        j   This dimension will be switched with dimension \a i.
+ *  
+ *  \returns \a dst on success, or NULL otherwise.
+ *  \ingroup ndops
+ */
+
+nd_t ndtranspose(nd_t dst, const nd_t src, unsigned i, unsigned j, size_t ndim, size_t *shape)
+{ size_t ti,tj;
+  unsigned idim;
+
+  // Compute domain if left NULL
+  if(!ndim)
+    ndim=min_sz_t(ndndim(dst),ndndim(src));
+  if(!shape) // use the source shape by default
+  { shape=(size_t*)alloca(sizeof(size_t)*ndim);
+    for(idim=0;idim<ndim;++idim)
+      shape[idim]=min_sz_t(ndshape(dst)[idim],ndshape(src)[idim]);
+  }
+
+  // permute dst shape
+  { size_t t=ndshape(dst)[i];
+    ndShapeSet(dst,i,ndshape(dst)[j]);
+    ndShapeSet(dst,j,t);
+    ti=ndstrides(dst)[i],
+    tj=ndstrides(dst)[j];
+  }
+
+  // Transpose by copying with permuted pitches
+  ndstrides(dst)[i]=tj;
+  ndstrides(dst)[j]=ti;
+  ndcopy(dst,src,ndim,shape);
+  ndstrides(dst)[i]=ti;
+  ndstrides(dst)[j]=tj;
+  return dst;
+}
+
 /// @cond DEFINES
 #undef LOG
 #define LOG(...) do{ ndLogError(z,__VA_ARGS__); ndLogError(x,__VA_ARGS__); ndLogError(y,__VA_ARGS__);} while(0)

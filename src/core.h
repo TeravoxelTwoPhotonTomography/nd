@@ -1,5 +1,5 @@
 /** \file
-    N-Dimensional array type.
+    N-Dimensional array type and core operations.
 
     \section nd-notes Notes
 
@@ -69,8 +69,8 @@ size_t        ndnelem  (const nd_t a);                    ///< \returns the tota
 size_t        ndnbytes (const nd_t a);                    ///< \returns the total number of bytes in the array
 void*         nddata   (const nd_t a);                    ///< \returns a pointer to the origin pixel
 size_t        ndndim   (const nd_t a);
-const size_t* ndshape  (const nd_t a);
-const size_t* ndstrides(const nd_t a);
+size_t*       ndshape  (const nd_t a);
+size_t*       ndstrides(const nd_t a);
 
 char*         nderror(const nd_t a);                      ///< \returns NULL if no error, otherwise a descriptive string
 void          ndLogError(nd_t a, const char *fmt, ...);   ///< logs an error, storing it with the array

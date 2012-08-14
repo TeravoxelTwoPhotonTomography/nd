@@ -1,5 +1,5 @@
 /** \file
-    N-Dimensional array type.
+    N-Dimensional array type and core operations.
 
     \author Nathan Clack
     \date   June 2012
@@ -105,8 +105,8 @@ size_t        ndnelem   (const nd_t a)    {return a->strides[a->ndim]/a->strides
 size_t        ndnbytes  (const nd_t a)    {return a->strides[a->ndim];}
 void*         nddata    (const nd_t a)    {return ((uint8_t*)a->data);}
 size_t        ndndim    (const nd_t a)    {return a->ndim;}
-const size_t *ndshape   (const nd_t a)    {return a->shape;}
-const size_t *ndstrides (const nd_t a)    {return a->strides;}
+size_t*       ndshape   (const nd_t a)    {return a->shape;}
+size_t*       ndstrides (const nd_t a)    {return a->strides;}
 char*         nderror   (const nd_t a)    {return a?a->log:0;}
 void          ndResetLog(nd_t a)          {SAFEFREE(a->log);}
 nd_kind_t     ndkind    (const nd_t a)    {return a->kind;}
@@ -121,7 +121,7 @@ nd_t ndsetkind(nd_t a,nd_kind_t kind)
 static
 void maybe_resize_array(nd_t a, unsigned ndim)
 { size_t odim=a->ndim;
-  if(a->ndim>=ndim) return; // nothing to do
+  if(a->ndim>=ndim) { a->ndim=ndim; return;} // nothing to do
   RESIZE(size_t,a->shape  ,ndim);
   RESIZE(size_t,a->strides,ndim+1);
   a->ndim=ndim;
@@ -171,12 +171,16 @@ nd_type_id_t ndtype(const nd_t a)
 { return a->type_desc;
 }
 
-/** initializes \a a so that it references \a buf.
+/** Initializes \a a so that it references \a buf.
 
     If the shape of the array \a is already set so that \nelem fits, then
     this just sets the data pointer and returns.
 
     Otherwise, resizes the array as a 1d container referencing the data.
+
+    \todo Only take's nelem as an argument in case a is not initialized.
+          I think I should eliminate the nelem argument, leaving the
+          size as 1.
 
     \todo Awkward.  I like binding the pointer so that I don't deal with
           memory management inside.  I don't like how this ends up getting
@@ -188,10 +192,12 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
 { a->data=buf;
   if(a->strides && ndnelem(a)==nelem)
     return a;
-  maybe_resize_array(a,1);
-  a->shape[0]=nelem;
-  a->strides[0]=ndbpp(a);
-  a->strides[1]=ndbpp(a)*nelem;
+  if(a->ndim==0)
+  { maybe_resize_array(a,1);
+    a->shape[0]=nelem;
+    a->strides[0]=ndbpp(a);
+    a->strides[1]=ndbpp(a)*nelem;
+  }
 
   return a;
 }
@@ -201,15 +207,21 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
  *  This function assumes you know what you're doing with the shape.  It does
  *  not do any bounds checking.
  *
+ *  Can use this to change the number of dimensions by calling
+ *  \code{c}
+ *  ndreshape(array,ndim,ndndim(array))
+ *  \endcode
+ *
  *  \returns 0 on error, otherwise the array \a a.
  */
 nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
-{ size_t nelem;
-  unsigned i;
-  for(i=0,nelem=1;i<ndim;++i)
-    nelem*=shape[i];
+{ unsigned i;
+  //size_t nelem;
+  //for(i=0,nelem=1;i<ndim;++i)
+  // nelem*=shape[i];
   //TRY(nelem<=ndnelem(a));
-  maybe_resize_array(a,ndim);
+  maybe_resize_array(a,ndim); // sets ndim, maybe resizes shape/strides 
+  if(a->shape==shape) return a;
   memcpy(a->shape    ,shape,sizeof(*shape)*ndim);
   memcpy(a->strides+1,shape,sizeof(*shape)*ndim);
   a->strides[0]=ndbpp(a);

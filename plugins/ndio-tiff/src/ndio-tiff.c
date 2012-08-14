@@ -231,7 +231,7 @@ static unsigned write_tiff(ndio_t file, nd_t a)
         plane->data=(void*)((uint8_t*)nddata(a)+i*ndstrides(a)[2]+j*chanstride);
         TRY(0==Add_IFD_Channel(ctx,plane,k));
       }
-      Update_Tiff(ctx,LZW_PRESS);
+      Update_Tiff(ctx,DONT_PRESS);
     }
   }
   

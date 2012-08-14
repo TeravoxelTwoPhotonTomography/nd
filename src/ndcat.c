@@ -109,7 +109,7 @@ nd_t ndcat_ip(nd_t dst, nd_t src)
     ndShapeSet(dst,idim,ndshape(dst)[idim]+ndshape(src)[idim]);
     { void *data;
       TRY(data=realloc(nddata(dst),ndnbytes(dst)));
-      ndref(dst,data,ndnbytes(dst));
+      ndref(dst,data,ndnelem(dst));
     }
     ndcopy(ndoffset(dst,idim,o),src,0,NULL);
     out=ndoffset(dst,idim,-o);

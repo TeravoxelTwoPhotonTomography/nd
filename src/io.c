@@ -156,6 +156,11 @@ ndio_t ndioOpen(const char* filename, const char *format, const char *mode)
   void *ctx=NULL;
   int ifmt;
   maybe_load_plugins();
+  // Some input validation.  This relieves plugins from having to handle these cases.
+  TRY(filename);
+  TRY(*filename); //assert non-empty string
+  TRY(mode);
+  TRY(*mode);     //assert non-empty string
   if(format)
   { if(0>(ifmt=get_format_by_name(format))) goto ErrorSpecificFormat;
   } else

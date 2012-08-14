@@ -4,6 +4,7 @@
  *  \todo Add xor_ip test.
  *  \todo test signed-unsigned conversion
  *  \todo Add test that makes sure inplace op's work correctly over subvolumes.
+ *  \todo Add test for transpose
  *
  *  @cond TEST
  */
@@ -12,9 +13,12 @@
 #include "helpers.h"
 #include "stdlib.h"
 
+/// @cond DEFINES
 typedef float f32;
 #define TOL_F32 1e-5
 #define NEW(T,e,N) EXPECT_NE((void*)NULL,(e)=(T*)malloc(sizeof(T)*N));
+#define countof(e) (sizeof(e)/sizeof(*(e)))
+/// @endcond
 
 // DATA
 
@@ -241,6 +245,21 @@ TEST_F(Ops3DF32,CatIP)
       ndcat_ip(x,y))
       <<nderror(x);
   /// \todo check shape and conetents
+}
+
+TEST(Ops2DU8,Transpose)
+{ uint8_t buf1[]={1,2,3,4,5,6},
+          buf2[]={0,0,0,0,0,0},
+          expt[]={1,4,2,5,3,6};
+  size_t sh1[]={3,2},sh2[]={3,2};
+  nd_t dst=0,src=0;
+  EXPECT_EQ(src,ndref(src=ndinit(),buf1,countof(buf1)))<<nderror(src);
+  EXPECT_EQ(dst,ndref(dst=ndinit(),buf2,countof(buf2)))<<nderror(dst);
+  EXPECT_EQ(src,ndreshape(src,2,sh1))<<nderror(src);
+  EXPECT_EQ(dst,ndreshape(dst,2,sh2))<<nderror(dst);
+  EXPECT_EQ(dst,ndtranspose(dst,src,0,1,0,NULL))<<nderror(dst);
+  EXPECT_EQ(-1,firstdiff(countof(buf2),buf2,expt));
+  /// \todo add checks for expected shape and stride
 }
 
 //TEST_F(Ops3DF32, Swap)
