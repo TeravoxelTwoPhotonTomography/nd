@@ -105,6 +105,7 @@ typedef struct _ndio_ffmpeg_t
   AVFrame           *raw;     ///< The frame buffer for holding data before translating it to the output nd_t format
   int                istream; ///< The stream index.
   int64_t            nframes; ///< Duration of video in frames (for reading)
+  int                iframe;  ///< the last requested frame (for seeking)
   AVDictionary      *opts;    ///< (unused at the moment)
 } *ndio_ffmpeg_t;
 
@@ -258,6 +259,7 @@ static ndio_ffmpeg_t open_reader(const char* path)
 { ndio_ffmpeg_t self=0;
   NEW(struct _ndio_ffmpeg_t,self,1);
   memset(self,0,sizeof(*self));
+  self->iframe=-1;
 
   TRY(self->raw=avcodec_alloc_frame());
   AVTRY(avformat_open_input(&self->fmt,path,NULL/*input format*/,NULL/*options*/),path);
@@ -468,11 +470,6 @@ static nd_t shape_ffmpeg(ndio_t file)
     av_free_packet(&packet);
     AVTRY(av_seek_frame(self->fmt,self->istream,0,AVSEEK_FLAG_BACKWARD/*flags*/),"Failed to seek to beginning.");
   }
-#if 0  // was in the loader for the whisker tracking code.  Don't remember why.
-  /* Frame rate fix for some codecs */
-  if( ret->pCtx->time_base.num > 1000 && ret->pCtx->time_base.den == 1 )
-    ret->pCtx->time_base.den = 1000;
-#endif
   d=(int)self->nframes;
   w=cctx->width;
   h=cctx->height;
@@ -480,7 +477,6 @@ static nd_t shape_ffmpeg(ndio_t file)
   { nd_t out=ndinit();
     size_t k,shape[]={w,h,d,c};
     k=pack(shape,countof(shape));
-    ndref(out,NULL,prod(shape,k));
     ndcast(out,type);
     ndreshape(out,(unsigned)k,shape);
     return out;
@@ -538,8 +534,9 @@ static int next(ndio_t file,nd_t plane,int iframe)
     DEBUG_PRINT_PACKET_INFO;
     if(!yielded && packet.size==0) // packet.size==0 usually means EOF
         break;
-  } while(!yielded || self->raw->best_effort_timestamp<iframe);
+  } while(!yielded || self->raw->best_effort_timestamp<iframe);  
   av_free_packet(&packet);
+  self->iframe=iframe;
 
   /*  === Copy out data, translating to desired pixel format ===
       Assume colors are last dimension.
@@ -581,16 +578,17 @@ static int seek(ndio_t file, int64_t iframe)
   ts = iframe; //av_rescale(duration,iframe,self->nframes);
 
   TRY(iframe>=0 && iframe<self->nframes);
+  // AVSEEK_FLAG_BACKWARD determines the direction to go from the sought timestamp
+  // to find a keyframe.
   AVTRY(avformat_seek_file( self->fmt,       //format context
                             self->istream,   //stream id
                             0,ts,ts,          //min,target,max timestamps
-                            0),//AVSEEK_FLAG_ANY),//flags
+                            AVSEEK_FLAG_BACKWARD|AVSEEK_FLAG_FRAME),//flags
                             "Failed to seek.");
-  avcodec_flush_buffers(CCTX(self));
-  //TRY(next(self,iframe));
-  return iframe;
+//(necessary?)  avcodec_flush_buffers(CCTX(self));
+  return 1;
 Error:
-  return -1;
+  return 0;
 }
 
 /** Returns the number of frames in \a file */
@@ -608,7 +606,7 @@ Error:
   kind, and references a big enough destination buffer.
 
   Assumes:
-    1. Output ordering is c,w,h,d
+    1. Output ordering is w,h,d,c
     2. Array container has the correct size and type
 */
 static unsigned read_ffmpeg(ndio_t file, nd_t a)
@@ -623,6 +621,27 @@ Error:
   return 0;
 }
 
+/**
+ * Query seekable dimensions.
+ * Output ordering is w,h,d,c.
+ * Only d is seekable.
+ */
+static unsigned canseek_ffmpeg(ndio_t file, size_t idim)
+{return idim==2;}
+
+/**
+ * Seek
+ */
+static unsigned seek_ffmpeg(ndio_t file,nd_t a,size_t *pos)
+{ ndio_ffmpeg_t self;
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));  
+  if(pos[2]!=self->iframe+1)
+    TRY(seek(file,pos[2]));
+  TRY(next(file,a,pos[2]));
+  return 1;
+Error:
+  return 0;
+}
 
 /**
   Writes the data in \a to the file \a file.
@@ -718,6 +737,8 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
   api.shape  = shape_ffmpeg;
   api.read   = read_ffmpeg;
   api.write  = write_ffmpeg;
+  api.canseek= canseek_ffmpeg;
+  api.seek   = seek_ffmpeg;
   return &api;
 }
 

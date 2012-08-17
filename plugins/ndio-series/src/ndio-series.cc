@@ -24,6 +24,9 @@
  * dimensions are given by the file series.  So these files represent our 5D 
  * array.
  *
+ * \todo Allow elements of the path to enumerate a dimension, as opposed to
+ *       the filename alone.
+ *
  * \author Nathan Clack
  * \date   Aug 2012
  */
@@ -131,6 +134,7 @@ struct series_t
               pattern_;  ///< the filename pattern, should not include path elements
   unsigned ndim_;        ///< the number of dimensions represented in the pattern
   char     isr_,isw_;    ///< mode flags (readable, writeable)
+  size_t   last_;        ///< keeps track of last written position for appending
 
   static RE2 ptn_field;  ///< Recognizes the "%" style filename patterns
   static RE2 eg_field;   ///< Recognizes the "*.000.000.ext" example filename patterns.
@@ -139,6 +143,7 @@ struct series_t
   : ndim_(0)
   , isr_(0)
   , isw_(0)
+  , last_(0)
   { size_t n=path.rfind(PATHSEP[0]);
     TRY(parse_mode_string(mode,&isr_,&isw_));
     { n=(n>=path.size())?0:n; // if not found set to 0
@@ -199,10 +204,12 @@ Error:
   bool makename(std::string& out,std::vector<size_t> &ipos)
   { char buf[128]={0};
     std::string t=pattern_;
+    *ipos.rend()+=last_;
     for (std::vector<size_t>::iterator it = ipos.begin(); it != ipos.end(); ++it)
     { snprintf(buf,countof(buf),"%zu",*it);
       TRY(RE2::Replace(&t,"\\(\\\\d\\+\\)",buf));
-    }  
+    }
+    *ipos.rend()-=last_;
     out.clear();
     if(!path_.empty())
     { out+=path_;
@@ -440,9 +447,10 @@ static unsigned series_write(ndio_t file, nd_t src)
     ndreshape(src,o+1,ndshape(src));             // restory dimensionality
     unsetpos(src,o,ipos);
   } while (inc(src,o,ipos));
+  self->last_ += *ipos.rend();
   return 1;
 Error:
-  return 0;  
+  return 0;
 }
 
 //

@@ -5,6 +5,9 @@
     \date   June 2012
 
     \todo Need better error messages.
+    \todo subvolumes/slicing
+
+
     */
 #pragma once
 
@@ -38,7 +41,7 @@ void      ndioResetLog(ndio_t file);
 
 void*     ndioContext(ndio_t file); // returns the format-specific file context.
 
-/// \todo ndioReadSubarray(ndio_t file, nd_t dst, int *origin); Dst has shape and dim params, origin is coordinates for offset
+nd_t      ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step); // dst has shape and dim params, origin is coordinates for offset
 /// \todo ndslice_t ndioSlice(ndio_t file, int idim);           Request slice along dim i
 
 #ifdef __cplusplus

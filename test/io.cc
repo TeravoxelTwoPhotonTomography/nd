@@ -4,6 +4,13 @@
     \todo Write tests will fail if rgb is loaded because tiff reader loads
           colors to last dim, but ffmpeg writer assumes color is first dim.
           Need dimension annotation and transpose.
+    \todo Add better ndioReadSubarray tests
+          1. Read lines from a file
+          2. Read images from a stack
+          3. Skip planes/channels
+          4. Read cropped
+          5. Content comparison tests.
+          6. Add subarray tests to ndio-series-tests
     @cond TEST
 */
 
@@ -116,6 +123,30 @@ TEST(ndio,Read)
       EXPECT_EQ(file,ndioRead(file,vol)); // could chain ndioClose(ndioRead(ndioOpen("file.name","r"),vol));
       if(data) free(data);
     }
+    ndfree(vol);
+    ndioClose(file);
+  }
+}
+
+TEST(ndio,ReadSubarray)
+{ struct _files_t *cur;
+  for(cur=file_table;cur->path!=NULL;++cur)
+  { ndio_t file=0;
+    nd_t vol;
+    size_t n;
+    EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
+    ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
+    // Assume we know the dimensionality of our data and which dimension to iterate over.
+    n=ndshape(vol)[2];      // remember the range over which to iterate
+    ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol))); // alloc just enough data      
+    { size_t pos[]={0,0,0,0}; // 4d data
+      nd_t a=vol;
+      for(size_t i=0;i<n && a;++i,++pos[2])
+      { ASSERT_EQ(vol,a=ndioReadSubarray(file,vol,pos,0))<<ndioError(file); // seek to pos and read, shape limited by vol
+      }
+    }
+    free(nddata(vol));
     ndfree(vol);
     ndioClose(file);
   }

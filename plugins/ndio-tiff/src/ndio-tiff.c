@@ -126,8 +126,7 @@ static nd_t shape_tiff(ndio_t file)
   Rewind_Tiff(ctx);
   { nd_t out=ndinit();
     size_t k,shape[]={w,h,d,c};
-    k=pack(shape,countof(shape));    
-    ndref(out,NULL,prod(shape,k));
+    k=pack(shape,countof(shape));
     ndcast(out,types_mylib_to_nd[Get_IFD_Channel_Type(ctx,0)]);
     ndreshape(out,(unsigned)k,shape);
     return out;
@@ -161,7 +160,7 @@ static unsigned read_tiff(ndio_t file, nd_t a)
   Tiff *ctx;
   Array *plane=0;
   
-  TRY(ctx=(Tiff*)ndioContext(file));           /// \todo these checks should be done by the higher level interface, and the documentation should reflect that these pointers are gauranteed not null.
+  TRY(ctx=(Tiff*)ndioContext(file)); /// \todo these checks should be done by the higher level interface, and the documentation should reflect that these pointers are gauranteed not null.
   REQUIRE(a,PTR_ARITHMETIC|CAN_MEMCPY);
   TRY((d=nddata(a))!=NULL);
 
@@ -177,15 +176,15 @@ static unsigned read_tiff(ndio_t file, nd_t a)
         nddata(a)));
   }
   { const size_t chanstride = (nchan>1)?ndstrides(a)[3]:0;
-    for(ichan=0;ichan<nchan;++ichan)
-    { for(i=0,Rewind_Tiff(ctx);
+    for(i=0,Rewind_Tiff(ctx);
           !Tiff_EOF(ctx);
-          ++i,Advance_Tiff(ctx)) // strides: (1,w,wh,[whd,whdc])
+          ++i,Advance_Tiff(ctx)) // strides: (1,w,wh,[whd,whdc])  
+    { for(ichan=0;ichan<nchan;++ichan)
       { plane->data=(void*)((uint8_t*)nddata(a)+i*ndstrides(a)[2]+ichan*chanstride);
         TRY(0==Get_IFD_Channel(ctx,ichan,plane));
       }
-      Rewind_Tiff(ctx);
     }
+    Rewind_Tiff(ctx);
   }
 Finalize:
   if(plane) {plane->data=0; Free_Array(plane);}
@@ -193,6 +192,59 @@ Finalize:
 Error:
   isok=0;
   goto Finalize;
+}
+
+/**
+ * Query which dimensions are seekable.
+ * Use an output ordering of w,h,d,c.
+ * Only d is seekable.
+ */
+static unsigned canseek_tiff(ndio_t file, size_t idim)
+{ return (idim==2);
+}
+
+/**
+ * Reads a slab on a seekable dimension.
+ * O(N) iteration through ifd's each time. 
+ */
+static unsigned seek_tiff(ndio_t file, nd_t a, size_t *pos)
+{ size_t i,iplane;
+  int w,h,ichan,nchan,isok=1;
+  void  *d;
+  Tiff *ctx;
+  Array *plane=0;
+  iplane=pos[2];
+
+  TRY(ctx=(Tiff*)ndioContext(file));
+  REQUIRE(a,PTR_ARITHMETIC|CAN_MEMCPY); 
+  TRY((d=nddata(a))!=NULL); /// \todo caller should check this stuff for this function.
+  TRY(ndndim(a)>=2);
+
+  TRY(0==Get_IFD_Shape(ctx,&w,&h,&nchan));
+  { Dimn_Type dims[2] = {w,h};
+    TRY(plane=Make_Array_Of_Data(
+        PLAIN_KIND,
+        Get_IFD_Channel_Type(ctx,0),
+        2,
+        dims,
+        nddata(a)));
+  }
+  { const size_t chanstride = (nchan>1)?ndstrides(a)[3]:0;
+    for(i=0,Rewind_Tiff(ctx);!Tiff_EOF(ctx) && i<iplane;++i,Advance_Tiff(ctx));
+    TRY(!Tiff_EOF(ctx)); // Should not have hit end of file
+    for(ichan=0;ichan<nchan;++ichan)
+    { plane->data=(void*)((uint8_t*)nddata(a)+ichan*chanstride);// strides: (1,w,wh,[whd,whdc])
+      TRY(0==Get_IFD_Channel(ctx,ichan,plane));
+    }
+    Rewind_Tiff(ctx);
+  }
+Finalize:
+  if(plane) {plane->data=0; Free_Array(plane);}
+  return isok;
+Error:
+  isok=0;
+  goto Finalize;
+
 }
 
 /** Write \a a to \a file */
@@ -265,5 +317,7 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
   api.shape  = shape_tiff;
   api.read   = read_tiff;
   api.write  = write_tiff;
+  api.canseek= canseek_tiff;
+  api.seek   = seek_tiff;
   return &api;
 }

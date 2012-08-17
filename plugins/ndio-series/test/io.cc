@@ -1,6 +1,8 @@
 /** \file
     Testing reading of nD volumes from file series.
     @cond TEST
+
+    \todo APPEND test
 */
 
 #include <gtest/gtest.h>

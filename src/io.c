@@ -29,6 +29,7 @@
 /// @cond DEFINES
 #define ENDL                         "\n"
 #define LOG(...)                     fprintf(stderr,__VA_ARGS__)
+#define HERE                         LOG("HERE -- %s(%d): %s()"ENDL,__FILE__,__LINE__,__FUNCTION__)
 #define TRY(e)                       do{if(!(e)) { LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
@@ -43,12 +44,24 @@ static size_t      g_countof_formats=0; ///< The number of loaded plugins
 struct _ndio_t
 { ndio_fmt_t *fmt;       ///< The plugin API used to operate on the file.
   void       *context;   ///< The data that the plugin uses to operate on the file.  A plugin-specific file handle.
+
+  nd_t        shape;     ///< (subarrays) 
+  nd_t        cache;     ///< (subarrays) Cache used to store temporary data.
+  char       *seekable;  ///< (subarrays) Seekable dimension mask
+  size_t      seekable_n;///< count of elements allocated for \a seekable
+  size_t     *dstpos;    ///< (subarrays) Destination position index
+  size_t      dstpos_n;  ///< count of elements allocated for \a dstpos
+  size_t     *srcpos;    ///< (subarrays) File positions index
+  size_t      srcpos_n;  ///< count of elements allocated for \a srcpos
+  size_t     *cachepos;  ///< (subarrays) Cache origin in file space
+  size_t      cachepos_n;///< coutn of elements allocated for cachepos
+
   char       *log;       ///< Used to store the error log.  NULL if no errors, otherwise a NULL terminated string.
 };
 
-/////
-///// HELPERS
-/////
+//
+// === HELPERS ===
+//
 
 /** \todo make thread safe, needs a mutex */
 static int maybe_load_plugins()
@@ -81,9 +94,9 @@ static int get_format_by_name(const char *format)
   return -1;
 }
 
-//-//
-//-// INTERFACE
-//-//
+//
+// === INTERFACE ===
+//
 
 void* ndioContext(ndio_t file) { return file?file->context:0; }
 char* ndioError  (ndio_t file) { return file?file->log:0; }
@@ -168,9 +181,9 @@ ndio_t ndioOpen(const char* filename, const char *format, const char *mode)
   }
   TRY(ctx=g_formats[ifmt]->open(filename,mode));
   NEW(struct _ndio_t,file,1);
+  memset(file,0,sizeof(struct _ndio_t));
   file->context=ctx;
   file->fmt=g_formats[ifmt];
-  file->log=NULL;
   return file;
 ErrorSpecificFormat:
   LOG("%s(%d): %s"ENDL "\tCould not open \"%s\" for %s with specified format %s."ENDL,
@@ -188,6 +201,15 @@ Error:
 void ndioClose(ndio_t file)
 { if(!file) return;
   file->fmt->close(file);
+  
+  if(file->shape) ndfree(file->shape);
+  if(file->cache) 
+  { if(nddata(file->cache)) free(nddata(file->cache));
+    ndfree(file->cache);
+  }
+  SAFEFREE(file->dstpos);
+  SAFEFREE(file->srcpos);
+
   if(file->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,file,file->log);
   SAFEFREE(file->log);
   free(file);
@@ -310,5 +332,229 @@ Error:
 }
 
 void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
+
+//
+// === READ SUBARRAY ===
+//
+
+/// @cond DEFINES
+#define LOG(...)               ndioLogError(file,__VA_ARGS__)
+#define min_(a,b)              (((a)<(b))?(a):(b))
+#define max_(a,b)              (((a)<(b))?(b):(a))
+#define step_(idx_)            (step?step[idx_]:1)
+#define ori_(idx_)             (origin?origin[idx_]:0)
+// If a file format doesn't support seeking, the entire array is read into cache
+// These macros replace the format implementations with defaults to effect this 
+// behavior.
+#define canseek_(file_,i_)     (file_->fmt->canseek?file_->fmt->canseek(file,i):0)
+#define seek_(file_,vol_,pos_) (file_->fmt->seek?file_->fmt->seek(file_,vol_,pos_):file_->fmt->read(file_,vol_))
+// Utility memory ops
+#define MAYBE_REALLOC(T,ptr,n) do{\
+                            if(n>ptr##_n)\
+                            { ptr##_n=n;\
+                              TRY(ptr=(T*)realloc(ptr,sizeof(T)*(ptr##_n)));\
+                            }\
+                          } while(0)
+#define ZERO(T,ptr,n)     memset(ptr,0,sizeof(T)*(ptr##_n))
+/// @endcond
+
+/**
+ * Vector increment of \a pos in \a domain with carry.
+ * Only increment dimensions with a corresonding 1 in \a mask.
+ * Dimensions with mask==0, have an effective shape of 1.
+ *
+ * Each call is ~O(ndndim(domain)).
+ */
+static unsigned inc(nd_t domain,size_t *pos, char *mask)
+{ int kdim=ndndim(domain)-1;
+  while(kdim>=0 && (!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1))
+    pos[kdim--]=0;
+  if(kdim<0) return 0;
+  pos[kdim]++;
+#if 1
+  { size_t i;
+    for(i=0;i<ndndim(domain);++i)
+      printf("%5zu",pos[i]);
+    printf(ENDL);
+  }
+#endif  
+  return 0;
+}
+/// (for subarray) set offset for sub-array relative to \a ori
+static void setpos(nd_t src,const size_t *ipos, size_t *ori)
+{ size_t i;  
+  for(i=0;i<ndndim(src);++i)
+    ndoffset(src,i,ipos[i]-(ori?ori[i]:0));
+}
+/// (for subarry) Undo setpos() by negating the offset for a sub-array
+static void unsetpos(nd_t src,const size_t *ipos, size_t *ori)
+{ size_t i;
+  for(i=0;i<ndndim(src);++i)
+    ndoffset(src,i,-ipos[i]+(ori?ori[i]:0));
+}
+/** Compute: out=o+p*s
+ *  For subarray.
+ *  \param[out]   out    output position vector with \a nd elements.
+ *  \param[in]    p      input position vector with at least \a mind elements.
+ *                       Positions past \a mind are treated as zeros.
+ *  \param[in]    origin origin vector in \a out space with \a nd elements.
+ *  \param[in]    step   step size vector in \a out space with \a nd elements.
+ */
+static void getsrcpos(size_t mind, size_t nd, size_t *out, size_t *p, size_t *origin, size_t *step)
+{ size_t i;
+  for(i=0;i<mind;++i)
+    out[i]=ori_(i)+p[i]*step_(i);
+  for(;i<nd;++i)
+    out[i]=ori_(i);
+}
+/// \returns 1 if file's srcpos is not in cache
+static unsigned cachemiss(ndio_t file)
+{ size_t i;
+  const size_t *sp=file->srcpos,
+               *sh=ndshape(file->cache),
+               *cp=file->cachepos;
+  if(!cp) return 1;
+  for(i=0;i<ndndim(file->shape);++i)
+    if(sp[i]<cp[i] || (cp[i]+sh[i])<=sp[i]) // hit if sp in [cp,cp+sh)
+      return 1;
+  return 0;
+}
+
+/**
+ *  Read a sub-volume from a file.
+ *  Usage:
+ *  \code{C}
+ *  { ndiot_t file=ndioOpen("blah",0,"r"); // write mode supports append...doesn't need to support slicing
+ *    nd_t vol=ndioShape(file);
+ *    size_t n;
+ *    // Assume we know the dimensionality of our data and which dimension to iterate over.
+ *    n=ndshape()[2];      // remember the range over which to iterate
+ *    ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
+ *    ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol)); // alloc just enough data      
+ *    { int64_t pos[]={0,0,0,0}; // 4d data
+ *      size_t i;
+ *      for(i=0;i<n;++i,++pos[2])
+ *      { ndioReadSubarray(file,vol,pos); // seek to pos and read, shape limited by vol
+ *        f(vol);                         // do something with the result
+ *      }
+ *    }
+ *    free(nddata(vol));
+ *    ndfree(vol);
+ *    ndioClose(file);
+ *  }
+ *  \endcode
+ *  \param[in]      file    A ndio_t object opened with read mode.
+ *  \param[in,out]  dst     The destination array. Must have valid data pointer.
+ *                          The kind should be compatible with ndcopy().
+ *                          The read will attempt to fill the specified shape.
+ *                          The domain requested must fit within the shape of 
+ *                          the array described by \a file.
+ *  \param[in]      origin  An array of <tt>ndndim(ndioShape(file))</tt> 
+ *                          elements.  This point in the file will correspond to
+ *                          (0,...) in the \a dst array.  If NULL, the origin 
+ *                          will be set to (0,...).
+ *  \param[in]      step    An array of \code{C}ndndim(ndioShape(file))\endcode
+ *                          elements that specifies the step size to be taken
+ *                          along each dimension as it is read into \a dst.
+ *                          If NULL, a step size of 1 on each dimension will be 
+ *                          used.
+ */
+nd_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
+{ // need to know minimum seekable dimension
+  // maximum non-seekable dimensions
+  size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
+  unsigned use_cache=0;  
+  //TRY(file->fmt->canseek); // Check format support
+  //TRY(file->fmt->seek);    /// \todo Use cache to add support for formats that don't support seek interface
+
+  if(!file->shape) TRY(file->shape=ndioShape(file));
+  ndim=min_(ndndim(file->shape),ndndim(dst));
+  MAYBE_REALLOC(char,file->seekable,ndndim(dst));
+
+  // Check for out-of-bounds request
+  { size_t i;
+    for(i=0;i<ndim;++i)
+      TRY((ndshape(dst)[i]+ori_(i)*step_(i))<=ndshape(file->shape)[i]); // spell it out for the error message
+    for(;i<ndndim(file->shape);++i)  // rest of the dst shape==1
+      TRY(1+ori_(i)<=ndshape(file->shape)[i]);
+  }
+
+  // Need to cache a dim if it's not seekable and shape[i]<dst->shape[i]
+  // Only need to cache up to maximum unseekable dim (dims>ndim are treated as seekable).
+  
+  // First check for the need to cache  
+  { size_t i;
+    const size_t *dsh=ndshape(dst),
+                 *fsh=ndshape(file->shape);
+    for(i=0;i<ndim;++i)
+    { if(!(file->seekable[i]=canseek_(file,i)))
+      { max_unseekable=i;
+        if(dsh[i]<fsh[i]) // then need to cache dim
+          use_cache=1;
+      }
+    }
+    for(;i<ndndim(dst);++i)
+      file->seekable[i]=1;
+  }
+
+  // Chack to see if cache needs resizing
+  if(use_cache)
+  { size_t i;
+    const size_t *dsh=ndshape(dst),
+                 *fsh=ndshape(file->shape);
+    if(!file->cache)
+    { TRY(file->cache=ndinit());
+      ndcast(file->cache,ndtype(file->shape));
+      ndreshape(file->cache,ndndim(file->shape),fsh);
+    }
+    for(i=0;i<=max_unseekable;++i)
+    { if(i>ndim || canseek_(file,i)) // other dims get full size
+        ndShapeSet(file->cache,i,1); //may insert dimensions
+    }
+    for(;i<ndndim(file->cache);++i)  //set shape of any remaining dimensions
+      ndShapeSet(file->cache,i,1);
+    // (re)alloc cache
+    TRY(ndref(file->cache,
+              realloc(nddata(file->cache),ndnbytes(file->cache)),
+              ndnelem(file->cache)));
+  }
+
+  // Allocate and init position indexes
+  MAYBE_REALLOC(size_t,file->dstpos,ndndim(dst));
+  ZERO(size_t,file->dstpos,ndndim(dst));
+  MAYBE_REALLOC(size_t,file->srcpos,ndndim(file->shape));
+
+
+  // Read
+  if(!use_cache)
+  { do
+    { setpos(dst,file->dstpos,0);
+      getsrcpos(ndim,ndndim(file->shape),file->srcpos,file->dstpos,origin,step); // srcpos=origin+dstpos*step
+      TRY(seek_(file,dst,file->srcpos)); // read directly to dst
+      unsetpos(dst,file->dstpos,0);
+    } while(inc(dst,file->dstpos,file->seekable));
+  } else
+  { do
+    { getsrcpos(ndim,ndndim(file->shape),file->srcpos,file->dstpos,origin,step); // srcpos=origin+dstpos*step
+      if(cachemiss(file))
+      { TRY(seek_(file,file->cache,file->srcpos));
+        MAYBE_REALLOC(size_t,file->cachepos,ndndim(file->shape));
+        memcpy(file->cachepos,file->srcpos,sizeof(size_t)*ndndim(file->shape));
+      }
+      
+      setpos(dst,file->dstpos,0);
+      setpos(file->cache,origin,file->cachepos);
+      TRY(ndcopy(dst,file->cache,ndim,ndshape(dst)));//cache has file's dimensionality.
+      unsetpos(file->cache,origin,file->cachepos);
+      unsetpos(dst,file->dstpos,0);
+    } while(inc(dst,file->dstpos,file->seekable));
+  }
+
+  return dst;
+Error:
+  if(ndioError(file)) // copy file error log to the array's log
+    ndLogError(dst,"[nD IO Error]"ENDL "%s"ENDL,ndioError(file));
+  return NULL;
+}
 
 #pragma warning( pop )

@@ -14,6 +14,8 @@
 
     - Be explicit about copies.
 
+    \todo ndref() should explicitly set kind.  Should eliminated nelem argument.
+
     \author Nathan Clack
     \date   June 2012
 */
@@ -79,6 +81,7 @@ void          ndResetLog(nd_t a);                         ///< clears the error 
 nd_t          ndcast(nd_t a, nd_type_id_t desc);          ///< Changes the pixel data type
 nd_type_id_t  ndtype(const nd_t a);                       ///< \returns the pixel data type
 nd_t          ndref (nd_t a, void *buf, size_t nelem);    ///< Binds the buffer to \a and reshapes \a as a 1d container.
+//nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);    ///< Binds the buffer to \a and reshapes \a as a 1d container.
 
 nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);

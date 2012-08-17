@@ -173,6 +173,21 @@ nd_type_id_t ndtype(const nd_t a)
 
 /** Initializes \a a so that it references \a buf.
 
+    If buf is NULL, the data pointer is set to NULL, but an error is 
+    logged and the function returns NULL.
+
+    This supports clearing the data pointer like this:
+
+    \code{C}
+    ndref(a,0,0);
+    \encode
+
+    but permits catching errors like this:
+    
+    \code{C}
+    if(!ndref(a,malloc(1024),1024)) goto Error;
+    \endcode
+
     If the shape of the array \a is already set so that \nelem fits, then
     this just sets the data pointer and returns.
 
@@ -189,7 +204,7 @@ nd_type_id_t ndtype(const nd_t a)
           other times) also sucks.
 */
 nd_t ndref(nd_t a, void *buf, size_t nelem)
-{ a->data=buf;
+{ TRY(a->data=buf);
   if(a->strides && ndnelem(a)==nelem)
     return a;
   if(a->ndim==0)
@@ -198,8 +213,9 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
     a->strides[0]=ndbpp(a);
     a->strides[1]=ndbpp(a)*nelem;
   }
-
   return a;
+Error:
+  return NULL;
 }
 
 /** Reshapes the array.
