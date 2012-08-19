@@ -346,7 +346,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
 // If a file format doesn't support seeking, the entire array is read into cache
 // These macros replace the format implementations with defaults to effect this 
 // behavior.
-#define canseek_(file_,i_)     (file_->fmt->canseek?file_->fmt->canseek(file,i):0)
+#define canseek_(file_,i_)     (file_->fmt->canseek?file_->fmt->canseek(file_,i_):0)
 #define seek_(file_,vol_,pos_) (file_->fmt->seek?file_->fmt->seek(file_,vol_,pos_):file_->fmt->read(file_,vol_))
 // Utility memory ops
 #define MAYBE_REALLOC(T,ptr,n) do{\
@@ -371,14 +371,15 @@ static unsigned inc(nd_t domain,size_t *pos, char *mask)
     pos[kdim--]=0;
   if(kdim<0) return 0;
   pos[kdim]++;
-#if 1
+#if 0
   { size_t i;
+    printf("ndioReadSubarray:inc(376) :: ");
     for(i=0;i<ndndim(domain);++i)
       printf("%5zu",pos[i]);
     printf(ENDL);
   }
 #endif  
-  return 0;
+  return 1;
 }
 /// (for subarray) set offset for sub-array relative to \a ori
 static void setpos(nd_t src,const size_t *ipos, size_t *ori)
@@ -459,7 +460,7 @@ static unsigned cachemiss(ndio_t file)
  *                          If NULL, a step size of 1 on each dimension will be 
  *                          used.
  */
-nd_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
+ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
 { // need to know minimum seekable dimension
   // maximum non-seekable dimensions
   size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
@@ -550,11 +551,23 @@ nd_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
     } while(inc(dst,file->dstpos,file->seekable));
   }
 
-  return dst;
+  return file;
 Error:
   if(ndioError(file)) // copy file error log to the array's log
     ndLogError(dst,"[nD IO Error]"ENDL "%s"ENDL,ndioError(file));
-  return NULL;
+  return 0;
+}
+
+/**
+ * Query whether the file format supports seeking along dimension \a idim.
+ * This can be used to guide calls to ndioReadSubarray() whose cacheing 
+ * behavior depends on which dimensions are seekable.
+ *
+ * However, normally, you shouldn't need to call this function.  It is included
+ * in the public interface mostly to aid in implementing new ndio formats. 
+ */
+unsigned ndioCanSeek(ndio_t file, size_t idim)
+{ return canseek_(file,idim);
 }
 
 #pragma warning( pop )

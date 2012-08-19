@@ -213,7 +213,8 @@ static unsigned seek_tiff(ndio_t file, nd_t a, size_t *pos)
   void  *d;
   Tiff *ctx;
   Array *plane=0;
-  iplane=pos[2];
+  TRY(ndndim(a)>=2);
+  iplane=(ndndim(a)>2)?pos[2]:0; // if a is 2d, then get plane 0 from the tiff.
 
   TRY(ctx=(Tiff*)ndioContext(file));
   REQUIRE(a,PTR_ARITHMETIC|CAN_MEMCPY); 
@@ -231,7 +232,7 @@ static unsigned seek_tiff(ndio_t file, nd_t a, size_t *pos)
   }
   { const size_t chanstride = (nchan>1)?ndstrides(a)[3]:0;
     for(i=0,Rewind_Tiff(ctx);!Tiff_EOF(ctx) && i<iplane;++i,Advance_Tiff(ctx));
-    TRY(!Tiff_EOF(ctx)); // Should not have hit end of file
+    TRY(i==iplane); // Should not have hit end of file first
     for(ichan=0;ichan<nchan;++ichan)
     { plane->data=(void*)((uint8_t*)nddata(a)+ichan*chanstride);// strides: (1,w,wh,[whd,whdc])
       TRY(0==Get_IFD_Channel(ctx,ichan,plane));

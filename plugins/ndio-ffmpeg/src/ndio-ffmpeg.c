@@ -634,10 +634,13 @@ static unsigned canseek_ffmpeg(ndio_t file, size_t idim)
  */
 static unsigned seek_ffmpeg(ndio_t file,nd_t a,size_t *pos)
 { ndio_ffmpeg_t self;
-  TRY(self=(ndio_ffmpeg_t)ndioContext(file));  
-  if(pos[2]!=self->iframe+1)
-    TRY(seek(file,pos[2]));
-  TRY(next(file,a,pos[2]));
+  size_t i;
+  TRY(self=(ndio_ffmpeg_t)ndioContext(file));
+  TRY(ndndim>=2);
+  i=(ndndim>2)?pos[2]:0;
+  if(i!=self->iframe+1)
+    TRY(seek(file,i));
+  TRY(next(file,a,i));
   return 1;
 Error:
   return 0;

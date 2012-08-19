@@ -80,6 +80,30 @@ TEST(ndioSeries,Read)
   }
 }
 
+TEST(ndioSeries,ReadSubarray)
+{ struct _files_t *cur;
+  for(cur=file_table;cur->path!=NULL;++cur)
+  { ndio_t file=0;
+    nd_t vol;
+    size_t n;
+    EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,"series","r"));
+    ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
+    // Assume we know the dimensionality of our data and which dimension to iterate over.
+    n=ndshape(vol)[2];      // remember the range over which to iterate
+    ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol))); // alloc just enough data      
+    { size_t pos[]={0,0,0,0}; // 4d data
+      ndio_t a=file;
+      for(size_t i=0;i<n && a;++i,++pos[2])
+      { ASSERT_EQ(file,a=ndioReadSubarray(file,vol,pos,0))<<ndioError(file); // seek to pos and read, shape limited by vol
+      }
+    }
+    free(nddata(vol));
+    ndfree(vol);
+    ndioClose(file);
+  }
+}
+
 TEST(ndioSeries,Write)
 { 
   nd_t vol;

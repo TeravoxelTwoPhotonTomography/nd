@@ -41,8 +41,10 @@ void      ndioResetLog(ndio_t file);
 
 void*     ndioContext(ndio_t file); // returns the format-specific file context.
 
-nd_t      ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step); // dst has shape and dim params, origin is coordinates for offset
+ndio_t    ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step); // dst has shape and dim params, origin is coordinates for offset
 /// \todo ndslice_t ndioSlice(ndio_t file, int idim);           Request slice along dim i
+
+unsigned  ndioCanSeek(ndio_t file, size_t idim);
 
 #ifdef __cplusplus
 } //extern "C" {

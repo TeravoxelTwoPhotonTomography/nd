@@ -27,6 +27,8 @@
  * \todo Allow elements of the path to enumerate a dimension, as opposed to
  *       the filename alone.
  *
+ * \todo Seek needs to know field width of filenames. How?
+ *       Another option is to maintain a table mapping from positions to filenames
  * \author Nathan Clack
  * \date   Aug 2012
  */
@@ -59,6 +61,10 @@
 #define SAFEFREE(e)           if(e){free(e); (e)=NULL;}
 /// @endcond 
 
+//
+//  === HELPERS ===
+//
+typedef std::vector<size_t> TPos;
 /**
  * Set read/write mode flags according to mode string.
  */
@@ -79,11 +85,11 @@ Error:
 }
 
 /** Accumulate minima in \a acc for each vector element. */
-static void vmin(std::vector<unsigned> &acc, std::vector<unsigned>& pos)
+static void vmin(TPos &acc, TPos& pos)
 { if(acc.size()!=pos.size())
   { acc=pos;
   } else
-  { std::vector<unsigned>::iterator iacc,ipos;
+  { TPos::iterator iacc,ipos;
     for(iacc=acc.begin(),ipos=pos.begin();iacc!=acc.end();++iacc,++ipos)
     { unsigned m=*iacc,p=*ipos;
       *iacc=(m<p)?m:p;
@@ -92,16 +98,24 @@ static void vmin(std::vector<unsigned> &acc, std::vector<unsigned>& pos)
 }
 
 /** Accumulate maxima in \a acc for each vector element. */
-static void vmax(std::vector<unsigned> &acc, std::vector<unsigned>& pos)
+static void vmax(TPos &acc, TPos& pos)
 { if(acc.size()!=pos.size())
   { acc=pos;
   } else
-  { std::vector<unsigned>::iterator iacc,ipos;
+  { TPos::iterator iacc,ipos;
     for(iacc=acc.begin(),ipos=pos.begin();iacc!=acc.end();++iacc,++ipos)
     { unsigned m=*iacc,p=*ipos;
       *iacc=(m>p)?m:p;
     }
   }
+}
+
+/** Add \a pos to \a acc elementwise. <tt>acc+=pos</tt> */
+static void vadd(std::vector<size_t> &acc, TPos& pos)
+{ std::vector<size_t>::iterator iacc;
+  TPos::iterator ipos;
+  for(iacc=acc.begin(),ipos=pos.begin();iacc!=acc.end();++iacc,++ipos)
+    *iacc+=*ipos;
 }
 
 /** Assemble full path to an ndio_t file and open it. */
@@ -125,6 +139,10 @@ Error:
   return shape;
 }
 
+//
+// === CONTEXT CLASS ===
+//
+
 /**
  * File context for ndio-series.
  */
@@ -135,15 +153,28 @@ struct series_t
   unsigned ndim_;        ///< the number of dimensions represented in the pattern
   char     isr_,isw_;    ///< mode flags (readable, writeable)
   size_t   last_;        ///< keeps track of last written position for appending
+  int64_t  fdim_;        ///< number of dimensions for each file.  Not known until canseek() call.
+
+  typedef std::string           TName;
+  typedef std::map<TPos,TName>  TSeekTable;
+
+  TSeekTable seektable_;
 
   static RE2 ptn_field;  ///< Recognizes the "%" style filename patterns
   static RE2 eg_field;   ///< Recognizes the "*.000.000.ext" example filename patterns.
 
+  /**
+   * Opens a file series from the filename pattern in \a path
+   * according to the mode \a mode.
+   * \param[in] path  A std::string with a valid filename pattern.
+   * \param[in] mode  May be "r", "w", or "rw".
+   */
   series_t(const std::string& path, const char* mode)
   : ndim_(0)
   , isr_(0)
   , isw_(0)
   , last_(0)
+  , fdim_(-1)
   { size_t n=path.rfind(PATHSEP[0]);
     TRY(parse_mode_string(mode,&isr_,&isw_));
     { n=(n>=path.size())?0:n; // if not found set to 0
@@ -161,7 +192,7 @@ struct series_t
     ;
   }
 
-  /** \returns true if series_t was opened properly, otherwise 0. */
+  /** Check validity. \returns true if series_t was opened properly, otherwise 0. */
   bool isok() { return ndim_>0; }
 
   /**
@@ -174,14 +205,18 @@ struct series_t
    *                    in \a name.  Only valid if the function returns true.
    * \returns true on success, otherwise false.   
    */
-  bool parse(const std::string& name, std::vector<unsigned>& pos)
+  bool parse(const std::string& name, TPos& pos)
   { TRY(isok()); 
     { unsigned p[10];
       RE2::Arg *args[10];
       TRY(ndim_<countof(args));
       for(unsigned i=0;i<ndim_;++i)
         args[i]=new RE2::Arg(p+i);
-      //^LOG("%s(%d): %s()"ENDL "%s\t%s\t%u"ENDL,__FILE__,__LINE__,__FUNCTION__,name.c_str(),pattern_.c_str(),ndim_);
+#if 0
+      LOG("%s(%d): %s()"ENDL "%s\t%s\t%u"ENDL,
+        __FILE__,__LINE__,__FUNCTION__,
+        name.c_str(),pattern_.c_str(),ndim_);
+#endif
       if(RE2::FullMatchN(name,pattern_,args,ndim_))
       { pos.clear();
         pos.reserve(ndim_);
@@ -198,6 +233,8 @@ Error:
 
   /**
    * Generates a filename for writing corresponding to the position at \a ipos.
+   * IMPORTANT: For writing ONLY.
+   * 
    * \param[out]  out   A std::string reference used for the output name.
    * \param[in]   ipos  A std::vector with the position of the filename.
    */
@@ -206,7 +243,7 @@ Error:
     std::string t=pattern_;
     *ipos.rend()+=last_;
     for (std::vector<size_t>::iterator it = ipos.begin(); it != ipos.end(); ++it)
-    { snprintf(buf,countof(buf),"%zu",*it);
+    { snprintf(buf,countof(buf),"%zu",*it); // XXX FIXME - need to know field width
       TRY(RE2::Replace(&t,"\\(\\\\d\\+\\)",buf));
     }
     *ipos.rend()-=last_;
@@ -233,12 +270,12 @@ Error:
    * \param[out] mn   A std::vector with the minima.
    * \param[out] mx   A std::vector with the maxima.
    */
-  bool minmax(std::vector<unsigned>& mn, std::vector<unsigned>& mx)
+  bool minmax(TPos& mn, TPos& mx)
   { DIR *dir=0;
     struct dirent *ent=0;
     TRYMSG(dir=opendir(path_.c_str()),strerror(errno));
     while((ent=readdir(dir))!=NULL)
-    { std::vector<unsigned> pos;
+    { TPos pos;
       if(parse(ent->d_name,pos))
       { vmin(mn,pos);
         vmax(mx,pos);
@@ -256,7 +293,7 @@ Error:
     struct dirent *ent;
     TRYMSG(dir=opendir(path_.c_str()),strerror(errno));
     while((ent=readdir(dir))!=NULL)
-    { std::vector<unsigned> pos;      
+    { TPos pos;      
       if(parse(ent->d_name,pos))
       { nd_t shape=get_file_shape(path_,ent->d_name);
         closedir(dir);
@@ -265,6 +302,61 @@ Error:
     }
   Error:
     return 0;  
+  }
+
+  /**
+   * Sets \a out to the filename expected for position \a ipos.
+   * \returns true on success, otherwise false.
+   */
+  bool find(std::string& out,TPos ipos)
+  { TSeekTable::iterator it;
+    if(seektable_.empty()) 
+      TRY(build_seek_table_());
+    TRY((it=seektable_.find(ipos))!=seektable_.end());
+    out.clear();
+    if(!path_.empty())
+    { out+=path_;
+      out+=PATHSEP;
+    }
+    out+=it->second;
+#if 0
+    std::cout << out << std::endl;
+#endif
+    return true;
+Error:
+    return false;
+  }
+  /** Searches for the first file, opens it, and queries it's
+      seekable dimensions if applicable.  Otherwise, returns 1.
+      Dimensions corresponding to whole file's are seekable.
+  */
+  unsigned canseek(size_t idim)
+  { DIR *dir=0;
+    struct dirent *ent;
+    ndio_t file=0;
+    nd_t shape=0; // I wish I didn't have to get this each time
+    TRYMSG(dir=opendir(path_.c_str()),strerror(errno));
+    while((ent=readdir(dir))!=NULL)
+    { TPos pos;      
+      if(parse(ent->d_name,pos))
+      { unsigned out;
+        TRY(file=openfile(path_,ent->d_name));
+        TRY(shape=ndioShape(file));
+        fdim_=ndndim(shape);
+        if(idim<ndndim(shape))
+          out=ndioCanSeek(file,idim);
+        else
+          out=1;
+        ndfree(shape);
+        ndioClose(file);
+        closedir(dir);
+        return out;
+      }
+    }
+  Error:
+    if(file)  ndioClose(file);
+    if(shape) ndfree(shape);
+    return 0;
   }
 
   private:
@@ -278,6 +370,26 @@ Error:
         ++ndim_;
       if(ndim_) pattern_=name;
       return ndim_>0;
+    }
+
+    /**
+     * Build seek table by searching through the \a path_ and locating parsable
+     * files.  The parsed positions are inserted into the \a seektable_.    
+     * \returns true on success, otherwise false.
+     */
+    bool build_seek_table_()
+    { DIR *dir=0;
+      struct dirent *ent;
+      TRYMSG(dir=opendir(path_.c_str()),strerror(errno));
+      seektable_.clear();
+      while((ent=readdir(dir))!=NULL)
+      { TPos pos;
+        if(parse(ent->d_name,pos))
+          seektable_[pos]=ent->d_name;
+      }
+      return true;
+Error:
+      return false;
     }
 };
 
@@ -361,7 +473,7 @@ static void series_close(ndio_t file)
 static nd_t series_shape(ndio_t file)
 { series_t *self=(series_t*)ndioContext(file);
   nd_t shape=0;
-  std::vector<unsigned> mn,mx;
+  TPos mn,mx;
   TRY(self->minmax(mn,mx));
   TRY(shape=self->single_file_shape());
   { size_t i,o=ndndim(shape);
@@ -382,12 +494,12 @@ static unsigned series_read(ndio_t file,nd_t dst)
   const size_t o=ndndim(dst)-self->ndim_;
   DIR *dir;
   struct dirent *ent;
-  std::vector<unsigned> mn,mx;
-  TRY(self->isr_);
+  TPos mn,mx;
   TRY(self->minmax(mn,mx));
+  TRY(self->isr_);  
   TRYMSG(dir=opendir(self->path_.c_str()),strerror(errno));
   while((ent=readdir(dir))!=NULL)
-  { std::vector<unsigned> v;
+  { TPos v;
     ndio_t file=0;
     if(!self->parse(ent->d_name,v))               continue;
     if(!(file=openfile(self->path_,ent->d_name))) continue;
@@ -453,6 +565,47 @@ Error:
   return 0;
 }
 
+/**
+ * Seek
+ */
+static unsigned series_seek(ndio_t file, nd_t dst, size_t *pos)
+{ series_t *self=(series_t*)ndioContext(file);
+  std::vector<size_t> ipos;
+  std::string outname;
+  TPos mn,mx;
+  ndio_t t=0;
+  size_t odim=ndndim(dst);
+  TRY(self->minmax(mn,mx));    // OPTIMIZE: recomputing each call is wasteful
+  TRY(self->fdim_>0);
+  ipos.insert(ipos.begin(),
+              pos+self->fdim_,
+              pos+self->fdim_+self->ndim_);
+  vadd(ipos,mn);
+  TRY(self->find(outname,ipos));
+  { TRY(t=ndioOpen(outname.c_str(),NULL,"r"));
+    TRY(ndreshape(dst,self->fdim_,ndshape(dst))); // temporarily lower dimension
+    TRY(ndioReadSubarray(t,dst,pos,NULL));
+    ndioClose(t);t=0;
+    TRY(ndreshape(dst,odim,ndshape(dst))); // restore dimensionality
+  }
+  return 1;
+Error:
+  if(ndioError(t))
+  { LOG("\t[Sub file error]"ENDL "\t\tFile: %s"ENDL "\t\t%s"ENDL,
+        outname.c_str(),ndioError(t));
+    ndioClose(t);
+  }
+  return 0;
+}
+
+/**
+ * Query which dimensions ares seekable.
+ */
+static unsigned series_canseek(ndio_t file, size_t idim)
+{ series_t *self=(series_t*)ndioContext(file);
+  return self->canseek(idim);
+}
+
 //
 // === EXPORT ===
 //
@@ -479,6 +632,8 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
     series_write,
     NULL, //set
     NULL, //get
+    series_canseek,
+    series_seek,
     NULL 
   };
   // make sure init happened ok
