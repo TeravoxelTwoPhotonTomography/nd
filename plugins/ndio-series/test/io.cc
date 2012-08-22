@@ -26,7 +26,7 @@ file_table[] =
   {0}
 };
 
-TEST(ndioSeries,OpenClose)
+TEST(OpenClose,Series)
 { struct _files_t *cur;
   // Examples that should fail to open
 #if 1
@@ -46,7 +46,7 @@ TEST(ndioSeries,OpenClose)
   }
 }
 
-TEST(ndioSeries,Shape)
+TEST(Shape,Series)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -62,7 +62,7 @@ TEST(ndioSeries,Shape)
   }
 }
 
-TEST(ndioSeries,Read)
+TEST(Read,Series)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -80,7 +80,7 @@ TEST(ndioSeries,Read)
   }
 }
 
-TEST(ndioSeries,ReadSubarray)
+TEST(ReadSubarray,ndioSeries)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -104,7 +104,7 @@ TEST(ndioSeries,ReadSubarray)
   }
 }
 
-TEST(ndioSeries,Write)
+TEST(Write,ndioSeries)
 { 
   nd_t vol;
   // Read data

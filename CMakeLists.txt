@@ -48,7 +48,7 @@ target_link_libraries(nd
   ${CMAKE_DL_LIBS})
 
 # ndio plugins
-file(GLOB PLUGINS plugins/*)
+file(GLOB PLUGINS plugins/ndio*)
 foreach(PLUGIN ${PLUGINS})
   add_subdirectory(${PLUGIN})
 endforeach(PLUGIN)

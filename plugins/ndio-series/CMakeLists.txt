@@ -56,6 +56,7 @@ if(RE2_FOUND)
       )
     add_dependencies(ndio-series-tests gtest)
     add_test(TestNDIOSeries ndio-series-tests)
+    install(TARGETS ndio-series-tests RUNTIME DESTINATION bin)
   endif()
 
   ##############################################################################
