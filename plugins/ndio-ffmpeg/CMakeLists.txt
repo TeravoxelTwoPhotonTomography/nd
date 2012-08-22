@@ -70,6 +70,7 @@ endif()
 ################################################################################
 install(TARGETS ndio-ffmpeg
   EXPORT ndio-ffmpeg-targets
+  RUNTIME DESTINATION bin/${NDIO_PLUGIN_PATH}
   LIBRARY DESTINATION bin/${NDIO_PLUGIN_PATH}
 )
 export(TARGETS ndio-ffmpeg FILE ndio-ffmpeg-targets.cmake)
