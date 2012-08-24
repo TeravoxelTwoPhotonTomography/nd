@@ -2,8 +2,7 @@
     Source file for instancing generic definitions.
     Beware the dark magics here.
 
-    This should is included by nd/ops.c.  This file should
-    not be compiled on it's own.
+    This is included by nd/ops.c.  This file should not be compiled on it's own.
 
     \author Nathan Clack
     \date   June 2012

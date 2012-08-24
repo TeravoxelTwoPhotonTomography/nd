@@ -4,6 +4,8 @@
     \author Nathan Clack
     \date   June 2012
  */
+
+#include "cuda_runtime_api.h"
 #include "nd.h"
 #include <stdio.h>
 #include <string.h>
@@ -26,6 +28,8 @@
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
+#define CUTRY(e)                     do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
+#define CUWARN(e)                    do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode));             }}while(0)
 /// @endcond
 
 #if 0
@@ -40,19 +44,26 @@ struct _nd_slice_t
 /// \brief N-dimensional array type.  Implementation of the abstract type nd_t.
 struct _nd_t
 { size_t    ndim;               ///< The number of dimensions
+  size_t   *restrict shape;     ///< Buffer of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
+  size_t   *restrict strides;   ///< Buffer of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i
+  void     *restrict data;      ///< A poitner to the data.
   nd_type_id_t type_desc;       ///< Element type descriptor. \see nd_type_id_t
   nd_kind_t kind;               ///< Kind descriptor. \see nd_kind_t
-  size_t   *shape;              ///< Buffer of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
-  size_t   *strides;            ///< Buffer of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i
   char     *log;                ///< If non-null, holds error message log.
-  void     *restrict data;      ///< A poitner to the data.
+};
+
+typedef struct _nd_cuda_t* nd_cuda_t;
+struct _nd_cuda_t
+{ struct _nd_t vol;             ///< host bound shape,strides. device bound data.
+  void *restrict dev_shape;   ///< device bound shape array
+  void *restrict dev_strides; ///< device bound strides array
 };
 
 #include "private/kind.c"
 
 /// @cond DEFINES
 #undef LOG
-#define LOG(...) ndLogError(a,__VA_ARGS__)
+#define LOG(...) ndLogError((nd_t)a,__VA_ARGS__)
 /// @endcond
 
 /** Appends message to error log for \a a
@@ -143,8 +154,23 @@ Error:
   return NULL; // if allocation fails, error message is buried.
 }
 
+/**
+ * This is called from ndfree() before ndfree() does anything.
+ */
+static void ndcuda_free(nd_cuda_t a)
+{ void *d=0;
+  if(d=nddata((nd_t)a))CUWARN(cudaFree(d));
+  if(d=a->dev_shape)   CUWARN(cudaFree(d));
+  if(d=a->dev_strides) CUWARN(cudaFree(d));
+}
+
 void ndfree(nd_t a)
 { if(!a) return;
+  switch(ndkind(a)) // specially handle certain kinds
+  { case nd_gpu_cuda: ndcuda_free((nd_cuda_t)a); break;
+    //case nd_heap:     if(a->data) free(a->data); break;
+    default:;
+  }
   SAFEFREE(a->shape);
   SAFEFREE(a->strides);
   if(a->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,a,a->log);
@@ -272,6 +298,11 @@ Error:
   return NULL;
 }
 
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndLogError(a,__VA_ARGS__)
+/// @endcond
+
 /** Inserts an extra dimension at \a idim.
  *  The new dimension will have size 1.
  *
@@ -320,4 +351,114 @@ nd_t ndoffset(nd_t a, unsigned idim, int64_t o)
 Error:
   return NULL;
 }
+
+//
+// === CUDA ===
+//
+
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) fprintf(stderr,__VA_ARGS__)
+/// @endcond
+
+static nd_cuda_t ndcuda_init(void)
+{ nd_cuda_t out=0;
+  nd_t tmp=0;
+  NEW(struct _nd_cuda_t,out,1);
+  memset(out,0,sizeof(struct _nd_cuda_t));
+  TRY(tmp=ndinit());
+  memcpy(out,tmp,sizeof(*tmp));
+  free(tmp);
+  TRY(ndsetkind((nd_t)out,nd_gpu_cuda));
+  return out;
+Error:
+  return 0;
+}
+
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndLogError((nd_t)a,__VA_ARGS__)
+/// @endcond
+
+/**
+ * Allocate a gpu based array according to the shape specified by \a a.
+ * Does *not* upload data.  Only uploads shape and strides.
+ * The caller is responsible for deallocating the returned array using ndfree().
+ * If stream is not NULL, will use the async api for copying memeory to the GPU.
+ */
+nd_t ndcuda(nd_t a,cudaStream_t stream)
+{ nd_cuda_t out;
+  TRY(out=ndcuda_init());
+  TRY(ndreshape((nd_t)out,ndndim(a),ndshape(a)));
+  
+  CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
+  CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
+  CUTRY(cudaMalloc(&out->vol.data   ,ndnbytes(a)));
+
+  TRY(ndCudaSyncShape((nd_t)out,stream));
+  return (nd_t)out;
+Error:  
+  if(out) free(out);  // I suppose ndfree should know how to free gpu-based shape and strides
+  return 0;
+}
+
+/**
+ * Copies host-based shapes and strides to the GPU.
+ * \todo bad name: can't tell from name direction of transfer
+ */
+nd_t ndCudaSyncShape(nd_t a,cudaStream_t stream)
+{ nd_cuda_t self=(nd_cuda_t)a;
+  REQUIRE(a,CAN_CUDA);
+  CUTRY(cudaMemcpyAsync(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice,stream));
+  CUTRY(cudaMemcpyAsync(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice,stream));
+  return a;
+Error:
+  return 0;
+}
+
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndLogError((nd_t)dst,__VA_ARGS__)
+/// @endcond
+
+/**
+ * Copies data to/from the GPU from/to a host array.
+ * 
+ * Stream may be 0.  Specifies the stream to use for async copies.
+ * Async copies are the default.
+ */
+nd_t ndCudaCopy(nd_t dst, nd_t src,cudaStream_t stream)
+{ enum cudaMemcpyKind direction;
+  size_t sz;
+  if(ndkind(dst)==nd_gpu_cuda)
+    { REQUIRE(src,CAN_MEMCPY);
+      direction=cudaMemcpyHostToDevice;
+      sz=ndnbytes(src);
+    }
+  else if(ndkind(src)==nd_gpu_cuda)
+    { REQUIRE(dst,CAN_MEMCPY);
+      direction=cudaMemcpyDeviceToHost;
+      sz=ndnbytes(dst);
+    }
+  else
+    FAIL("Only Host-to-Device or Device-to-Host copies are supported");
+  CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  return dst;
+Error:
+  return 0;
+}
+
+/**
+ * GPU based shape array.349
+ * 
+ * \returns device pointer on success, otherwise 0.
+ */
+void* ndCudaShape    (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((nd_cuda_t)self)->dev_shape  :0;}
+
+/**
+ * GPU based strides array.
+ * \returns device pointer on success, otherwise 0.
+ */
+void* ndCudaStrides  (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((nd_cuda_t)self)->dev_strides:0;}
+
 #pragma warning( pop )

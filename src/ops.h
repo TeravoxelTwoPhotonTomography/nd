@@ -16,6 +16,10 @@
 extern "C" {
 #endif
 
+typedef struct nd_affine_params_t_
+{ double boundary_value;
+} nd_affine_params_t;
+
 // Required: Include "nd.h" before this header.  
 // typedef struct _nd_t* nd_t;
 
@@ -27,6 +31,8 @@ nd_t ndadd        (nd_t z,nd_t x,nd_t y,size_t ndim,size_t* shape);
 nd_t ndfmad       (nd_t z,float a,const nd_t x,float b,const nd_t y,size_t ndim,size_t* shape);
 nd_t ndxor_ip     (nd_t z,uint64_t c,size_t ndim, size_t* shape);
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type);
+
+nd_t ndaffine (nd_t dst, const nd_t src, const double *transform, const nd_affine_params_t *params);
 #ifdef __cplusplus
 } //extern "C" {
 #endif

@@ -31,16 +31,9 @@ extern "C" {
 typedef enum _nd_type_id_t
 {
   nd_id_unknown=-1,
-  nd_u8,
-  nd_u16,
-  nd_u32,
-  nd_u64,
-  nd_i8,
-  nd_i16,
-  nd_i32,
-  nd_i64,
-  nd_f32,
-  nd_f64,
+  nd_u8,  nd_u16,  nd_u32,  nd_u64,
+  nd_i8,  nd_i16,  nd_i32,  nd_i64,
+                   nd_f32,  nd_f64,
   nd_id_count
 } nd_type_id_t;
 
@@ -81,7 +74,7 @@ void          ndResetLog(nd_t a);                         ///< clears the error 
 nd_t          ndcast(nd_t a, nd_type_id_t desc);          ///< Changes the pixel data type
 nd_type_id_t  ndtype(const nd_t a);                       ///< \returns the pixel data type
 nd_t          ndref (nd_t a, void *buf, size_t nelem);    ///< Binds the buffer to \a and reshapes \a as a 1d container.
-//nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);    ///< Binds the buffer to \a and reshapes \a as a 1d container.
+//nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);    // (a better calling convention?)
 
 nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
@@ -99,6 +92,18 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 /// \todo ndslice_t ndnext(ndslice_t a);                                   Deallocates the slice (if necessary) at the end, returns null at the end
 /// \todo ndslice_t ndseek(ndslice_t a, int i);
 /// \todo ndslice_t ndSliceBounds(ndslice_t, int *start, int *step, int *end);
+
+//
+// === CUDA ===
+//
+
+#include "cuda_runtime_api.h"
+
+nd_t  ndcuda         (nd_t a           ,cudaStream_t stream);
+nd_t  ndCudaSyncShape(nd_t self        ,cudaStream_t stream);
+nd_t  ndCudaCopy     (nd_t dst,nd_t src,cudaStream_t stream);
+void* ndCudaShape    (nd_t self);
+void* ndCudaStrides  (nd_t self);
 
 #ifdef __cplusplus
 } //extern "C" {

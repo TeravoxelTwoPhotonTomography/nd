@@ -15,7 +15,7 @@
 
 /// @cond DEFINES
 typedef float f32;
-#define TOL_F32 1e-5
+#define TOL_F32 (1e-5)
 #define NEW(T,e,N) EXPECT_NE((void*)NULL,(e)=(T*)malloc(sizeof(T)*N));
 #define countof(e) (sizeof(e)/sizeof(*(e)))
 /// @endcond

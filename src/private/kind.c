@@ -18,12 +18,13 @@
 #define  CAN_REALLOC    (4)
 #define  CAN_FREE       (8)
 #define  CAN_MEMCPY     (16)
+#define  CAN_CUDA       (32)
 
 /// Table that defines kind capabilities
 static const unsigned _kind_caps[] =
 { /*nd_heap*/  PTR_ARITHMETIC | CAN_MALLOC | CAN_REALLOC | CAN_MEMCPY | CAN_FREE,
   /*nd_static*/PTR_ARITHMETIC | CAN_MEMCPY,
-  /*nd_gpu*/   PTR_ARITHMETIC,
+  /*nd_gpu*/   PTR_ARITHMETIC | CAN_CUDA,
   /*nd_file*/  0, 
 };
 
