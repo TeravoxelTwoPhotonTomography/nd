@@ -60,7 +60,7 @@ static TDST NAME(sample,TSRC,TDST)(const size_t ndims,
                                    const nd_affine_params_t *restrict const param)
 { size_t i;  
   const u8 *restrict d=(u8*)data;
-  if(!inbounds(ndims,shape,pos)) return param->boundary_value;
+  if(!inbounds(ndims,shape,pos)) return (TDST)param->boundary_value;
   for(i=0;i<ndims;++i)
     d+=strides[i]*(size_t)pos[i];
   return *(TDST*)d;

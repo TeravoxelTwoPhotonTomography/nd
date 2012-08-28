@@ -47,22 +47,22 @@ nd_t ndcat(nd_t x, nd_t y, size_t idim)
   { if(ndndim(x)>ndndim(y))
       swap(&x,&y);          // ensure x is the array with more dims
     TRY((ndndim(x)-ndndim(y))==1);
-    ndInsertDim(y,idim);
+    ndInsertDim(y,(unsigned)idim);
     cleanup=1;
   }
   TRY(same_except(idim,ndndim(x),ndshape(x),ndshape(y)));
   ndcast(out=ndinit(),ndtype(x));
-  TRY(ndreshape(out,ndndim(x),ndshape(x)));
-  ndShapeSet(out,idim,ndshape(out)[idim]+ndshape(y)[idim]);
+  TRY(ndreshape(out,(unsigned)ndndim(x),ndshape(x)));
+  ndShapeSet(out,(unsigned)idim,ndshape(out)[idim]+ndshape(y)[idim]);
   { void *data=0;
     TRY(data=malloc(ndnbytes(out)));
     ndref(out,data,ndnelem(out));
   }
   ndcopy(out,x,0,NULL);
-  ndcopy(ndoffset(out,idim,ndshape(x)[idim]),y,0,NULL);
-  ndoffset(out,idim,-ndshape(x)[idim]);
+  ndcopy(ndoffset(out,(unsigned)idim,ndshape(x)[idim]),y,0,NULL);
+  ndoffset(out,(unsigned)idim,-(int64_t)ndshape(x)[idim]);
 Finalize:
-  if(cleanup) ndRemoveDim(y,idim);
+  if(cleanup) ndRemoveDim(y,(unsigned)idim);
   return out;
 Error:
   if(out) ndfree(out);
@@ -94,11 +94,11 @@ nd_t ndcat_ip(nd_t dst, nd_t src)
   // handle differing shape.  src is still acceptable as proper subvolume
   if(ndndim(dst)<ndndim(src))
   { TRY((ndndim(src)-ndndim(dst))==1);
-    ndInsertDim(dst,ndndim(src)-1);
+    ndInsertDim(dst,(unsigned)ndndim(src)-1);
     cleanup=1;
   } else if(ndndim(dst)>ndndim(src))
   { TRY((ndndim(dst)-ndndim(src))==1);
-    ndInsertDim(src,ndndim(dst)-1);
+    ndInsertDim(src,(unsigned)ndndim(dst)-1);
     cleanup=2;
   }
   idim=ndndim(dst)-1;
@@ -106,21 +106,21 @@ nd_t ndcat_ip(nd_t dst, nd_t src)
 
   // reshape and realloc
   { size_t o=ndshape(dst)[idim];
-    ndShapeSet(dst,idim,ndshape(dst)[idim]+ndshape(src)[idim]);
+    ndShapeSet(dst,(unsigned)idim,ndshape(dst)[idim]+ndshape(src)[idim]);
     { void *data;
       TRY(data=realloc(nddata(dst),ndnbytes(dst)));
       ndref(dst,data,ndnelem(dst));
     }
-    ndcopy(ndoffset(dst,idim,o),src,0,NULL);
-    out=ndoffset(dst,idim,-o);
+    ndcopy(ndoffset(dst,(unsigned)idim,o),src,0,NULL);
+    out=ndoffset(dst,(unsigned)idim,-(int64_t)o);
   }
 Finalize:
   if(cleanup==2)
-    ndRemoveDim(src,ndndim(src)-1);
+    ndRemoveDim(src,(unsigned)ndndim(src)-1);
   return out;
 Error:
   if(cleanup==1)
-    ndRemoveDim(dst,ndndim(dst)-1);
+    ndRemoveDim(dst,(unsigned)ndndim(dst)-1);
   out=NULL;
   goto Finalize;
 }

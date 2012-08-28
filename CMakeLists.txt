@@ -31,7 +31,13 @@ find_package(CUDA 4.0)
 include_directories(${CUDA_INCLUDE_DIRS})
 cuda_build_clean_target()
 set(cuda_build_cubin on)
-set(CUOPTS)
+set(CUOPTS
+  -arch=sm_20
+  DEBUG -g -G
+  RELEASE --use_fast_math
+  RELWITHDEBINFO --use_fast_math;-g
+  MINSIZEREL --use_fast_math
+  )
 
 ################################################################################
 # SOURCE
@@ -41,7 +47,7 @@ file(GLOB SRCS  src/*.c src/io/*.c src/affine/*.c)
 file(GLOB HDRS  src/*.h src/io/*.h)
 file(GLOB CUSRC src/affine/*.cu)
 
-cuda_compile(CUFILES STATIC ${CUSRC} ${CUOPTS})
+cuda_compile(CUFILES STATIC ${CUSRC} OPTIONS ${CUOPTS})
 
 ################################################################################
 # TARGETS

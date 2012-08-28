@@ -70,7 +70,7 @@ static int is_shared_lib(const char *fname,size_t n)
 { const char *dot;
   int len;
   SILENTTRY(dot=strrchr(fname,'.'),"No extension found in file name.");
-  len = n-(dot-fname+1);
+  len = (int)(n-(dot-fname+1));
   DBG("Searching for [%10s] Got extension [%15s]. Length %2d. File: %s"ENDL,
       EXTENSION,dot+1,len,fname);
   return len==(sizeof(EXTENSION)-1) //"sizeof" includes the terminating NULL
@@ -148,8 +148,12 @@ Error:
   return 0;
 }
 
+//
+// Dynamic library loading
+//
 #if   defined(_MSC_VER)
-#error "TODO: implement and test"
+//#error "TODO: implement and test"
+#include "windows.h"
 #elif defined(__MACH__)
 #include <mach-o/dyld.h>
 #elif defined(__linux)
@@ -172,7 +176,14 @@ Error:
 static char* rpath(void)
 { char* out=NULL;
 #if   defined(_MSC_VER)
-#error "TODO: implement and test"
+  { DWORD sz=1024,ret;
+    out=(char*)malloc(sz);
+    while( (ret=GetModuleFileName(NULL,out,sz))>sz && ret!=0)
+      out=(char*)realloc(out,sz=ret);
+    TRY(ret,"Call to GetModuleFileName() failed.");
+    *(strrchr(out,'\\'))='\0'; // filename is appended...so trim that off
+    return out;
+  }
 #elif defined(__MACH__)
   { uint32_t bufsize=0;
     char *tmp;

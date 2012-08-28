@@ -43,6 +43,8 @@
 
 #ifdef _MSC_VER
 #include "dirent.win.h"
+#pragma warning(disable:4996) // security warning
+#define snprintf _snprintf
 #else
 #include <dirent.h>
 #endif
@@ -91,7 +93,7 @@ static void vmin(TPos &acc, TPos& pos)
   } else
   { TPos::iterator iacc,ipos;
     for(iacc=acc.begin(),ipos=pos.begin();iacc!=acc.end();++iacc,++ipos)
-    { unsigned m=*iacc,p=*ipos;
+    { size_t m=*iacc,p=*ipos;
       *iacc=(m<p)?m:p;
     }
   }
@@ -104,7 +106,7 @@ static void vmax(TPos &acc, TPos& pos)
   } else
   { TPos::iterator iacc,ipos;
     for(iacc=acc.begin(),ipos=pos.begin();iacc!=acc.end();++iacc,++ipos)
-    { unsigned m=*iacc,p=*ipos;
+    { size_t m=*iacc,p=*ipos;
       *iacc=(m>p)?m:p;
     }
   }
@@ -477,9 +479,9 @@ static nd_t series_shape(ndio_t file)
   TRY(self->minmax(mn,mx));
   TRY(shape=self->single_file_shape());
   { size_t i,o=ndndim(shape);
-    ndInsertDim(shape,o+mx.size()-1);
+    ndInsertDim(shape,(unsigned)(o+mx.size()-1));
     for(i=0;i<mn.size();++i)
-      ndShapeSet(shape,o+i,mx[i]-mn[i]+1);
+      ndShapeSet(shape,(unsigned)(o+i),mx[i]-mn[i]+1);
   }
   return shape;
 Error:
@@ -504,10 +506,10 @@ static unsigned series_read(ndio_t file,nd_t dst)
     if(!self->parse(ent->d_name,v))               continue;
     if(!(file=openfile(self->path_,ent->d_name))) continue;
     for(size_t i=0;i<self->ndim_;++i) //  set the read position
-      ndoffset(dst,o+i,v[i]-mn[i]);
+      ndoffset(dst,(unsigned)(o+i),v[i]-mn[i]);
     ndioClose(ndioRead(file,dst));
     for(size_t i=0;i<self->ndim_;++i) //reset the read position
-      ndoffset(dst,o+i,-(int64_t)v[i]+(int64_t)mn[i]);
+      ndoffset(dst,(unsigned)(o+i),-(int64_t)v[i]+(int64_t)mn[i]);
   }
   return 1;
 Error:
@@ -518,16 +520,16 @@ Error:
 /// (for writing) set offset for writing a sub-array 
 static void setpos(nd_t src,const size_t o,const std::vector<size_t>& ipos)
 { for(size_t i=0;i<ipos.size();++i)
-    ndoffset(src,o+i,ipos[i]);
+    ndoffset(src,(unsigned)(o+i),ipos[i]);
 }
 /// (for writing) Undo setpos() by negating the offset for writing a sub-array 
 static void unsetpos(nd_t src,const size_t o,const std::vector<size_t>& ipos)
 { for(size_t i=0;i<ipos.size();++i)
-    ndoffset(src,o+i,-ipos[i]);
+    ndoffset(src,(unsigned)(o+i),-(int64_t)ipos[i]);
 }
 /// (for writing) Maybe increment sub-array position, otherwise stop iteration.
 static bool inc(nd_t src,size_t o,std::vector<size_t> &ipos)
-{ int kdim=ipos.size()-1;
+{ size_t kdim=ipos.size()-1;
   while(kdim>=0 && ipos[kdim]==ndshape(src)[o+kdim]-1) // carry
     ipos[kdim--]=0;
   if(kdim<0) return 0;
@@ -553,10 +555,10 @@ static unsigned series_write(ndio_t file, nd_t src)
   o=ndndim(src)-1;
   do
   { setpos(src,o,ipos);
-    ndreshape(src,o-self->ndim_+1,ndshape(src)); // drop dimensionality
+    ndreshape(src,(unsigned)(o-self->ndim_+1),ndshape(src)); // drop dimensionality
     TRY(self->makename(outname,ipos));
     ndioClose(ndioWrite(ndioOpen(outname.c_str(),NULL,"w"),src));
-    ndreshape(src,o+1,ndshape(src));             // restory dimensionality
+    ndreshape(src,(unsigned)(o+1),ndshape(src));             // restory dimensionality
     unsetpos(src,o,ipos);
   } while (inc(src,o,ipos));
   self->last_ += *ipos.rend();
@@ -583,10 +585,10 @@ static unsigned series_seek(ndio_t file, nd_t dst, size_t *pos)
   vadd(ipos,mn);
   TRY(self->find(outname,ipos));
   { TRY(t=ndioOpen(outname.c_str(),NULL,"r"));
-    TRY(ndreshape(dst,self->fdim_,ndshape(dst))); // temporarily lower dimension
+    TRY(ndreshape(dst,(unsigned)(self->fdim_),ndshape(dst))); // temporarily lower dimension
     TRY(ndioReadSubarray(t,dst,pos,NULL));
     ndioClose(t);t=0;
-    TRY(ndreshape(dst,odim,ndshape(dst))); // restore dimensionality
+    TRY(ndreshape(dst,(unsigned)odim,ndshape(dst))); // restore dimensionality
   }
   return 1;
 Error:

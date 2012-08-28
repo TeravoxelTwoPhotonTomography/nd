@@ -61,7 +61,7 @@ TEST(ndio,OpenClose)
 
 TEST(ndio,Name)
 { struct _files_t *cur;
-  EXPECT_EQ("(error)",ndioFormatName(NULL));
+  EXPECT_STREQ("(error)",ndioFormatName(NULL));
   // Examples that should open
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -74,9 +74,7 @@ TEST(ndio,Name)
 }
 
 TEST(ndio,Get)
-{ void *param;
-  size_t nbytes;
-  ndio_t file;
+{ ndio_t file;
   malloc(1024);
   EXPECT_NE((void*)NULL,file=ndioOpen(file_table[0].path,"tiff/mylib","r"));
   // Get not supported for first file format
