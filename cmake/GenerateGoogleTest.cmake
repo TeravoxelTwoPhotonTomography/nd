@@ -2,22 +2,25 @@ include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
 if(NOT TARGET gtest)
-  # DOWNLOAD AND BUILD
+  ## DOWNLOAD AND BUILD
+  #  Must use the SVN because cmake can't handle the zip.  If only there were a tar.gz!
   ExternalProject_Add(gtest
     SVN_REPOSITORY http://googletest.googlecode.com/svn/trunk/
+    #URL http://code.google.com/p/googletest/downloads/detail?name=gtest-1.6.0.zip
     UPDATE_COMMAND ""
     INSTALL_COMMAND ""
     )
 endif()
 
-get_target_property(GTEST_SRC_DIR gtest _EP_SOURCE_DIR)
+get_target_property(GTEST_SRC_DIR  gtest _EP_SOURCE_DIR)
 get_target_property(GTEST_ROOT_DIR gtest _EP_BINARY_DIR)
 
 add_library(libgtest IMPORTED STATIC)
 add_library(libgtest-main IMPORTED STATIC)
 
-set_property(TARGET libgtest PROPERTY IMPORTED_LOCATION ${GTEST_ROOT_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX})
-set_property(TARGET libgtest-main PROPERTY IMPORTED_LOCATION ${GTEST_ROOT_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX})
+show(GTEST_ROOT_DIR)
+set_property(TARGET libgtest PROPERTY IMPORTED_LOCATION ${GTEST_ROOT_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX})
+set_property(TARGET libgtest-main PROPERTY IMPORTED_LOCATION ${GTEST_ROOT_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 set(GTEST_LIBRARY libgtest)
 set(GTEST_MAIN_LIBRARY libgtest-main)

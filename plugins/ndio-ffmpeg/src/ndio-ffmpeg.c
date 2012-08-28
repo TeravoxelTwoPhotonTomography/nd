@@ -90,10 +90,11 @@
     }                                                       \
   }while(0)
 
-static const AVRational ONE = {1,1};
+static const AVRational ONE  = {1,1};
+static const AVRational FREQ = {1,AV_TIME_BASE}; // same as AV_TIME_BASE_Q, but more MSVC friendly
 #define STREAM(e)   ((e)->fmt->streams[(e)->istream])
 #define CCTX(e)     ((e)->fmt->streams[(e)->istream]->codec)    ///< gets the AVCodecContext for the selected video stream
-#define DURATION(e) (av_rescale_q((e)->fmt->duration,av_mul_q(AV_TIME_BASE_Q,STREAM(e)->r_frame_rate),ONE)) ///< gets the duration in #frames
+#define DURATION(e) (av_rescale_q((e)->fmt->duration,av_mul_q(FREQ,STREAM(e)->r_frame_rate),ONE)) ///< gets the duration in #frames
 /// @endcond
 
 static int is_one_time_inited = 0; /// Tracks whether avcodec has been init'd.  \todo should be mutexed
@@ -105,7 +106,7 @@ typedef struct _ndio_ffmpeg_t
   AVFrame           *raw;     ///< The frame buffer for holding data before translating it to the output nd_t format
   int                istream; ///< The stream index.
   int64_t            nframes; ///< Duration of video in frames (for reading)
-  int                iframe;  ///< the last requested frame (for seeking)
+  int64_t            iframe;  ///< the last requested frame (for seeking)
   AVDictionary      *opts;    ///< (unused at the moment)
 } *ndio_ffmpeg_t;
 
@@ -161,7 +162,7 @@ Error:
 }
 
 /** Recommend pixel type based on nd_t type attributes. */
-int to_pixfmt(int nbytes, int ncomponents)
+enum PixelFormat to_pixfmt(int nbytes, int ncomponents)
 {
   switch(ncomponents)
   { case 1:
@@ -193,7 +194,7 @@ int to_pixfmt(int nbytes, int ncomponents)
 }
 
 /** Recommend output pixel format based on intermediate pixel format. */
-int pixfmt_to_output_pixfmt(int pxfmt)
+enum PixelFormat pixfmt_to_output_pixfmt(int pxfmt)
 { int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
   int bytes=ncomponents?(int)ceil(bits_per_pixel/ncomponents/8.0f):0;
@@ -300,7 +301,7 @@ static ndio_ffmpeg_t open_writer(const char* path)
   TRY(codec=avcodec_find_encoder(self->fmt->oformat->video_codec));
   TRY(avformat_new_stream(self->fmt,codec)); //returns the stream, assume it's index 0 from here on out (self->istream=0 is accurate)
   // maybe open the output file
-  TRY(0==self->fmt->flags&AVFMT_NOFILE);                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
+  TRY(0==(self->fmt->flags&AVFMT_NOFILE));                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
   AVTRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE),"Failed to open output file.");
   CCTX(self)->codec=codec;
   AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");
@@ -514,7 +515,7 @@ static void zero(AVFrame *p)
 
     \returns 1 on success, 0 otherwise.
  */
-static int next(ndio_t file,nd_t plane,int iframe)
+static int next(ndio_t file,nd_t plane,int64_t iframe)
 { ndio_ffmpeg_t self;
   AVPacket packet = {0};
   int yielded = 0;
@@ -657,31 +658,36 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
 { ndio_ffmpeg_t self;
   int c,w,h,d,i;
   const size_t *s;
-  size_t planestride,colorstride,linestride;
+  size_t planestride,colorstride;
+  int linestride;
   int pixfmt;
   AVPacket p={0};
-  int got_packet,oldtype=-1;
+  int got_packet;
+  nd_type_id_t oldtype=nd_id_unknown;
   AVCodecContext *cctx;
 
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   cctx=CCTX(self);
   s=ndshape(a);
   switch(ndndim(a))
-  { case 2:      c=1;      w=s[0];      h=s[1];      d=1;      break;// w,h
-    case 3:      c=1;      w=s[0];      h=s[1];      d=s[2];   break;// w,h,d
-    case 4:      c=s[0];   w=s[1];      h=s[2];      d=s[3];   break;// c,w,h,d
+  { case 2:      c=1;         w=(int)s[0]; h=(int)s[1]; d=1;         break;// w,h
+    case 3:      c=1;         w=(int)s[0]; h=(int)s[1]; d=(int)s[2]; break;// w,h,d
+    case 4:      c=(int)s[0]; w=(int)s[1]; h=(int)s[2]; d=(int)s[3]; break;// c,w,h,d
     default:
       FAIL("Unsupported number of dimensions.");
   }
   planestride=ndstrides(a)[ndndim(a)-1];
-  linestride=ndstrides(a)[ndndim(a)-2];
+  linestride=(int)ndstrides(a)[ndndim(a)-2];
   colorstride=ndstrides(a)[0];
-  TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt(colorstride,c)));
+  TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt((int)colorstride,c)));
   TRY(maybe_init_codec_ctx(self,w,h,24,pixfmt));
   { // maybe flip signed ints to unsigned
-    static const nd_type_id_t tmap[] = {-1,-1,-1,-1,nd_u8,nd_u16,nd_u32,nd_u64,-1,-1};
+    static const nd_type_id_t tmap[] = {
+      nd_id_unknown,nd_id_unknown,nd_id_unknown,nd_id_unknown,
+      nd_u8        ,nd_u16       ,nd_u32       ,nd_u64,
+      nd_id_unknown,nd_id_unknown};
     nd_type_id_t t = tmap[ndtype(a)];
-    if(t>-1)
+    if(t>nd_id_unknown)
     { oldtype=ndtype(a);
       TRY(ndconvert_ip(a,t));
     }
@@ -710,7 +716,7 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
 #endif
 
   // maybe flip back to signed ints
-  if(oldtype>-1)
+  if(oldtype>nd_id_unknown)
     TRY(ndconvert_ip(a,oldtype));
   return 1;
 Error:

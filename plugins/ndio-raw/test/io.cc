@@ -35,7 +35,7 @@ TEST(Write,Raw)
   size_t shape[]={128,128,128};
   EXPECT_NE((void*)NULL,vol=ndinit());
   EXPECT_EQ(vol,ndreshape(ndcast(ndref(vol,data,countof(data)),nd_u8),countof(shape),shape));
-  for(size_t i;i<countof(data);++i)
+  for(size_t i=0;i<countof(data);++i)
     data[i]=(uint8_t)i;
   EXPECT_NE((void*)NULL,file=ndioOpen("test.u8","raw","w"));
   EXPECT_EQ(file,ndioWrite(file,vol));

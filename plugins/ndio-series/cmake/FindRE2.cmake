@@ -5,13 +5,15 @@
 # see: https://bitbucket.org/root_op/re2-msvc
 include(ExternalProject)
 include(FindPackageHandleStandardArgs)
-ExternalProject_Add(re2
-	DOWNLOAD_COMMAND hg clone https://re2.googlecode.com/hg re2
-	BUILD_IN_SOURCE 1
-	CONFIGURE_COMMAND ""
-  UPDATE_COMMAND ""
-  INSTALL_COMMAND ""
-  )
+if(NOT TARGET re2)
+  ExternalProject_Add(re2
+    DOWNLOAD_COMMAND hg clone https://re2.googlecode.com/hg re2
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ""
+    UPDATE_COMMAND hg pull re2
+    INSTALL_COMMAND ""
+    )
+endif()
 get_target_property(RE2_SRC_DIR re2 _EP_SOURCE_DIR)
 get_target_property(RE2_ROOT_DIR re2 _EP_BINARY_DIR)
 
