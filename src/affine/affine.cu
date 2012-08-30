@@ -13,25 +13,32 @@
 #include "math_functions.h"
 
 /// @cond DEFINES
-#define MAXDIMS    32  // should be sizeof uint
-#define BLOCKSIZE 256  // threads per block
+#define MAXDIMS          8  // should be sizeof uchar
+#define WARPS_PER_BLOCK  9
+#define BLOCKSIZE       (32*WARPS_PER_BLOCK) // threads per block
+
+#define ENDL "\n"
+#define LOG(...) ndLogError(dst_,__VA_ARGS__)
+#define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
 
 #ifndef restrict
 #define restrict __restrict__
 #endif
 
-// // printf() is only supported
-// // for devices of compute capability 2.0 and higher
-// #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 200)
-//     #define printf(f, ...) ((void)(f, __VA_ARGS__),0)
-// #endif
+// printf() is only supported
+// for devices of compute capability 2.0 and higher
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 200)
+    #define printf(f, ...) ((void)(f, __VA_ARGS__),0)
+#endif
 /// @cond DEFINES
 
+typedef uint8_t      u8;
+typedef uint32_t     u32;
 typedef unsigned int uint;
 
 typedef struct arg_t_
-{ size_t    ndim;               ///< The number of dimensions
-  size_t   nelem;
+{ u8                 ndim;      ///< The number of dimensions
+  u32                nelem;     ///< The total number of elements
   size_t   *restrict shape;     ///< Buffer of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
   size_t   *restrict strides;   ///< Buffer of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i  
   void     *restrict data;      ///< A poitner to the data.
@@ -52,14 +59,14 @@ template<> inline __device__  double  saturate<double>(float f)   {return f;}
 
 inline __device__ float fpartf(float f) { return f-(long)f;}
 
-inline __device__ uint bounds_check_(float x,size_t n)
+inline __device__ uint inbounds_(float x,size_t n)
 {return floorf(x)>=0.0f && floorf(x)<n;}
 
-inline __device__ uint2 bounds_check(size_t ndim,const size_t*restrict const shape, const float*restrict const r)
-{ uint2 b=make_uint2(0,0);
-  for(size_t i=0;i<ndim;++i)
-  { b.x|=bounds_check_(r[i]     ,shape[i])<<i;
-    b.y|=bounds_check_(r[i]+1.0f,shape[i])<<i;
+inline __device__ uchar2 inbounds(u8 ndim,const size_t*restrict const shape, const float*restrict const r)
+{ uchar2 b=make_uchar2(1,1);
+  for(u8 i=0;i<ndim;++i)
+  { b.x&=inbounds_(r[i]     ,shape[i])<<i;
+    b.y&=inbounds_(r[i]+1.0f,shape[i])<<i;
   }
   return b;
 }
@@ -74,23 +81,23 @@ inline __device__ uint2 bounds_check(size_t ndim,const size_t*restrict const sha
  */
 template<class Tsrc,class Tdst>
 inline __device__ Tdst sample(arg_t &src,const float *restrict const r,const nd_affine_params_t*const param)
-{ uint2 bounds=bounds_check(src.ndim,src.shape,r); // bit i set if inbounds on dim i  
+{ uchar2 bounds=inbounds(src.ndim,src.shape,r); // bit i set if inbounds on dim i  
   // clamp to boundary value for out-of-bounds
   if(!bounds.x && !bounds.y)
     return param->boundary_value;
   
   // compute offset to top left ish corner of lattice unit
-  size_t idx;
-  for(size_t i=0;i<src.ndim;++i) 
+  u32 idx;
+  for(u8 i=0;i<src.ndim;++i) 
     idx+=src.strides[i]*floorf(r[i]);
 
   // iterate over each corner of hypercube
   float v(0.0f);
-  for(size_t i=0;i<((1<<src.ndim)-1);++i)            // bits of i select left or right sample on each dimension
-  { uint2 o=make_uint2(~i&~bounds.x,i&~bounds.y);//
+  for(u8 i=0;i<((1<<src.ndim)-1);++i)              // bits of i select left or right sample on each dimension
+  { uchar2 o=make_uchar2(~i&~bounds.x,i&~bounds.y);//
     float w=1.0;
     int offset=0; // offset so corner clamps to edge
-    for(size_t idim=0;idim<src.ndim;++i)   // loop for dot-products w bit vector
+    for(u8 idim=0;idim<src.ndim;++i)   // loop for dot-products w bit vector
     { const size_t s=src.strides[idim];
       const float  a=fpartf(r[idim]),
                    b=1.0f-a;
@@ -111,8 +118,8 @@ inline __device__ Tdst sample(arg_t &src,const float *restrict const r,const nd_
  * For r=(x,y,z...) in a box with dimensions (Nx,Ny,Nz,..)
  * idx = x+Nx(y+Ny*(z+Nz(...)))
  */
-inline __device__ void idx2pos(int ndim, const size_t *restrict const shape, size_t idx, unsigned *restrict r)
-{ for(size_t i=0;i<ndim;++i)
+inline __device__ void idx2pos(u8 ndim, const size_t *restrict const shape, size_t idx, unsigned *restrict r)
+{ for(u8 i=0;i<ndim;++i)
   { r[i]=idx%shape[i];
     idx%=shape[i];
   }
@@ -134,10 +141,10 @@ inline __device__ void idx2pos(int ndim, const size_t *restrict const shape, siz
  */
 inline __device__ void proj(
            float *restrict       lhs,
-        unsigned                 nlhs,
+              u8                 nlhs,
   const   double *restrict const T,
   const unsigned *restrict const rhs,
-        unsigned                 nrhs
+              u8                 nrhs
   )
 { for(unsigned r=0;r<nlhs;++r)
   { lhs[r]=0.0f;
@@ -155,8 +162,7 @@ __global__ void affine_kernel(arg_t dst, arg_t src, const double *transform, con
   unsigned rdst[MAXDIMS];
   float  rsrc[MAXDIMS];
   size_t idst=threadIdx.x+blockIdx.x*blockDim.x;
-#if 1
-  printf("KERNEL %d\n",blockIdx.x);
+#if 0
   if(blockIdx.x==0)
     printf("%d\n",threadIdx.x);
 #endif
@@ -173,8 +179,8 @@ __global__ void affine_kernel(arg_t dst, arg_t src, const double *transform, con
 
 static arg_t make_arg(const nd_t a)
 { arg_t out = 
-  { ndndim(a),
-    ndnelem(a),
+  { (u8)     ndndim(a),
+    (u32)    ndnelem(a),
     (size_t*)ndCudaShape(a),
     (size_t*)ndCudaStrides(a),
     nddata(a)
@@ -187,11 +193,7 @@ static arg_t make_arg(const nd_t a)
 //
 
 /// @cond DEFINES
-#ifdef _MSC_VER
-#define shared __declspec(dllexport) extern "C"
-#else
 #define shared extern "C"
-#endif
 
 #define ENDL "\n"
 #define LOG(...) ndLogError(dst_,__VA_ARGS__)
@@ -208,13 +210,14 @@ shared unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const double *transfor
 { arg_t dst=make_arg(dst_),
         src=make_arg(src_);
   /// @cond DEFINES
-  //#define CASE2(TSRC,TDST) affine_kernel<TSRC,TDST><<<1+dst.nelem/BLOCKSIZE,BLOCKSIZE>>>(dst,src,transform,*param); break
-  #define CASE2(TSRC,TDST) affine_kernel<TSRC,TDST><<<10,10>>>(dst,src,transform,*param); break
+  //#define CASE2(TSRC,TDST) affine_kernel<TSRC,TDST><<<1+(unsigned)dst.nelem/BLOCKSIZE,BLOCKSIZE>>>(dst,src,transform,*param); break
+  #define CASE2(TSRC,TDST) affine_kernel<TSRC,TDST><<<33000,BLOCKSIZE>>>(dst,src,transform,*param); break
   #define CASE(T) TYPECASE2(ndtype(dst_),T); break
   /// @endcond
   TYPECASE(ndtype(src_));
   #undef CASE
   #undef CASE2
+  CUTRY(cudaGetLastError());
   return 1;
 Error:
   return 0;

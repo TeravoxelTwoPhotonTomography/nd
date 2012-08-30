@@ -181,6 +181,7 @@ static char* rpath(void)
     while( (ret=GetModuleFileName(NULL,out,sz))>sz && ret!=0)
       out=(char*)realloc(out,sz=ret);
     TRY(ret,"Call to GetModuleFileName() failed.");
+    *(strrchr(out,'\\'))='\0'; // filename is appended...so trim that off
     return out;
   }
 #elif defined(__MACH__)

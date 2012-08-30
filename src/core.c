@@ -115,7 +115,7 @@ Error:
 size_t        ndnelem   (const nd_t a)    {return a->strides[a->ndim]/a->strides[0];}
 size_t        ndnbytes  (const nd_t a)    {return a->strides[a->ndim];}
 void*         nddata    (const nd_t a)    {return ((uint8_t*)a->data);}
-size_t        ndndim    (const nd_t a)    {return a->ndim;}
+unsigned      ndndim    (const nd_t a)    {return (unsigned)a->ndim;}
 size_t*       ndshape   (const nd_t a)    {return a->shape;}
 size_t*       ndstrides (const nd_t a)    {return a->strides;}
 char*         nderror   (const nd_t a)    {return a?a->log:0;}
@@ -173,7 +173,7 @@ void ndfree(nd_t a)
   }
   SAFEFREE(a->shape);
   SAFEFREE(a->strides);
-  if(a->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,a,a->log);
+  if(a->log) fprintf(stdout,"Log: 0x%p"ENDL "\t%s"ENDL,a,a->log);
   SAFEFREE(a->log);
   free(a);
 }
@@ -316,7 +316,7 @@ nd_t ndInsertDim(nd_t a, unsigned idim)
 { size_t i,
          odim=a->ndim,
          ndim=((idim<odim)?odim:idim)+1;
-  maybe_resize_array(a,ndim);
+  maybe_resize_array(a,(unsigned)ndim);
   // pad out with singleton dims if necessary
   for(i=odim+1;i<=ndim;++i) a->strides[i]=a->strides[odim];
   for(i=odim;i<ndim;++i) a->shape[i]=1;   // shape[x]=stride[x+1]/stride[x]
@@ -389,7 +389,7 @@ Error:
 nd_t ndcuda(nd_t a,cudaStream_t stream)
 { nd_cuda_t out;
   TRY(out=ndcuda_init());
-  TRY(ndreshape((nd_t)out,ndndim(a),ndshape(a)));
+  TRY(ndreshape((nd_t)out,(unsigned)ndndim(a),ndshape(a)));
   
   CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
   CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include "helpers.h"
 #include "nd.h"
+#include "cuda.h"
 
 #define TOL_F32 (1e-5)
 #define NDIM    (4)
@@ -83,8 +84,8 @@ TYPED_TEST(Affine,Identity_CPU)
   EXPECT_NEAR(0.0, RMSE(ndnelem(this->dst),(TypeParam*)nddata(this->dst),(TypeParam*)nddata(this->src)), TOL_F32);
 }
 
-#include "cuda.h"
 
+#if 1
 TYPED_TEST(Affine,Identity_GPU)
 { nd_t src_,dst_;
 
@@ -96,6 +97,7 @@ TYPED_TEST(Affine,Identity_GPU)
         cudaGetDeviceProperties(&deviceProp, device);
         printf("Device %d has compute capability %d.%d.\n",device, deviceProp.major, deviceProp.minor);
     }
+    cudaSetDevice(deviceCount-1); // try to avoid using the main gpu
   }
 
   void *xform_=0;
@@ -114,5 +116,5 @@ TYPED_TEST(Affine,Identity_GPU)
   ndfree(dst_);
   cudaDeviceReset();
 }
-
+#endif
 /// @endcond

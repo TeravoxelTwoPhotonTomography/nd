@@ -63,7 +63,7 @@ size_t        ndbpp    (const nd_t a);                    ///< \returns the byte
 size_t        ndnelem  (const nd_t a);                    ///< \returns the total number of elements in the array
 size_t        ndnbytes (const nd_t a);                    ///< \returns the total number of bytes in the array
 void*         nddata   (const nd_t a);                    ///< \returns a pointer to the origin pixel
-size_t        ndndim   (const nd_t a);
+unsigned      ndndim   (const nd_t a);
 size_t*       ndshape  (const nd_t a);
 size_t*       ndstrides(const nd_t a);
 

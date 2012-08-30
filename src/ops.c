@@ -151,7 +151,7 @@ static int inplace_op(
     void* param, size_t nbytes,
     inplace_vec_op_t *f)
 {
-  int64_t i,m;
+  int64_t m;
   const stride_t *strides[] = {zst};
   TRY( (m=find_vectorizable_dim(ndim,shape,countof(strides),strides))>=0 );
   inplace_op_recurse(m,ndim-1,shape,z,zst,param,nbytes,f);
@@ -404,7 +404,7 @@ nd_t ndtranspose(nd_t dst, const nd_t src, unsigned i, unsigned j, size_t ndim, 
  * \ingroup ndops
  */
 nd_t ndadd(nd_t z, const nd_t x, const nd_t y, size_t ndim, size_t *shape)
-{ nd_t args[] = {z,x,y};
+{ nd_t args[] = {z,(nd_t)x,(nd_t)y};
   size_t i, bytesof_param;
   u8 param[8*2];
   TRY(ndkind(x)==ndkind(y));      // Require x and y have the same type, z type may vary
@@ -535,8 +535,7 @@ Error:
  *  \ingroup ndops
  */
 nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
-{ size_t i;
-  u64 param[] = {c};
+{ u64 param[] = {c};
   REQUIRE(z,PTR_ARITHMETIC|CAN_MEMCPY);
   // set shape and dim if necessary
   if(!ndim)

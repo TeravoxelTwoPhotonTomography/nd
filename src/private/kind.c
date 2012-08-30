@@ -29,4 +29,4 @@ static const unsigned _kind_caps[] =
 };
 
 /// Ensures the data referenced by \a a has the required capabilities.
-#define REQUIRE(a,caps) TRYMSG(_kind_caps[ndkind(a)]&(caps)==(caps),#caps)
+#define REQUIRE(a,caps) TRYMSG((_kind_caps[ndkind(a)]&(caps))==(caps),#caps)

@@ -366,7 +366,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
  * Each call is ~O(ndndim(domain)).
  */
 static unsigned inc(nd_t domain,size_t *pos, char *mask)
-{ int kdim=ndndim(domain)-1;
+{ int kdim=(int)ndndim(domain)-1;
   while(kdim>=0 && (!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1))
     pos[kdim--]=0;
   if(kdim<0) return 0;
@@ -385,13 +385,13 @@ static unsigned inc(nd_t domain,size_t *pos, char *mask)
 static void setpos(nd_t src,const size_t *ipos, size_t *ori)
 { size_t i;  
   for(i=0;i<ndndim(src);++i)
-    ndoffset(src,i,ipos[i]-(ori?ori[i]:0));
+    ndoffset(src,(unsigned)i,((int64_t)ipos[i])-(ori?ori[i]:0));
 }
 /// (for subarry) Undo setpos() by negating the offset for a sub-array
 static void unsetpos(nd_t src,const size_t *ipos, size_t *ori)
 { size_t i;
   for(i=0;i<ndndim(src);++i)
-    ndoffset(src,i,-ipos[i]+(ori?ori[i]:0));
+    ndoffset(src,(unsigned)i,-(int64_t)ipos[i]+(ori?ori[i]:0));
 }
 /** Compute: out=o+p*s
  *  For subarray.
@@ -506,14 +506,14 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
     if(!file->cache)
     { TRY(file->cache=ndinit());
       ndcast(file->cache,ndtype(file->shape));
-      ndreshape(file->cache,ndndim(file->shape),fsh);
+      ndreshape(file->cache,(unsigned)ndndim(file->shape),fsh);
     }
     for(i=0;i<=max_unseekable;++i)
     { if(i>ndim || canseek_(file,i)) // other dims get full size
-        ndShapeSet(file->cache,i,1); //may insert dimensions
+        ndShapeSet(file->cache,(unsigned)i,1); //may insert dimensions
     }
     for(;i<ndndim(file->cache);++i)  //set shape of any remaining dimensions
-      ndShapeSet(file->cache,i,1);
+      ndShapeSet(file->cache,(unsigned)i,1);
     // (re)alloc cache
     TRY(ndref(file->cache,
               realloc(nddata(file->cache),ndnbytes(file->cache)),

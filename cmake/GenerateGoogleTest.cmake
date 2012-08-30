@@ -7,7 +7,7 @@ if(NOT TARGET gtest)
   ExternalProject_Add(gtest
     SVN_REPOSITORY http://googletest.googlecode.com/svn/trunk/
     #URL http://code.google.com/p/googletest/downloads/detail?name=gtest-1.6.0.zip
-    UPDATE_COMMAND ""
+    #UPDATE_COMMAND ""
     INSTALL_COMMAND ""
     )
 endif()

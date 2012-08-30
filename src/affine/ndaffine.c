@@ -7,6 +7,10 @@
 #include <string.h>
 #include <stdint.h>
 
+#ifdef _MSC_VER
+#define alloca _alloca
+#endif
+
 /// @cond PRIVATE
 #define ENDL      "\n"
 #define LOG(...)  ndLogError(dst,__VA_ARGS__)
@@ -30,6 +34,8 @@ typedef double   f64;
 #ifndef restrict
 #define restrict __restrict__
 #endif
+
+extern unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const double *transform, const nd_affine_params_t *param);
 /// @endcond
 
 // import kind capabilities
@@ -90,7 +96,7 @@ static unsigned inc(const size_t nd,
                     u8 **ptr,
                     size_t *restrict pos)
 { size_t d=0;
-  const s=strides[0];
+  const size_t s=strides[0];
   while(d<nd && pos[d]==shape[d]-1) //carry
     pos[d++]=0;
   if(d>=nd) return 0;
