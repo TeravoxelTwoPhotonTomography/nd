@@ -26,6 +26,13 @@ set(ND_TEST_DATA_PATH ${PROJECT_SOURCE_DIR}/test/data)
 configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 include_directories(${PROJECT_BINARY_DIR})
 
+### Windows shell lightweight utility functions - for plugin search
+if(WIN32)
+find_library(SHLWAPI Shlwapi.lib) 
+else()
+set(SHLWAPI)
+endif()
+
 ### CUDA
 find_package(CUDA 4.0)
 include_directories(${CUDA_INCLUDE_DIRS})
@@ -66,6 +73,7 @@ add_library(nd
 target_link_libraries(nd
   ${CUDA_LIBRARIES}
   ${CMAKE_DL_LIBS}
+  ${SHLWAPI}
 )
 
 # ndio plugins

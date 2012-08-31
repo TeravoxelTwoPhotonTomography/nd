@@ -22,6 +22,7 @@ double RMSE(size_t n, T* a, T* b)
 { double ssq=0.0;
   for(size_t i=0;i<n;++i)
   { double t = (double)b[i]-(double)a[i];
+    //if(a[i]!=b[i])
     ssq+=t*t;
   }
   return sqrt(ssq/n);

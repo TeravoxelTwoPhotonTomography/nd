@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include "helpers.h"
 #include "nd.h"
+#include "config.h"
 #include "cuda.h"
 
 #define TOL_F32 (1e-5)
@@ -37,7 +38,9 @@ struct Affine:public testing::Test
   Affine():src(0),dst(0),transform(0) {}
 
   void SetUp()
-  { ASSERT_NE((void*)NULL,transform=(double*)malloc(sizeof(double)*(NDIM+1)*(NDIM+1)));
+  { ndioAddPluginPath(NDIO_BUILD_ROOT); // in case I want to dump any files
+
+    ASSERT_NE((void*)NULL,transform=(double*)malloc(sizeof(double)*(NDIM+1)*(NDIM+1)));
     identity(transform);
 
     ASSERT_NE((void*)NULL,src=ndinit());
@@ -85,6 +88,12 @@ TYPED_TEST(Affine,Identity_CPU)
 }
 
 
+static void write(const char *name,nd_t a)
+{ ndio_t file=ndioOpen(name,"series","w");
+  ndioWrite(file,a);
+  ndioClose(file);
+}
+
 #if 1
 TYPED_TEST(Affine,Identity_GPU)
 { nd_t src_,dst_;
@@ -109,9 +118,11 @@ TYPED_TEST(Affine,Identity_GPU)
   ASSERT_NE((void*)NULL,dst_=ndcuda(this->dst,NULL));
   EXPECT_EQ(src_,ndCudaCopy(src_,this->src,NULL));
   EXPECT_EQ(dst_,ndaffine(dst_,src_,(double*)xform_,&this->params));
-  EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL));  
+  EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL))<<nderror(this->dst);  
   EXPECT_NEAR(0.0, RMSE(ndnelem(this->dst),(TypeParam*)nddata(this->dst),(TypeParam*)nddata(this->src)), TOL_F32);
   cudaFree(xform_);
+  write("src.000.tif",this->src);
+  write("dst.000.tif",this->dst);
   ndfree(src_);
   ndfree(dst_);
   cudaDeviceReset();
