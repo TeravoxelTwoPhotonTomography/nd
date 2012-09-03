@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project(ndio-hdf5-plugin)
 
-set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
-
 macro(show v)
   message("${v} is ${${v}}")
 endmacro()
@@ -14,9 +12,9 @@ set(NDIO_HDF5_TEST_DATA_PATH ${PROJECT_SOURCE_DIR}/test/data)
 configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 include_directories(${PROJECT_BINARY_DIR})
 
-find_package(HDF5)
+find_package(HDF5 CONFIG PATHS cmake)
 if(HDF5_FOUND)
-  include_directories(${RE2_INCLUDE_DIRS})
+  include_directories(${HDF5_INCLUDE_DIRS})
   get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
   include_directories(${ND_SOURCE_DIR})
 
@@ -33,7 +31,7 @@ if(HDF5_FOUND)
 
   add_definitions(-fPIC)
   add_library(ndio-hdf5 MODULE ${SRCS} ${HDRS})
-  target_link_libraries(ndio-hdf5 nd hdf5)
+  target_link_libraries(ndio-hdf5 nd ${HDF5_LIBRARIES})
 
   ##############################################################################
   #  Testing
@@ -53,6 +51,7 @@ if(HDF5_FOUND)
       nd
       )
     add_dependencies(ndio-hdf5-tests gtest)
+    install(TARGETS ndio-hdf5-tests DESTINATION bin)
     add_test(TestNDIOSeries ndio-hdf5-tests)
   endif()
 

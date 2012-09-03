@@ -16,8 +16,8 @@ ExternalProject_Add(libhdf5
              -DHDF5_BUILD_TOOLS:BOOL=FALSE
   )
 
-get_target_property(HDF5_INCLUDE_DIR  libhdf5 _EP_SOURCE_DIR)
 get_target_property(HDF5_ROOT_DIR     libhdf5 _EP_INSTALL_DIR)
+set(HDF5_INCLUDE_DIR ${HDF5_ROOT_DIR}/include)
 
 #set(HDF5_INCLUDE_DIR ${HDF5_ROOT_DIR}/include CACHE PATH "Path to hdf5.h" FORCE)
 
@@ -29,6 +29,10 @@ set_target_properties(hdf5 PROPERTIES
 add_dependencies(hdf5 libhdf5)
 
 set(HDF5_LIBRARY hdf5)
+
+#define the plural forms bc I can never remember which to use
+set(HDF5_LIBRARIES hdf5)
+set(HDF5_INCLUDE_DIRS ${HDF5_INCLUDE_DIR})
 
 find_package_handle_standard_args(HDF5 DEFAULT_MSG
   HDF5_LIBRARY

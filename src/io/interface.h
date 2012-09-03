@@ -39,6 +39,7 @@ extern "C" {
   typedef void*       (*_ndio__get_t     )(ndio_t file);                             ///< (optional) Get format specific options or metadata.
   typedef unsigned    (*_ndio__canseek_t )(ndio_t file, size_t idim);                ///< (optional) Is seeking supported for dimension \a idim.
   typedef unsigned    (*_ndio__seek_t    )(ndio_t file, nd_t dst, size_t *pos);      ///< (optional) Satisfy a seek request.
+  typedef unsigned    (*_ndio__subarray_t)(ndio_t file, nd_t dst, size_t *origin, size_t *step); ///< (optional) For formats that directly support reading subvolems.  Use this instead of the seek() interface.
 
   /**
    * An ndio plugin must implement the functions in this interface.
@@ -62,7 +63,8 @@ extern "C" {
     _ndio__get_t      get;        ///< Get format specific data.  \returns 0 on failure, otherwise returns 1.
     _ndio__canseek_t  canseek;    ///< \returns 1 if \a idim is seekable, otherwise return 0.  The function does not need to handle bounds checking for \a idim.
     _ndio__seek_t     seek;       ///< Fills \a dst with a seek volume from position \a pos.  The read volume has full shape along a non-seekable dimension and unit shape on seekable dimensions.
-    void*             lib;        ///< Context.  Used internally. Should be NULL when returned from a ndio_get_format_api() call.
+    _ndio__subarray_t subarray;   ///< Reads a \a dst shaped subvolume starting at \a ori with step \a step.  For formats that support it, use this instead of seek/can_seek.
+    void*             lib;        ///< Context.  Used internally. Should be NULL when returned from a ndio_get_format_api() call.  
   };
 
   typedef const ndio_fmt_t* (*ndio_get_format_api_t)(void); ///< Produces a plugin's interface.  \returns the api used to implement the format.  The caller will not free the returned pointer.  It should be statically allocated somewhere.
