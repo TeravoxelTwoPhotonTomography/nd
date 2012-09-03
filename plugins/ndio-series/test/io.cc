@@ -26,7 +26,13 @@ file_table[] =
   {0}
 };
 
-TEST(OpenClose,Series)
+struct Series:public testing::Test
+{ void SetUp()
+  { ndioAddPluginPath(NDIO_BUILD_ROOT);
+  }  
+};
+
+TEST_F(Series,OpenClose)
 { struct _files_t *cur;
   // Examples that should fail to open
 #if 1
@@ -46,7 +52,7 @@ TEST(OpenClose,Series)
   }
 }
 
-TEST(Shape,Series)
+TEST_F(Series,Shape)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -62,7 +68,7 @@ TEST(Shape,Series)
   }
 }
 
-TEST(Read,Series)
+TEST_F(Series,Read)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -80,7 +86,7 @@ TEST(Read,Series)
   }
 }
 
-TEST(ReadSubarray,ndioSeries)
+TEST_F(Series,ReadSubarray)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -104,7 +110,7 @@ TEST(ReadSubarray,ndioSeries)
   }
 }
 
-TEST(Write,ndioSeries)
+TEST_F(Series,Write)
 { 
   nd_t vol;
   // Read data

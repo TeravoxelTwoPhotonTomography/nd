@@ -319,6 +319,6 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
   api.read   = read_tiff;
   api.write  = write_tiff;
   api.canseek= canseek_tiff;
-  api.seek   = seek_tiff;
+  api.seek   = seek_tiff;  
   return &api;
 }

@@ -28,8 +28,10 @@
 
 #define ENDL       "\n"
 #define LOG(...)   fprintf(stdout,__VA_ARGS__)
-#define TRY(e,msg) do{ if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated to false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }} while(0)
+#define TRY(e,msg) do{ if(!(e)) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated to false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }} while(0)
+#define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)),"Memory allocation failed.")
+#define REALLOC(type,e,nelem) TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)),"Memory allocation failed.")
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
 #if 0
 #define DBG(...) LOG(__VA_ARGS__)
@@ -38,11 +40,15 @@
 #endif
 #define HERE DBG("HERE %s(%d): %s"ENDL,__FILE__,__LINE__,__FUNCTION__)
 
-//-// MACROS: 
+//
+// === CONFIG ===
+//
+
 //    Alias the dyld interface to Window's shared library API.
 //    Use the dirent (posix) interface for directory traversal.
 #ifdef _MSC_VER
 #include <windows.h>
+#include "Shlwapi.h" // for PathIsRelative()
 #include "dirent.win.h"                                     // use posix-style directory traversal
 const char* estring();
 #else // POSIX
@@ -62,8 +68,34 @@ const char* estring();
 #else
 #define EXTENSION "so"
 #endif
-
 /// @endcond
+
+//
+// === GLOBALS ===
+//
+
+/// \todo Add a mutex to protect
+static char **g_paths=0;
+static size_t g_npaths=0;
+
+//
+// === HELPERS ===
+//
+
+/**
+ * Add \a path to the list of paths to search for plugins.
+ * \param[in] path A null-terminated string.
+ * \returns 1 on success, 0 otherwise
+ */
+static unsigned pushpath(const char *path)
+{ REALLOC(char*,g_paths,g_npaths+1);
+  NEW(char,g_paths[g_npaths],strlen(path));
+  strcpy(g_paths[g_npaths],path);
+  g_npaths++;
+  return 1;
+Error:
+  return 0;
+}
 
 /** Detects loadable libraries based on filename */
 static int is_shared_lib(const char *fname,size_t n)
@@ -101,7 +133,8 @@ static ndio_fmt_t *load(const char *path, const char *fname)
   ndio_get_format_api_t get;
 #ifdef _MSC_VER
   TRY(SetDllDirectory(path),estring());
-  TRY(lib=LoadLibrary(fname),"There was a problem loading the specified library.");
+  //TRY(lib=LoadLibraryEx(fname,NULL,DONT_RESOLVE_DLL_REFERENCES),estring());//fname);//"There was a problem loading the specified library.");
+  TRY(lib=LoadLibrary(fname),estring());//fname);//"There was a problem loading the specified library.");
   SetDllDirectory(NULL); // reset
 #else
   { char *buf;
@@ -138,11 +171,31 @@ static int push(apis_t *a, ndio_fmt_t *fmt)
   if(!fmt)
     return 1; //ignore with success
   if(n+1>=cap)
-    TRY(v=(ndio_fmt_t**)realloc(v,sizeof(*v)*( cap=(size_t)(1.2*n+10) )),"Expanding format API array.");
+  { cap=(size_t)(1.2*n+10);
+    REALLOC(ndio_fmt_t*,v,cap);
+  }    
   v[n++]=fmt;
   a->v=v;
   a->n=n;
   a->cap=cap;
+  return 1;
+Error:
+  return 0;
+}
+
+/** Appends \a b to \a a. Frees contents of \a b. */
+static int cat_apis(apis_t *a, apis_t b)
+{ if(!b.v) return 1;
+  if(!a->v)
+  { *a=b;
+    return 1;
+  }
+  if(a->cap<(a->n+b.n))
+    REALLOC(ndio_fmt_t*,a->v,a->cap=(a->n+b.n));
+  memcpy(a->v+a->n,b.v,sizeof(ndio_fmt_t*)*b.n);
+  a->n+=b.n;
+  free(b.v);
+  memset(&b,0,sizeof(apis_t));
   return 1;
 Error:
   return 0;
@@ -250,6 +303,48 @@ Error:
   goto Finalize;
 }
 
+static unsigned is_path_relative(const char *path)
+{
+#ifdef _MSC_VER
+  return PathIsRelative(path); 
+#else
+  return path[0]=='/';
+#endif
+}
+
+//
+// === INTERFACE ===
+//
+
+/**
+ * Recursively descends a directory tree starting at \a path searching for 
+ * plugins to load.
+ */
+static apis_t search(const char *path)
+{ apis_t apis = {0};
+  DIR*           dir;
+  char *buf=0,
+       *exepath=rpath();
+  if(!is_path_relative(path))
+  { buf=(char*)path;
+  } else 
+  { size_t n=strlen(exepath)+strlen(path)+2; // +1 for the directory seperator and +1 for the terminating null
+    const char *p[]={exepath,"/",path};
+    TRY(buf=(char*)alloca(n),"Out of stack space.");
+    cat(buf,n,3,p);
+  }
+  SILENTTRY(dir=opendir(buf),strerror(errno));
+  TRY(recursive_load(&apis,dir,buf),"Search for plugins failed.");  
+Finalize:
+  if(dir) closedir(dir);
+  if(exepath) free(exepath);
+  return apis;
+Error:
+  //printf("\t%s\n",buf);
+  apis.v=NULL;
+  goto Finalize;
+}
+
 /**
  * Recursively descends a directory tree starting at \a path searching for 
  * plugins to load.
@@ -262,7 +357,8 @@ Error:
  *
  * \todo Add ndioRegisterPlugins().
  *
- * \param[in]     path The path to the plugins folder.
+ * \param[in]     path The path to the plugins folder.  If path is NULL,  the list
+ *                     of paths added with ndioAddPluginPath() will be searched.
  * \param[out]    n    The number of elements in the returned array.
  * \returns 0 on failure, otherwise an array of loaded plugin interfaces.  
  *          The caller is responsible for calling ndioFreePlugins() on the
@@ -270,27 +366,33 @@ Error:
  * \ingroup ndioplugins
  */
 ndio_fmts_t ndioLoadPlugins(const char *path, size_t *n)
-{ apis_t apis = {0};
-  DIR*           dir;
-  char *buf=0,
-       *exepath=rpath();
-  { size_t n=strlen(exepath)+strlen(path)+2; // +1 for the directory seperator and +1 for the terminating null
-    const char *p[]={exepath,"/",path};
-    TRY(buf=(char*)alloca(n),"Out of stack space.");
-    cat(buf,n,3,p);
+{ char** paths=0;
+  char*  argpath[]={(char*)path};
+  size_t i,npaths=0;
+  apis_t apis = {0};
+  paths = path?argpath:g_paths;
+  npaths= path?1      :g_npaths;
+  for(i=0;i<npaths;++i)
+    TRY(cat_apis(&apis,search(paths[i])),"Failed to append to list of found plugins.");
+  TRY(apis.n!=0,"No plugins found.");
+  if(n) *n=apis.n;
+  // Register loaded plugins with loaded plugins
+  // This allows plugins to be shared across shared library boundaries.
+  { for(i=0;i<apis.n;++i)
+    { size_t j;
+      if(apis.v[i]->add_plugin)
+        for(j=0;j<apis.n;++j)
+          apis.v[i]->add_plugin(apis.v[j]);
+    }
   }
-  TRY(dir=opendir(buf),strerror(errno));
-  TRY(recursive_load(&apis,dir,buf),"Search for plugins failed.");
-  *n=apis.n;
 Finalize:
-  if(dir) closedir(dir);
-  if(exepath) free(exepath);
   return apis.v;
 Error:
   if(n) *n=0;
   apis.v=NULL;
   goto Finalize;
 }
+
 
 /**
  * Releases resources acquired to load plugins and frees the array.
@@ -306,6 +408,10 @@ Error:
     ; // keep trying to free the others
   }
   free(fmts);
+}
+
+unsigned ndioAddPluginPath(const char *path)
+{ return pushpath(path);
 }
 
 #ifdef _MSC_VER

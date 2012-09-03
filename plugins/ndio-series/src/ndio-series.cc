@@ -162,8 +162,8 @@ struct series_t
 
   TSeekTable seektable_;
 
-  static RE2 ptn_field;  ///< Recognizes the "%" style filename patterns
-  static RE2 eg_field;   ///< Recognizes the "*.000.000.ext" example filename patterns.
+  RE2 ptn_field;  ///< Recognizes the "%" style filename patterns
+  RE2 eg_field;   ///< Recognizes the "*.000.000.ext" example filename patterns.
 
   /**
    * Opens a file series from the filename pattern in \a path
@@ -177,8 +177,13 @@ struct series_t
   , isw_(0)
   , last_(0)
   , fdim_(-1)
+  , ptn_field("%+")
+  , eg_field("\\.(\\d+)")
   { size_t n=path.rfind(PATHSEP[0]);
     TRY(parse_mode_string(mode,&isr_,&isw_));
+
+    
+
     { n=(n>=path.size())?0:n; // if not found set to 0
       path_=path.substr(0,n); // if PATHSEP not found will be ""
       std::string name((n==0)?path:path.substr(n+1));
@@ -243,12 +248,13 @@ Error:
   bool makename(std::string& out,std::vector<size_t> &ipos)
   { char buf[128]={0};
     std::string t=pattern_;
-    *ipos.rend()+=last_;
+    ipos.back()+=last_;
+    //(*ipos.rend())+=last_;
     for (std::vector<size_t>::iterator it = ipos.begin(); it != ipos.end(); ++it)
-    { snprintf(buf,countof(buf),"%zu",*it); // XXX FIXME - need to know field width
+    { snprintf(buf,countof(buf),"%llu",(unsigned long long)*it);
       TRY(RE2::Replace(&t,"\\(\\\\d\\+\\)",buf));
     }
-    *ipos.rend()-=last_;
+    ipos.back()-=last_;
     out.clear();
     if(!path_.empty())
     { out+=path_;
@@ -413,8 +419,6 @@ static unsigned series_is_fmt(const char* path, const char *mode)
 #endif
 }
 
-RE2 series_t::ptn_field("%+");
-RE2 series_t::eg_field("\\.(\\d+)");
 
 /**
  * Opens a file series.
@@ -529,7 +533,7 @@ static void unsetpos(nd_t src,const size_t o,const std::vector<size_t>& ipos)
 }
 /// (for writing) Maybe increment sub-array position, otherwise stop iteration.
 static bool inc(nd_t src,size_t o,std::vector<size_t> &ipos)
-{ size_t kdim=ipos.size()-1;
+{ int kdim=(int)ipos.size()-1;
   while(kdim>=0 && ipos[kdim]==ndshape(src)[o+kdim]-1) // carry
     ipos[kdim--]=0;
   if(kdim<0) return 0;
@@ -561,7 +565,7 @@ static unsigned series_write(ndio_t file, nd_t src)
     ndreshape(src,(unsigned)(o+1),ndshape(src));             // restory dimensionality
     unsetpos(src,o,ipos);
   } while (inc(src,o,ipos));
-  self->last_ += *ipos.rend();
+  self->last_+=ipos.back();
   return 1;
 Error:
   return 0;
@@ -636,11 +640,12 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
     NULL, //get
     series_canseek,
     series_seek,
+    ndioAddPlugin,
     NULL 
   };
   // make sure init happened ok
-  TRY(series_t::ptn_field.ok());
-  TRY(series_t::eg_field.ok());
+  //TRY(series_t::ptn_field.ok());
+  //TRY(series_t::eg_field.ok());
   return &api;
 Error:
   return 0;

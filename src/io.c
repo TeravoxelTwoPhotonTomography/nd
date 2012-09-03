@@ -48,13 +48,13 @@ struct _ndio_t
   nd_t        shape;     ///< (subarrays) 
   nd_t        cache;     ///< (subarrays) Cache used to store temporary data.
   char       *seekable;  ///< (subarrays) Seekable dimension mask
-  size_t      seekable_n;///< count of elements allocated for \a seekable
+  size_t      seekable_n;///< (subarrays) count of elements allocated for \a seekable
   size_t     *dstpos;    ///< (subarrays) Destination position index
-  size_t      dstpos_n;  ///< count of elements allocated for \a dstpos
+  size_t      dstpos_n;  ///< (subarrays) count of elements allocated for \a dstpos
   size_t     *srcpos;    ///< (subarrays) File positions index
-  size_t      srcpos_n;  ///< count of elements allocated for \a srcpos
+  size_t      srcpos_n;  ///< (subarrays) count of elements allocated for \a srcpos
   size_t     *cachepos;  ///< (subarrays) Cache origin in file space
-  size_t      cachepos_n;///< coutn of elements allocated for cachepos
+  size_t      cachepos_n;///< (subarrays) count of elements allocated for \a cachepos
 
   char       *log;       ///< Used to store the error log.  NULL if no errors, otherwise a NULL terminated string.
 };
@@ -66,7 +66,9 @@ struct _ndio_t
 /** \todo make thread safe, needs a mutex */
 static int maybe_load_plugins()
 { if(!g_formats)
-    TRY(g_formats=ndioLoadPlugins(NDIO_PLUGIN_PATH,&g_countof_formats));
+  { TRY(ndioAddPluginPath(NDIO_PLUGIN_PATH));
+    TRY(g_formats=ndioLoadPlugins(NULL,&g_countof_formats));
+  }
   return 1;
 Error:
   return 0;
@@ -135,7 +137,7 @@ int ndioPreloadPlugins()
  *                    set to 0 if the interface did not come from a shared
  *                    library load.
  */
-int ndioAddPlugin(ndio_fmt_t* plugin)
+unsigned ndioAddPlugin(ndio_fmt_t* plugin)
 { TRY(g_formats=realloc(g_formats,sizeof(*g_formats)*(g_countof_formats+1)));
   g_formats[g_countof_formats++]=plugin;
   return 1;
