@@ -90,9 +90,7 @@ static void* open_tiff(const char* path, const char *mode)
 /// @endcond
 
 static void close_tiff(ndio_t file)
-{ Tiff *ctx;
-  if(!file) return;
-  ctx=(Tiff*)ndioContext(file);
+{ Tiff *ctx=(Tiff*)ndioContext(file);
   if(ctx) Close_Tiff(ctx);
 }
 

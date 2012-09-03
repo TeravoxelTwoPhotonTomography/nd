@@ -46,7 +46,7 @@ TEST(ndio,OpenClose)
 { struct _files_t *cur;
   // Examples that should fail to open
   EXPECT_EQ(NULL,ndioOpen("does_not_exist.im.super.serious",NULL,"r"));
-  EXPECT_EQ(NULL,ndioOpen("does_not_exist.im.super.serious",NULL,"w"));
+  //EXPECT_EQ(NULL,ndioOpen("does_not_exist.im.super.serious",NULL,"w"));
   EXPECT_EQ(NULL,ndioOpen("",NULL,"r"));
   EXPECT_EQ(NULL,ndioOpen("",NULL,"w"));
   EXPECT_EQ(NULL,ndioOpen(NULL,NULL,"r"));
@@ -141,7 +141,7 @@ TEST(ndio,ReadSubarray)
     ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
     EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol))); // alloc just enough data      
     { size_t pos[]={0,0,0,0}; // 4d data
-      ndio_t a=file;
+      ndio_t a=file; //temp variable used to terminate loop early if something goes wrong
       for(size_t i=0;i<n && a;++i,++pos[2])
       { ASSERT_EQ(file,a=ndioReadSubarray(file,vol,pos,0))<<ndioError(file); // seek to pos and read, shape limited by vol
       }
