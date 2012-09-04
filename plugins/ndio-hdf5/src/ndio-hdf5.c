@@ -297,7 +297,7 @@ static unsigned hdf5_is_fmt(const char* path, const char* mode)
   e=strrchr(path,'.');
   exts=(isw)?(char**)g_writeable_exts:(char**)g_readable_exts;
   for(ext=exts;*ext;++ext)
-    if(strcmp(e,*ext)) return 1;
+    if(strcmp(e,*ext)==0) return 1;
   return 0;
 }
 

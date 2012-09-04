@@ -8,6 +8,9 @@ endmacro()
 ################################################################################
 # CONFIG
 ################################################################################
+configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
+include_directories(${PROJECT_BINARY_DIR})
+
 get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
 include_directories(${ND_SOURCE_DIR})
 

@@ -89,7 +89,7 @@ TYPED_TEST(Affine,Identity_CPU)
 
 
 static void write(const char *name,nd_t a)
-{ ndio_t file=ndioOpen(name,"series","w");
+{ ndio_t file=ndioOpen(name,NULL,"w");
   ndioWrite(file,a);
   ndioClose(file);
 }
@@ -114,15 +114,18 @@ TYPED_TEST(Affine,Identity_GPU)
     ASSERT_EQ(cudaSuccess,cudaMalloc(&xform_,nbytes));
     ASSERT_EQ(cudaSuccess,cudaMemcpy(xform_,this->transform,nbytes,cudaMemcpyHostToDevice));
   }
+  //write("src-in.h5",this->src);
+  //write("dst-in.h5",this->dst);
   ASSERT_NE((void*)NULL,src_=ndcuda(this->src,NULL));
   ASSERT_NE((void*)NULL,dst_=ndcuda(this->dst,NULL));
   EXPECT_EQ(src_,ndCudaCopy(src_,this->src,NULL));
   EXPECT_EQ(dst_,ndaffine(dst_,src_,(double*)xform_,&this->params));
+  EXPECT_EQ(cudaSuccess,cudaStreamSynchronize(NULL));
   EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL))<<nderror(this->dst);  
+  write("src-out.h5",this->src);
+  write("dst-out.h5",this->dst);
   EXPECT_NEAR(0.0, RMSE(ndnelem(this->dst),(TypeParam*)nddata(this->dst),(TypeParam*)nddata(this->src)), TOL_F32);
   cudaFree(xform_);
-  write("src.000.tif",this->src);
-  write("dst.000.tif",this->dst);
   ndfree(src_);
   ndfree(dst_);
   cudaDeviceReset();

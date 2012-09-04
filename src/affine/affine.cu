@@ -160,13 +160,13 @@ inline __device__ void proj(
   }
 }
 
-#define max(a,b) ((a)>(b))?(b):(a)
+#define max(a,b) ((a)>(b))?(a):(b)
 
 template<typename Tsrc,typename Tdst> 
 __global__ void affine_kernel(arg_t dst, arg_t src, const double *transform, const nd_affine_params_t param)
 { 
-  Tdst     ibuf;
-  Tdst     obuf;
+  Tdst     obuf=0;
+  Tdst     ibuf=0;  
   unsigned rdst[MAXDIMS];
   float    rsrc[MAXDIMS];
   unsigned idst=threadIdx.x+blockIdx.x*blockDim.x;
@@ -179,9 +179,13 @@ __global__ void affine_kernel(arg_t dst, arg_t src, const double *transform, con
     proj(rsrc,src.ndim,transform,rdst,dst.ndim);
     ibuf=sample<Tsrc,Tdst>(src,rsrc,&param);
     obuf=((Tdst*)dst.data)[idst];
-    //__syncthreads();
-    ((Tdst*)dst.data)[idst]=max(ibuf,obuf);
-    //((Tdst*)dst.data)[idst]=obuf[threadIdx.x];
+    __syncthreads();
+//    ((Tdst*)dst.data)[idst]=ibuf;
+    if(ibuf>obuf)
+      ((Tdst*)dst.data)[idst]=ibuf;
+    else
+      ((Tdst*)dst.data)[idst]=obuf;
+//    ((Tdst*)dst.data)[idst]=max(obuf,ibuf);
   }
 }
 
@@ -209,7 +213,7 @@ shared unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const double *transfor
 { arg_t dst=make_arg(dst_),
         src=make_arg(src_);
   /// @cond DEFINES
-  #define CASE2(TSRC,TDST)  printf("size src:%d dst:%d\n",(int)sizeof(TSRC),(int)sizeof(TDST));affine_kernel<TSRC,TDST><<<1+(unsigned)dst.nelem/BLOCKSIZE,BLOCKSIZE>>>(dst,src,transform,*param); break  
+  #define CASE2(TSRC,TDST)  printf("size src:%d dst:%d\n",(int)sizeof(TSRC),(int)sizeof(TDST));affine_kernel<TSRC,TDST><<<1+(unsigned)dst.nelem/BLOCKSIZE,BLOCKSIZE,0,0>>>(dst,src,transform,*param); break  
   #define CASE(T) TYPECASE2(ndtype(dst_),T); break
   /// @endcond
   TYPECASE(ndtype(src_));
