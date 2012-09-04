@@ -1,6 +1,6 @@
 /** \file
     Testing reading of nD volumes from file hdf5.
-    @cond TEST
+    @cond TEST_F
 
     \todo APPEND test
 */
@@ -27,7 +27,14 @@ file_table[] =
   {0}
 };
 
-TEST(HDF5,OpenClose)
+struct HDF5:public testing::Test
+{
+  void SetUp()
+  { ndioAddPluginPath(NDIO_BUILD_ROOT);
+  }
+};
+
+TEST_F(HDF5,OpenClose)
 { struct _files_t *cur;
   // Examples that should fail to open
 #if 0
@@ -47,7 +54,7 @@ TEST(HDF5,OpenClose)
   }
 }
 
-TEST(HDF5,Shape)
+TEST_F(HDF5,Shape)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -64,7 +71,7 @@ TEST(HDF5,Shape)
   }
 }
 
-TEST(HDF5,Read)
+TEST_F(HDF5,Read)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -82,7 +89,7 @@ TEST(HDF5,Read)
   }
 }
 
-TEST(HDF5,ReadSubarray)
+TEST_F(HDF5,ReadSubarray)
 { struct _files_t *cur;
   for(cur=file_table;cur->path!=NULL;++cur)
   { ndio_t file=0;
@@ -116,13 +123,14 @@ typedef ::testing::Types<
   > BasicTypes;
 
 template<class T>
-class HDF5:public ::testing::Test
+class HDF5_Typed:public ::testing::Test
 { T *data;
 public:
   nd_t a;
-  HDF5() :a(0),data(NULL) {}
+  HDF5_Typed() :a(0),data(NULL) {}
   void SetUp()
   { size_t shape[]={134,513,52,34};
+    ndioAddPluginPath(NDIO_BUILD_ROOT);
     EXPECT_NE((void*)NULL,ndreshape(cast<T>(a=ndinit()),countof(shape),shape))<<nderror(a);
     EXPECT_NE((void*)NULL,data=(T*)malloc(ndnbytes(a)));
     EXPECT_NE((void*)NULL,ndref(a,data,ndnelem(a)))<<nderror(a);
@@ -133,8 +141,8 @@ public:
   }
 };
 
-TYPED_TEST_CASE(HDF5,BasicTypes);
-TYPED_TEST(HDF5,Write)
+TYPED_TEST_CASE(HDF5_Typed,BasicTypes);
+TYPED_TEST(HDF5_Typed,Write)
 { nd_t vol;
   ndio_t file;
   ndio_t fin;

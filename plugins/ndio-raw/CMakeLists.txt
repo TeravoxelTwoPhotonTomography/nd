@@ -30,7 +30,7 @@ target_link_libraries(ndio-raw nd)
 #  Testing
 ##############################################################################
 
-include(GenerateGoogleTest)
+find_package(GTEST CONFIG PATHS cmake NAMES GTest)
 file(GLOB TEST_SOURCES test/*.cc)
 if(GTEST_FOUND)
   find_package(Threads)
@@ -44,6 +44,7 @@ if(GTEST_FOUND)
     nd
     )
   add_dependencies(ndio-raw-tests gtest)
+  gtest_copy_shared_libraries(ndio-raw-tests)
   add_test(TestNDIOSeries ndio-raw-tests)
   install(TARGETS ndio-raw-tests RUNTIME DESTINATION bin)
 endif()

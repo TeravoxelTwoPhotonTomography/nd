@@ -12,7 +12,7 @@ set(NDIO_HDF5_TEST_DATA_PATH ${PROJECT_SOURCE_DIR}/test/data)
 configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 include_directories(${PROJECT_BINARY_DIR})
 
-find_package(HDF5 CONFIG PATHS cmake)
+find_package(HDF5 CONFIG PATHS cmake CONFIGS HDF5Config.cmake)
 if(HDF5_FOUND)
   include_directories(${HDF5_INCLUDE_DIRS})
   get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
@@ -37,7 +37,8 @@ if(HDF5_FOUND)
   #  Testing
   ##############################################################################
 
-  include(GenerateGoogleTest)
+  find_package(GTEST CONFIG PATHS cmake NAMES GTest)
+
   file(GLOB TEST_SOURCES test/*.cc)
   if(GTEST_FOUND AND TEST_SOURCES)
     find_package(Threads)
@@ -51,6 +52,7 @@ if(HDF5_FOUND)
       nd
       )
     add_dependencies(ndio-hdf5-tests gtest)
+    gtest_copy_shared_libraries(ndio-hdf5-tests)
     install(TARGETS ndio-hdf5-tests DESTINATION bin)
     add_test(TestNDIOSeries ndio-hdf5-tests)
   endif()

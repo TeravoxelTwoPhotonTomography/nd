@@ -41,7 +41,7 @@ if(RE2_FOUND)
   #  Testing
   ##############################################################################
 
-  include(GenerateGoogleTest)
+  find_package(GTEST CONFIG PATHS cmake NAMES GTest)
   file(GLOB TEST_SOURCES test/*.cc)
   if(GTEST_FOUND)
     find_package(Threads)
@@ -55,6 +55,7 @@ if(RE2_FOUND)
       nd
       )
     add_dependencies(ndio-series-tests gtest)
+    gtest_copy_shared_libraries(ndio-series-tests)
     add_test(TestNDIOSeries ndio-series-tests)
     install(TARGETS ndio-series-tests RUNTIME DESTINATION bin)
   endif()

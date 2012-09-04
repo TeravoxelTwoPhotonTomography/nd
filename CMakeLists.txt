@@ -10,8 +10,6 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
 
 #set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/install CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
 
-set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
-
 macro(show v)
   message("${v} is ${${v}}")
 endmacro()
@@ -19,6 +17,10 @@ endmacro()
 ################################################################################
 # CONFIG
 ################################################################################
+
+### GTest (as an ExternalProject)
+#   do this before anything else so gtest gets built in the root dir
+find_package(GTEST CONFIG PATHS cmake NAMES GTest)
 
 ### NDIO plugins
 set(NDIO_PLUGIN_PATH  plugins)
@@ -86,7 +88,6 @@ endforeach(PLUGIN)
 #  Testing
 ###############################################################################
 
-include(GenerateGoogleTest)
 find_package(Threads)
 if(GTEST_FOUND)
   enable_testing()

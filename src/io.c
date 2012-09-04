@@ -24,6 +24,7 @@
 #include <stdarg.h>
 #ifdef _MSC_VER
 #define va_copy(a,b) (a=b)
+#define alloca _alloca
 #endif
 
 /// @cond DEFINES
@@ -368,7 +369,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
  * Each call is ~O(ndndim(domain)).
  */
 static unsigned inc(nd_t domain,size_t *pos, char *mask)
-{ int kdim=0;//=ndndim(domain)-1;
+{ unsigned kdim=0;//=ndndim(domain)-1;
   while(kdim>=0 && (!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1))
     pos[kdim++]=0;
   if(kdim>=ndndim(domain)) return 0;

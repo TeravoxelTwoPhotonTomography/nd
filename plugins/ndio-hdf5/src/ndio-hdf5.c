@@ -15,7 +15,7 @@
  *
  * Chunking is set up to support appending arrays to a data set.
  */
-
+#pragma warning(disable:4996)
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,6 +23,10 @@
 #include "nd.h"
 
 #include "macros.h" // TRY, LOG, NEW, etc...
+
+#ifdef _MSC_VER
+#define alloca _alloca
+#endif
 
 /// Recognized file extensions (A NULL terminated list).
 static const char *g_readable_exts[]={
@@ -163,8 +167,6 @@ Error:
 static hid_t space(ndio_hdf5_t self)
 { if(self->space>-1) return self->space;
   return (self->space=H5Dget_space(dataset(self)));
-Error:
-  return -1;
 }
 
 static hid_t make_space(ndio_hdf5_t self,unsigned ndims,size_t *shape)
@@ -187,8 +189,6 @@ Error:
 static hid_t dtype(ndio_hdf5_t self)
 { if(self->type>-1) return self->type;
   return (self->type=H5Dget_type(dataset(self)));
-Error:
-  return -1;
 }
 
 static hid_t dataset_creation_properties(ndio_hdf5_t self)
@@ -334,7 +334,7 @@ static void hdf5_close(ndio_t file)
 static nd_t hdf5_shape(ndio_t file)
 { hid_t s;
   nd_t out=0;
-  int ndims;
+  unsigned ndims;
   hsize_t *sh=0;
   ndio_hdf5_t self=(ndio_hdf5_t)ndioContext(file);
   TRY(self->isr);
@@ -344,7 +344,7 @@ static nd_t hdf5_shape(ndio_t file)
   HTRY(ndims=H5Sget_simple_extent_ndims(space(self)));
   STACK_ALLOC(hsize_t,sh,ndims);
   HTRY(H5Sget_simple_extent_dims(space(self),sh,NULL));
-  { size_t i;
+  { unsigned i;
     for(i=0;i<ndims;++i)
       ndShapeSet(out,i,sh[i]);
   }
@@ -431,9 +431,8 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
     NULL, //canseek,
     NULL, //seek,
     hdf5_subarray,
-    NULL 
+    NULL, //add plugins
+    NULL  //context
   };
   return &api;
-Error:
-  return 0;
 }
