@@ -640,6 +640,7 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
     NULL, //get
     series_canseek,
     series_seek,
+    NULL, //subarray
     ndioAddPlugin,
     NULL 
   };
