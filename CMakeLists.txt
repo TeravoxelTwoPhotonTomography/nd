@@ -40,8 +40,9 @@ find_package(CUDA 4.0)
 include_directories(${CUDA_INCLUDE_DIRS})
 cuda_build_clean_target()
 set(cuda_build_cubin on)
+set(CUDA_ARCH sm_30 CACHE STRING "Target archetecture for cuda kernels.")
 set(CUOPTS
-  -arch=sm_20
+  -arch=sm_30
   DEBUG -g -G
   RELEASE --use_fast_math
   RELWITHDEBINFO --use_fast_math;-g

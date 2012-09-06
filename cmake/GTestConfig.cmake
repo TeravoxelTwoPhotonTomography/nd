@@ -17,7 +17,7 @@ endif()
 
 get_target_property(GTEST_SRC_DIR  gtest _EP_SOURCE_DIR)
 get_target_property(GTEST_ROOT_DIR gtest _EP_BINARY_DIR)
-show(GTEST_ROOT_DIR)
+#show(GTEST_ROOT_DIR)
 if(NOT TARGET libgtest)
   add_library(libgtest      SHARED IMPORTED )
   add_library(libgtest-main SHARED IMPORTED )

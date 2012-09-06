@@ -112,15 +112,15 @@ Error:
   return 0;
 }
 
-size_t        ndnelem   (const nd_t a)    {return a->strides[a->ndim]/a->strides[0];}
-size_t        ndnbytes  (const nd_t a)    {return a->strides[a->ndim];}
-void*         nddata    (const nd_t a)    {return ((uint8_t*)a->data);}
-unsigned      ndndim    (const nd_t a)    {return (unsigned)a->ndim;}
-size_t*       ndshape   (const nd_t a)    {return a->shape;}
-size_t*       ndstrides (const nd_t a)    {return a->strides;}
+size_t        ndnelem   (const nd_t a)    {return a?a->strides[a->ndim]/a->strides[0]:0;}
+size_t        ndnbytes  (const nd_t a)    {return a?a->strides[a->ndim]:0;}
+void*         nddata    (const nd_t a)    {return a?((uint8_t*)a->data):0;}
+unsigned      ndndim    (const nd_t a)    {return a?(unsigned)a->ndim:0;}
+size_t*       ndshape   (const nd_t a)    {return a?a->shape:0;}
+size_t*       ndstrides (const nd_t a)    {return a?a->strides:0;}
 char*         nderror   (const nd_t a)    {return a?a->log:0;}
 void          ndResetLog(nd_t a)          {SAFEFREE(a->log);}
-nd_kind_t     ndkind    (const nd_t a)    {return a->kind;}
+nd_kind_t     ndkind    (const nd_t a)    {return a?a->kind:nd_unknown_kind;}
 
 /** \returns the input array \a a*/
 nd_t ndsetkind(nd_t a,nd_kind_t kind)
@@ -230,7 +230,8 @@ nd_type_id_t ndtype(const nd_t a)
           other times) also sucks.
 */
 nd_t ndref(nd_t a, void *buf, size_t nelem)
-{ TRY(a->data=buf);
+{ TRY(a);
+  TRY(a->data=buf);
   if(a->strides && ndnelem(a)==nelem)
     return a;
   if(a->ndim==0)

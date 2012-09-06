@@ -33,7 +33,7 @@
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)),"Memory allocation failed.")
 #define REALLOC(type,e,nelem) TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)),"Memory allocation failed.")
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
-#if 0
+#if 1
 #define DBG(...) LOG(__VA_ARGS__)
 #else
 #define DBG(...)
@@ -103,8 +103,10 @@ static int is_shared_lib(const char *fname,size_t n)
   int len;
   SILENTTRY(dot=strrchr(fname,'.'),"No extension found in file name.");
   len = (int)(n-(dot-fname+1));
+#if 0
   DBG("Searching for [%10s] Got extension [%15s]. Length %2d. File: %s"ENDL,
       EXTENSION,dot+1,len,fname);
+#endif
   return len==(sizeof(EXTENSION)-1) //"sizeof" includes the terminating NULL
       && (0==strncmp(dot+1,EXTENSION,len));
 Error:
@@ -143,7 +145,7 @@ static ndio_fmt_t *load(const char *path, const char *fname)
     TRY(buf=(char*)alloca(n),"Out of stack space.");
     cat(buf,n,3,p);
     TRY(lib=LoadLibrary(buf),"There was a problem loading the specified library.");
-  }
+  }  
 #endif
   DBG("[PLUGIN] %-20s fname: %s"ENDL,path,fname);
   SILENTTRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
@@ -308,7 +310,7 @@ static unsigned is_path_relative(const char *path)
 #ifdef _MSC_VER
   return PathIsRelative(path); 
 #else
-  return path[0]=='/';
+  return path[0]!='/';
 #endif
 }
 
