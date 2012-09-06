@@ -56,7 +56,7 @@ static TDST NAME(sample,TSRC,TDST)(const size_t ndims,
                                    const size_t *restrict const shape,
                                    const size_t *restrict const strides,
                                    const void   *restrict const data,
-                                   const double *restrict const pos,
+                                   const float *restrict const pos,
                                    const nd_affine_params_t *restrict const param)
 { size_t i;  
   const u8 *restrict d=(u8*)data;
@@ -79,7 +79,7 @@ static TDST NAME(sample,TSRC,TDST)(const size_t ndims,
 static unsigned NAME(ndaffine_cpu,TSRC,TDST)(
   nd_t dst, 
   const nd_t src, 
-  const double *restrict transform,
+  const float *restrict transform,
   const nd_affine_params_t *restrict param)
 { const size_t ndd=ndndim(dst),
            *dshape=ndshape(dst),
@@ -90,7 +90,7 @@ static unsigned NAME(ndaffine_cpu,TSRC,TDST)(
   const void*restrict sdata=nddata(src);
   TDST *restrict ddata=(TDST*)nddata(dst);
   size_t *dstpos;
-  double *srcpos;
+  float *srcpos;
   TRY(dstpos=alloca(sizeof(*dstpos)*ndd));
   TRY(srcpos=alloca(sizeof(*srcpos)*nds));
   memset(dstpos,0,sizeof(*dstpos)*ndd);

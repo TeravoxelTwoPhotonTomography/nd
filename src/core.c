@@ -409,8 +409,8 @@ Error:
 nd_t ndCudaSyncShape(nd_t a,cudaStream_t stream)
 { nd_cuda_t self=(nd_cuda_t)a;
   REQUIRE(a,CAN_CUDA);
-  CUTRY(cudaMemcpyAsync(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice,stream));
-  CUTRY(cudaMemcpyAsync(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice,stream));
+  CUTRY(cudaMemcpy(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice));
+  CUTRY(cudaMemcpy(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice));
   return a;
 Error:
   return 0;
@@ -439,11 +439,12 @@ nd_t ndCudaCopy(nd_t dst, nd_t src,cudaStream_t stream)
     { REQUIRE(dst,CAN_MEMCPY);
       direction=cudaMemcpyDeviceToHost;
       sz=ndnbytes(dst);
-      CUTRY(cudaStreamSynchronize(stream)); // sync before read
+      //CUTRY(cudaStreamSynchronize(stream)); // sync before read
     }
   else
     FAIL("Only Host-to-Device or Device-to-Host copies are supported");
-  CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  //CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
   return dst;
 Error:
   return 0;

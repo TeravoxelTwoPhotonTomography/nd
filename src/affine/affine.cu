@@ -1,6 +1,10 @@
 /**
  * \file
  * nd affine transform on the GPU with CUDA.
+ *
+ * \todo Specialized 2d and 3d (maybe 4d) implementations should be faster.  Should do these since they are much more common. 
+ * \todo See if using a thread for more than 1 pixel at a time helps
+ * \todo reduce register usage (50/thread at the moment!)
  */
 #include "../core.h"
 #include "../ops.h"
@@ -18,11 +22,19 @@ TYPEDEFS;
 
 /// @cond DEFINES
 #define MAXDIMS          8  // should be sizeof uchar
-#define WARPS_PER_BLOCK  9
+#define WARPS_PER_BLOCK  4
 #define BLOCKSIZE       (32*WARPS_PER_BLOCK) // threads per block
+
+//#define DEBUG_OUTPUT
+#ifdef DEBUG_OUTPUT
+#define DBG(...) printf(__VA_ARGS__)
+#else
+#define DBG(...)
+#endif
 
 #define ENDL "\n"
 #define LOG(...) ndLogError(dst_,__VA_ARGS__)
+#define TRY(e) do{if(!(e)) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
 #define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
 #define FAIL     LOG("%s(%d) %s()"ENDL "\tExecution should not have reached here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error
 
@@ -63,20 +75,7 @@ template<> inline __device__  int64_t saturate< int64_t>(float f) {return clamp(
 template<> inline __device__  float   saturate<float>(float f)    {return f;}
 template<> inline __device__  double  saturate<double>(float f)   {return f;}
 
-inline __device__ float fpartf(float f) { return f-(long)f;}
-
-inline __device__ u8 inbounds_(float x,size_t n)
-{return floorf(x)>=0.0f && floorf(x)<n;}
-
-inline __device__ uchar2 inbounds(u8 ndim,const size_t*restrict const shape, const float*restrict const r)
-{ uchar2 b=make_uchar2(0,0);
-  for(u8 i=0;i<ndim;++i)
-  { b.x|=(inbounds_(r[i]     ,shape[i])<<i);
-    b.y|=(inbounds_(r[i]+1.0f,shape[i])<<i);
-  }
-  return b;
-}
-
+#if 0
 /**
  * nD linear interpolation for maximum intensity composting.
  *
@@ -84,6 +83,9 @@ inline __device__ uchar2 inbounds(u8 ndim,const size_t*restrict const shape, con
  * A constant (determined by \a param->boundary_value) is returned for 
  * out-of-bounds samples.
  * Samples stradling the border are handled as a special case.
+ *
+ * OUT OF USE
+ * Keeping it here because it was interesting. Might need it in the future?  Slow at the moment.
  */
 template<class Tsrc,class Tdst>
 inline __device__ Tdst sample(arg_t &src,const float *restrict const r,const nd_affine_params_t*const param)
@@ -118,74 +120,54 @@ inline __device__ Tdst sample(arg_t &src,const float *restrict const r,const nd_
   }
   return saturate<Tdst>(v);
 }
-
-/**
- * Yield a position vector from an index.
- * For r=(x,y,z...) in a box with dimensions (Nx,Ny,Nz,..)
- * idx = x+Nx(y+Ny*(z+Nz(...)))
- */
-inline __device__ void idx2pos(u8 ndim, const size_t *restrict const shape, unsigned idx, unsigned *restrict r)
-{ for(u8 i=0;i<ndim;++i)
-  { r[i]=idx%shape[i];
-    idx/=shape[i];
-  }
-}
-
-/**
- * Transform input vector according to an affine projection matrix.
- * \verbatim
- *             T
- * [lhs 1] = [m b] * [rhs]
- *           [0 1]   [1  ]
- * \endverbatim
- * 
- * \param[in,out] lhs  Output vector (left-hand side).
- * \param[in]     nlhs Number of elements in \a lhs.
- * \param[in]     T    A (\a nlhs+1)-by-(\a nrhs+1) row-major affine projection matrix.
- * \param[in]     rhs  Input vector (right-hand side).
- * \param[in]     nrhs Number of elements in \a rhs.
- */
-inline __device__ void proj(
-           float *restrict       lhs,
-              u8                 nlhs,
-  const   double *restrict const T,
-  const unsigned *restrict const rhs,
-              u8                 nrhs
-  )
-{ for(unsigned r=0;r<nlhs;++r)
-  { lhs[r]=0.0f;
-    for(unsigned c=0;c<nrhs;++c)
-      lhs[r]+=rhs[c]*T[(nrhs+1)*r+c];
-    lhs[r]+=T[(nrhs+1)*r+nrhs];
-  }
-}
+#endif
 
 #define max(a,b) ((a)>(b))?(a):(b)
 
+inline __device__ unsigned prod(dim3 a)            {return a.x*a.y*a.z;}
+inline __device__ unsigned stride(uint3 a, dim3 b) {return a.x+b.x*(a.y+b.y*a.z);}
+inline __device__ unsigned sum(uint3 a)            {return a.x+a.y+a.z;}
+
+
+/** \todo Respect strides.  Currently assumes strides reflect shape. */
 template<typename Tsrc,typename Tdst> 
-__global__ void affine_kernel(arg_t dst, arg_t src, const double *transform, const nd_affine_params_t param)
+__global__ void 
+__launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
+  affine_kernel(arg_t dst, arg_t src, const float *transform, const nd_affine_params_t param)
 { 
-  Tdst     obuf=0;
-  Tdst     ibuf=0;  
-  unsigned rdst[MAXDIMS];
-  float    rsrc[MAXDIMS];
-  unsigned idst=threadIdx.x+blockIdx.x*blockDim.x;
+  Tdst     o,v;
+  //unsigned idst=threadIdx.x+blockIdx.x*blockDim.x;
+  unsigned idst = sum(threadIdx)+stride(blockIdx,gridDim)*prod(blockDim);
 #if 0
   if(blockIdx.x==0 && threadIdx.x==2)
     printf("ksize src:%d dst:%d\n",(int)sizeof(*ibuf),(int)sizeof(*obuf));
 #endif
   if(idst<dst.nelem)
-  { idx2pos(dst.ndim,dst.shape,idst,rdst);
-    proj(rsrc,src.ndim,transform,rdst,dst.ndim);
-    ibuf=sample<Tsrc,Tdst>(src,rsrc,&param);
-    obuf=((Tdst*)dst.data)[idst];
-    __syncthreads();
-//    ((Tdst*)dst.data)[idst]=ibuf;
-    if(ibuf>obuf)
-      ((Tdst*)dst.data)[idst]=ibuf;
-    else
-      ((Tdst*)dst.data)[idst]=obuf;
-//    ((Tdst*)dst.data)[idst]=max(obuf,ibuf);
+  {
+    /////
+    unsigned isrc=0;
+    u8 oob=0;
+#if 1 // 30 ms without this block, 200 ms with (64x64x64x64)
+    for(u8 r=0;r<src.ndim;++r)
+    { float fcoord=0.0f;
+      unsigned i=idst,or=(dst.ndim+1)*r;
+      for(u8 c=0;c<dst.ndim;++c)
+      { fcoord+=(i%dst.shape[c])*transform[or+c];
+        i/=dst.shape[c];
+      }
+      fcoord+=transform[or+dst.ndim];
+      int coord = floor(fcoord);
+      if(coord<0 || src.shape[r]<=coord)
+      { oob=1;
+        break;
+      }
+      isrc+=src.strides[r]*coord;
+    }
+#endif
+    v=(oob)?param.boundary_value:saturate<Tdst>(*(Tsrc*)((u8*)src.data+isrc));
+    /////
+    o=((Tdst*)dst.data)[idst];
+    ((Tdst*)dst.data)[idst]=max(o,v);
   }
 }
 
@@ -203,17 +185,49 @@ static arg_t make_arg(const nd_t a)
 //
 // === Interface ===
 //
-
+#include <math.h>
+unsigned nextdim(unsigned n, unsigned limit, unsigned *rem)
+{ unsigned v=limit,c=limit,low=n/limit,argmin=0,min=limit;
+  *rem=0;  
+  if(n<limit) return n;
+  for(c=low+1;c<limit&&v>0;c++)
+  { v=c*ceil(n/(float)c)-n;
+    if(v<min)
+    { min=v;
+      argmin=c;
+    }
+  }
+  *rem= (min!=0);
+  return argmin;
+}
 
 
 /**
  * Assume the ndkind() of \a src_ and \a dst_ have already been checked.
  */
-shared unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const double *transform, const nd_affine_params_t *param)
+shared unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param)
 { arg_t dst=make_arg(dst_),
         src=make_arg(src_);
+  unsigned r,b,blocks=(unsigned)ceil(dst.nelem/float(BLOCKSIZE)),
+           tpb   =BLOCKSIZE;  
+  b=blocks;
+  struct cudaDeviceProp prop;
+  dim3 grid,threads=make_uint3(tpb,1,1);
+  CUTRY(cudaGetDeviceProperties(&prop,0));
+  DBG("MAX GRID: %7d %7d %7d"ENDL,prop.maxGridSize[0],prop.maxGridSize[1],prop.maxGridSize[2]);
+  // Pack our 1d indexes into cuda's 3d indexes
+  TRY(grid.x=nextdim(blocks,prop.maxGridSize[0],&r));
+  blocks/=grid.x;
+  blocks+=r;
+  TRY(grid.y=nextdim(blocks,prop.maxGridSize[1],&r));
+  blocks/=grid.y;
+  blocks+=r;
+  TRY(grid.z=blocks);
+  DBG("    GRID: %7d %7d %7d"ENDL,grid.x,grid.y,grid.z);
   /// @cond DEFINES
-  #define CASE2(TSRC,TDST)  printf("size src:%d dst:%d\n",(int)sizeof(TSRC),(int)sizeof(TDST));affine_kernel<TSRC,TDST><<<1+(unsigned)dst.nelem/BLOCKSIZE,BLOCKSIZE,0,0>>>(dst,src,transform,*param); break  
+  #define CASE2(TSRC,TDST)  DBG("blocks:%u threads/block:%u\n",b,tpb);\
+                            affine_kernel<TSRC,TDST><<<grid,threads>>>(dst,src,transform,*param);\
+                            break  
   #define CASE(T) TYPECASE2(ndtype(dst_),T); break
   /// @endcond
   TYPECASE(ndtype(src_));

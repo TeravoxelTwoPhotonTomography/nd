@@ -35,7 +35,7 @@ typedef double   f64;
 #define restrict __restrict__
 #endif
 
-extern unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const double *transform, const nd_affine_params_t *param);
+extern unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param);
 /// @endcond
 
 // import kind capabilities
@@ -49,7 +49,7 @@ extern unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const double *transfor
  * Bounds checking for \a pos.
  * \returns 1 if in-bounds, 0 otherwise
  */
-static unsigned inbounds(const size_t nd, const size_t *restrict const shape, const double *restrict const pos)
+static unsigned inbounds(const size_t nd, const size_t *restrict const shape, const float *restrict const pos)
 { size_t i;
   unsigned out=1;
   for(i=0;i<nd;++i) out*=(0<=pos[i] && pos[i]<shape[i]);
@@ -72,12 +72,12 @@ static unsigned inbounds(const size_t nd, const size_t *restrict const shape, co
  * \param[in]     x   Input vector.
  * \param[in]     nx  Number of elements in \a x.
  */
-static void proj(      double *restrict z, const size_t nz,
-                 const double *restrict const T,
+static void proj(      float  *restrict z, const size_t nz,
+                 const float  *restrict const T,
                  const size_t *restrict x, const size_t nx)
 { const size_t NC=nx+1;
   size_t r,c;
-  memset(z,0,sizeof(double)*nz);
+  memset(z,0,sizeof(float)*nz);
   for(r=0;r<nz;++r)
   { for(c=0;c<nx;++c)  // rotation,scale,shear
       z[r]+=T[r*NC+c]*x[c];
@@ -120,7 +120,7 @@ static unsigned inc(const size_t nd,
  * Generic affine transform on the cpu.
  * \see ndaffine()
  */
-static unsigned ndaffine_cpu(nd_t dst, const nd_t src, const double *transform, const nd_affine_params_t *param)
+static unsigned ndaffine_cpu(nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t *param)
 { /// @cond DEFINES
   #define CASE2(T1,T2) return ndaffine_cpu_##T1##_##T2(dst,src,transform,param);
   #define CASE(T)      TYPECASE2(ndtype(dst),T); break
@@ -138,7 +138,7 @@ Error:
 //
 
 // struct nd_affine_params_t
-// { double boundary_value;
+// { float boundary_value;
 // };
 
 /**
@@ -157,7 +157,7 @@ Error:
  *
  * \returns dst on success, 0 otherwise.
  */
-nd_t ndaffine(nd_t dst, const nd_t src, const double *transform, const nd_affine_params_t* params)
+nd_t ndaffine(nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t* params)
 { REQUIRE(src,PTR_ARITHMETIC);
   TRY(ndkind(dst)==ndkind(src));
   //TRY(ndAntialiasFilter(src,transform));
