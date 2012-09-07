@@ -12,7 +12,12 @@
 /**
  * Templated ndcast() operations.
  */
-template<class T> void cast(nd_t a);
+template<class T> nd_t cast(nd_t a);
+
+/**
+ * Saturate value to type max and min.
+ */
+template<class T> T clamp(double v);
 
 /**
  * Root mean squared error
@@ -32,10 +37,22 @@ double RMSE(size_t n, T* a, T* b)
  * Find first difference. 
  * \returns the index of the first difference, or -1 if none found
  */
-template<class T>
-int firstdiff(size_t n, const T* a, const T* b)
+template<class Ta,class Tb>
+int firstdiff(size_t n, const Ta* a, const Tb* b, const double tol=1e-3)
 { for(size_t i=0;i<n;++i)
-    if(a[i]!=b[i])
+    if(fabs(a[i]-b[i])>tol)
+      return (int)i;
+  return -1;
+}
+
+/**
+ * Find first difference. 
+ * \returns the index of the first difference, or -1 if none found
+ */
+template<class Ta,class Tb>
+int firstdiff_clamped(size_t n, const Ta* a, const Tb* b, const double tol)
+{ for(size_t i=0;i<n;++i)
+    if(fabs(a[i]-clamp<Ta>(b[i]))>tol)
       return (int)i;
   return -1;
 }

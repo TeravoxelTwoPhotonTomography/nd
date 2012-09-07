@@ -88,36 +88,38 @@ static unsigned NAME(ndconv1_ip_cpu,TSRC,TDST)(
   const nd_t filter, 
   const unsigned idim,
   const nd_conv_params_t *restrict param)
-{ const size_t NF=ndnelem(filter),
-               half=NF/2,
-               ND=ndshape(dst)[idim],
-               SD=ndstrides(dst)[idim];
+{ const int64_t CF=ndnelem(filter),
+                half=CF/2,
+                CD=ndshape(dst)[idim],
+                SD=ndstrides(dst)[idim];
   boundary_t boundary=select_boundary_condition(param);
   TDST *restrict t=0,
        *restrict d=nddata(dst);
-  TSRC *restrict f=nddata(filter)+half;
+  TSRC *restrict f=((TSRC*)nddata(filter))+half;
 
   size_t *dstpos;
   TRY(dstpos=malloc(sizeof(*dstpos)*ndndim(dst)));
   memset(dstpos,0,sizeof(*dstpos)*ndndim(dst));
 
   // alloc temp row, t
-  TRY(t=(TDST*)malloc(ND*sizeof(TDST)));
+  TRY(t=(TDST*)malloc(CD*sizeof(TDST)));
   do
   { int64_t i;
-    for(i=0;i<ND;++i)
+    for(i=0;i<CD;++i)
     { TSRC v=0;
       int64_t j;
+      // iterate half to -half (inclusive) going backwards
+      // This will access dst in a forward sweep
       for(j=half;(j>i)&&(j>=-half);--j)
-        v+=f[j]*(*(TSRC*)boundary(i-j,d,SD,ND,param));
-      for(;(j>i-ND)&&(j>=-half);--j)
+        v+=f[j]*(*(TDST*)boundary(i-j,d,SD,CD,param));
+      for(;(j>i-CD)&&(j>=-half);--j)
         v+=f[j]*d[i-j];
       for(;j>=-half;--j)
-        v+=f[j]*(*(TSRC*)boundary(i-j,d,SD,ND,param));
+        v+=f[j]*(*(TDST*)boundary(i-j,d,SD,CD,param));
       t[i]=NAME(saturate,TSRC,TDST)(v);
     }
     // copy t to dst
-    memcpy(d,t,ND*sizeof(TDST));
+    memcpy(d,t,CD*sizeof(TDST));
   } while(inc(ndndim(dst),idim,ndshape(dst),ndstrides(dst),(u8**)&d,dstpos));
   free(t);
   return 1;
