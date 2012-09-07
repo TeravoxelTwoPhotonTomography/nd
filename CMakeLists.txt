@@ -53,9 +53,9 @@ set(CUOPTS
 # SOURCE
 ################################################################################
 
-file(GLOB SRCS  src/*.c src/io/*.c src/affine/*.c)
-file(GLOB HDRS  src/*.h src/io/*.h)
-file(GLOB CUSRC src/affine/*.cu)
+file(GLOB SRCS  src/*.c src/io/*.c src/affine/*.c src/conv/*.c)
+file(GLOB HDRS  src/*.h src/io/*. src/conv/*.h)
+file(GLOB CUSRC src/affine/*.cu src/conv/*.cu)
 
 cuda_compile(CUFILES STATIC ${CUSRC} OPTIONS ${CUOPTS})
 

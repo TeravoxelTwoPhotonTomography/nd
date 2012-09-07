@@ -208,9 +208,9 @@ unsigned nextdim(unsigned n, unsigned limit, unsigned *rem)
 shared unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param)
 { arg_t dst=make_arg(dst_),
         src=make_arg(src_);
-  unsigned r,b,blocks=(unsigned)ceil(dst.nelem/float(BLOCKSIZE)),
+  unsigned r,blocks=(unsigned)ceil(dst.nelem/float(BLOCKSIZE)),
            tpb   =BLOCKSIZE;  
-  b=blocks;
+  //unsigned b=blocks;
   struct cudaDeviceProp prop;
   dim3 grid,threads=make_uint3(tpb,1,1);
   CUTRY(cudaGetDeviceProperties(&prop,0));

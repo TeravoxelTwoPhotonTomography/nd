@@ -16,9 +16,23 @@
 extern "C" {
 #endif
 
+
+typedef enum boundary_condition_t_
+{ nd_boundary_unknown=-1,
+  nd_boundary_replicate, /// out-of-bounds values are set to the value at the nearest edge
+  nd_boundary_symmetric, // [x] impl cpu    [ ] impl gpu    [ ] test
+  nd_boundary_circular,  // [x] impl cpu    [ ] impl gpu    [ ] test
+  nd_boundary_zero,      // [x] impl cpu    [ ] impl gpu    [ ] test
+  nd_boundary_id_count
+} boundary_condition_t;
+
 typedef struct nd_affine_params_t_
 { double boundary_value;
 } nd_affine_params_t;
+
+typedef struct nd_conv_params_t_
+{ boundary_condition_t boundary_condition;
+} nd_conv_params_t;
 
 // Required: Include "nd.h" before this header.  
 // typedef struct _nd_t* nd_t;
@@ -33,6 +47,7 @@ nd_t ndxor_ip     (nd_t z,uint64_t c,size_t ndim, size_t* shape);
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type);
 
 nd_t ndaffine     (nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t *params);
+nd_t ndconv1_ip   (nd_t dst, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
 #ifdef __cplusplus
 } //extern "C" {
 #endif

@@ -102,13 +102,6 @@ static unsigned inc(const size_t nd,
   if(d>=nd) return 0;
   pos[d]++;
   (*ptr)+=s;
-#if 0
-  { size_t i;
-    for(i=0;i<nd;++i)
-      printf("%3u",(unsigned)pos[i]);
-    printf("[%2u:%9u]\n",(unsigned)d,(unsigned)strides[d]);
-  }  
-#endif
   return 1;
 }
 
