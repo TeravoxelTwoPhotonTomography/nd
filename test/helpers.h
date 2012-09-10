@@ -40,7 +40,7 @@ double RMSE(size_t n, T* a, T* b)
 template<class Ta,class Tb>
 int firstdiff(size_t n, const Ta* a, const Tb* b, const double tol=1e-3)
 { for(size_t i=0;i<n;++i)
-    if(fabs(a[i]-b[i])>tol)
+    if(fabs((double)a[i]-(double)b[i])>tol)
       return (int)i;
   return -1;
 }
@@ -52,7 +52,7 @@ int firstdiff(size_t n, const Ta* a, const Tb* b, const double tol=1e-3)
 template<class Ta,class Tb>
 int firstdiff_clamped(size_t n, const Ta* a, const Tb* b, const double tol)
 { for(size_t i=0;i<n;++i)
-    if(fabs(a[i]-clamp<Ta>(b[i]))>tol)
+    if(fabs((double)a[i]-(double)clamp<Ta>(b[i]))>tol)
       return (int)i;
   return -1;
 }

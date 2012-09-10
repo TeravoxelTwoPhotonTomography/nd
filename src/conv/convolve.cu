@@ -6,21 +6,18 @@
 
 #define MAX_FILTER_WIDTH     32  // max size of kernel (allocated in constant memory)
 
-#define COLUMNS_BLOCKDIM_X   32
-#define COLUMNS_BLOCKDIM_Y   8
-#define COLUMNS_RESULT_STEPS 8
-#define COLUMNS_HALO_STEPS   1
-
   /**
    * Treat our nd data as 2d around idim:
    * idim is the dimension to be convolved.
    */
 struct arg_t
-{ u8   *restrict data;
+{ void *restrict data;
   unsigned       nrows,
                  ncols,
                  rstride, // strides are in elements (not bytes)
                  cstride;
+#undef LOG
+#define LOG(...) ndLogError(a,__VA_ARGS__)
   arg_t(nd_t a,unsigned idim):
     data(0),nrows(0),ncols(0),rstride(0),cstride(0)
   { 
@@ -45,9 +42,13 @@ Error:
 
 __constant__ float c_kernel[MAX_FILTER_WIDTH];
 
+#undef LOG
+#define LOG(...) printf(__VA_ARGS__)
 static unsigned upload_kernel(float *kernel,unsigned n)
 { TRY(n<MAX_FILTER_WIDTH);
-  CUTRY(cudaMemcpyToSymbol(c_kernel,kernel,n*sizeof(*kernel)));
+  size_t sz;
+  CUTRY(cudaGetSymbolSize(&sz,c_kernel));
+  CUTRY(cudaMemcpyToSymbol(c_kernel,kernel,n*sizeof(float),0,cudaMemcpyHostToDevice));
   return 1;
 Error:
   return 0;
@@ -80,7 +81,7 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
 #pragma unroll
   for(int i=HALO;i<HALO+WORK;++i)
   { float sum=0.0f;
-    for(int k=-radius;j<=radius;j++)
+    for(int j=-radius;j<=radius;j++)
       sum+=c_kernel[radius-j]*buf[threadIdx.y][threadIdx.x+i*BX+j];
     dst[i*BX]=sum;
   }
@@ -111,9 +112,9 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   // COMPUTE
   __syncthreads();
 #pragma unroll
-  for(int i<HALO;i<HALO+WORK;++i)
+  for(int i=HALO;i<HALO+WORK;++i)
   { float sum=0.0f;
-    for(int k=-radius;j<=radius;++j)
+    for(int j=-radius;j<=radius;++j)
       sum+=c_kernel[radius-j]*buf[threadIdx.x][threadIdx.y+i*BY+j];
     dst[i*BY*dst_.rstride]=sum;
   }
@@ -123,20 +124,23 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
 // === Interface ===
 //
 
+#undef LOG
+#define LOG(...) ndLogError(dst_, __VA_ARGS__)
+
 /**
  * Assume the ndkind() of \a src_ and \a dst_ have already been checked.
  */
 shared unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigned idim, const nd_conv_params_t *param)
-{ arg_t dst(dst_);
+{ arg_t dst(dst_,idim);
   unsigned radius;
   // check args
   TRY(dst.isok());
-  TRY(ndtype(filter)=nd_f32); // only float kernels supported at the moment
-  radius=ndnelem(filter)/2;
-  TRY(2*radius+1==ndnelem(filter));      // filter has odd size
-  TRY(ndnelem(filter)<MAX_FILTER_WIDTH);  
+  TRY(ndtype(filter_)==nd_f32); // only float kernels supported at the moment
+  radius=ndnelem(filter_)/2;
+  TRY(2*radius+1==ndnelem(filter_));      // filter has odd size
+  TRY(ndnelem(filter_)<MAX_FILTER_WIDTH);  
 
-  TRY(upload_kernel(nddata(filter_),ndnelem(filter_))); /// \todo Ideally I'd only upload the kernel once and then do the seperable convolution on each dimension
+  TRY(upload_kernel((float*)nddata(filter_),ndnelem(filter_))); /// \todo Ideally I'd only upload the kernel once and then do the seperable convolution on each dimension
 
   /// @cond DEFINES
   if(idim==0)

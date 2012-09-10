@@ -50,6 +50,8 @@ typedef double   f64;
 #define max_f32  FLT_MAX
 #define max_f64  FLT_MAX
 
+#undef max
+#undef min
 #define max(a,b) (((a)<(b))?(b):(a))
 #define min(a,b) (((a)<(b))?(a):(b))
 
@@ -153,7 +155,7 @@ nd_t ndconv1_ip(nd_t dst, const nd_t filter, const unsigned idim,const nd_conv_p
   TRY(ndndim(filter)==1);
   TRY(idim<ndndim(dst));
   switch(ndkind(dst))
-  { case nd_gpu_cuda: FAIL; break;//TRY(ndconv1_ip_cuda(dst,filter,idim,params)); break;
+  { case nd_gpu_cuda: TRY(ndconv1_ip_cuda(dst,filter,idim,params)); break;
     case nd_heap:
     case nd_static:   TRY(ndconv1_ip_cpu (dst,filter,idim,params)); break;
     default: FAIL;
