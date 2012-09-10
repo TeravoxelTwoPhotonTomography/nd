@@ -57,6 +57,7 @@ typedef double   f64;
 #define restrict __restrict__
 #endif
 
+extern unsigned ndconv1_ip_cuda(nd_t dst, const nd_t filter, const unsigned idim, const nd_conv_params_t *param);
 /// @endcond
 
 // import kind capabilities
