@@ -38,7 +38,6 @@ TYPEDEFS;
 #define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
 #define FAIL     LOG("%s(%d) %s()"ENDL "\tExecution should not have reached here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error
 
-#define shared extern "C"
 #ifndef restrict
 #define restrict __restrict__
 #endif
@@ -186,7 +185,7 @@ static arg_t make_arg(const nd_t a)
 // === Interface ===
 //
 #include <math.h>
-unsigned nextdim(unsigned n, unsigned limit, unsigned *rem)
+static unsigned nextdim(unsigned n, unsigned limit, unsigned *rem)
 { unsigned v=limit,c=limit,low=n/limit,argmin=0,min=limit;
   *rem=0;  
   if(n<limit) return n;
@@ -205,7 +204,7 @@ unsigned nextdim(unsigned n, unsigned limit, unsigned *rem)
 /**
  * Assume the ndkind() of \a src_ and \a dst_ have already been checked.
  */
-shared unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param)
+extern "C" unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param)
 { arg_t dst=make_arg(dst_),
         src=make_arg(src_);
   unsigned r,blocks=(unsigned)ceil(dst.nelem/float(BLOCKSIZE)),

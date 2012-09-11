@@ -31,7 +31,6 @@ TYPEDEFS;
 #define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
 #define FAIL     LOG("%s(%d) %s()"ENDL "\tExecution should not have reached here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error
 
-#define shared extern "C"
 #ifndef restrict
 #define restrict __restrict__
 #endif
@@ -47,11 +46,11 @@ inline __device__ float clamp(float f, float a, float b)          {return fmaxf(
 template<class T> inline __device__ T saturate(float f);
 template<> inline __device__ uint8_t  saturate<uint8_t>(float f)  {return clamp(f,0,UCHAR_MAX);}
 template<> inline __device__ uint16_t saturate<uint16_t>(float f) {return clamp(f,0,USHRT_MAX);}
-template<> inline __device__ uint32_t saturate<uint32_t>(float f) {return clamp(f,0,ULONG_MAX);}
+template<> inline __device__ uint32_t saturate<uint32_t>(float f) {return clamp(f,0,UINT_MAX);}
 template<> inline __device__ uint64_t saturate<uint64_t>(float f) {return clamp(f,0,ULLONG_MAX);} // FIXME - will overflow float type
 template<> inline __device__  int8_t  saturate< int8_t> (float f) {return clamp(f,CHAR_MIN,CHAR_MAX);}
 template<> inline __device__  int16_t saturate< int16_t>(float f) {return clamp(f,SHRT_MIN,SHRT_MAX);}
-template<> inline __device__  int32_t saturate< int32_t>(float f) {return clamp(f,LONG_MIN,LONG_MAX);}
+template<> inline __device__  int32_t saturate< int32_t>(float f) {return clamp(f,INT_MIN,INT_MAX);}
 template<> inline __device__  int64_t saturate< int64_t>(float f) {return clamp(f,LLONG_MIN,LLONG_MAX);} // FIXME - will overflow float type
 template<> inline __device__  float   saturate<float>(float f)    {return f;}
 template<> inline __device__  double  saturate<double>(float f)   {return f;}

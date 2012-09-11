@@ -5,9 +5,9 @@
 #include "common.h"
 
 #define MAX_FILTER_WIDTH     32  // max size of kernel (allocated in constant memory)
-
+                                 // actual max depends on kernel launch parameters
   /**
-   * Treat our nd data as 2d around idim:
+   * Treat the nd data as 2d around idim:
    * idim is the dimension to be convolved.
    */
 struct arg_t
@@ -27,7 +27,7 @@ struct arg_t
     if(idim==0)
     { rstride=ndstrides(a)[1]/ndstrides(a)[0];
       ncols=ndshape(a)[0];
-      nrows=ndshape(a)[1];
+      nrows=(ndndim(a)>1)?ndshape(a)[1]:1;
     }
     else
     { rstride=ndstrides(a)[idim]/ndstrides(a)[0];
@@ -65,28 +65,30 @@ template<
 __global__ void 
 __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   conv1_ip_rows(arg_t dst_, int radius, const nd_conv_params_t param)
-{  __shared__ Tdst buf[BY][(WORK+2*HALO)*BX];
+{ 
+  __shared__ Tdst buf[BY][(WORK+2*HALO)*BX];
   Tdst* dst=(Tdst*)dst_.data;  
   const int ox=threadIdx.x+(blockIdx.x*WORK-HALO)*BX,
             oy=threadIdx.y+ blockIdx.y           *BY;
-  dst+=ox+oy*dst_.rstride;  
-#pragma unroll
-  for(int i=HALO     ;i<HALO+WORK  ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=dst[i*BX];
-#pragma unroll
-  for(int i=0        ;i<HALO       ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*BX)          ?dst[i*BX]:dst[0]; // clamp to edge boundary condition  
-#pragma unroll
-  for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(dst_.ncols-ox>=i*BX)?dst[i*BX]:dst[dst_.ncols-ox-1]; // clamp to edge boundary condition
-  // COMPUTE
-  __syncthreads();
-#pragma unroll
-  for(int i=HALO;i<HALO+WORK;++i)
-  { float sum=0.0f;
-    for(int j=-radius;j<=radius;j++)
-      sum+=c_kernel[radius-j]*buf[threadIdx.y][threadIdx.x+i*BX+j];
-    dst[i*BX]=sum;
+  if(oy<dst_.nrows)
+  {  dst+=ox+oy*dst_.rstride;  
+    #pragma unroll
+    for(int i=HALO     ;i<HALO+WORK  ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=dst[i*BX];
+    #pragma unroll
+    for(int i=0        ;i<HALO       ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*BX)          ?dst[i*BX]:dst[0]; // clamp to edge boundary condition  
+    #pragma unroll
+    for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(dst_.ncols-ox>=i*BX)?dst[i*BX]:dst[dst_.ncols-ox-1]; // clamp to edge boundary condition
+    // COMPUTE
+    __syncthreads();
+    #pragma unroll
+    for(int i=HALO;i<HALO+WORK;++i)
+    { float sum=0.0f;
+      for(int j=-radius;j<=radius;j++)
+        sum+=c_kernel[radius-j]*buf[threadIdx.y][threadIdx.x+i*BX+j];
+      dst[i*BX]=sum;
+    }
   }
 }
-
 
 template<
   typename Tdst,
@@ -102,13 +104,20 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   Tdst* dst=(Tdst*)dst_.data;  
   const int ox=threadIdx.x+ blockIdx.x           *BX,
             oy=threadIdx.y+(blockIdx.y*WORK-HALO)*BY;
-  dst+=ox+oy*dst_.rstride;
-#pragma unroll
+  
+  if(ox<dst_.ncols)
+  { dst+=ox+oy*dst_.rstride;
+  }else
+  { dst+=(dst_.ncols-1)+oy*dst_.rstride; // clamp to edge boundary condition
+  }
+  // LOAD
+  #pragma unroll
   for(int i=HALO     ;i<HALO+WORK  ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=dst[i*BY*dst_.rstride];
-#pragma unroll
+  #pragma unroll
   for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*BY)          ?dst[i*BY*dst_.rstride]:dst[0];  // clamp to edge boundary condition  
-#pragma unroll
+  #pragma unroll
   for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(dst_.ncols-oy>=i*BY)?dst[i*BY*dst_.rstride]:dst[(dst_.nrows-oy-1)*dst_.rstride]; // clamp to edge boundary condition
+  
   // COMPUTE
   __syncthreads();
 #pragma unroll
@@ -130,7 +139,7 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
 /**
  * Assume the ndkind() of \a src_ and \a dst_ have already been checked.
  */
-shared unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigned idim, const nd_conv_params_t *param)
+extern "C" unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigned idim, const nd_conv_params_t *param)
 { arg_t dst(dst_,idim);
   unsigned radius;
   // check args
@@ -144,22 +153,66 @@ shared unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigned id
 
   /// @cond DEFINES
   if(idim==0)
-  { const unsigned BX=32,BY=4,WORK=8,HALO=1;
-    dim3 blocks(dst.ncols/(WORK*BX), dst.nrows/BY);
+  { const unsigned BX=32,BY=4,HALO=1;
+    unsigned work;
+    TRY(dst.ncols%BX==0);           // width  must be aligned to a warp (32)    
+    TRY(BX*BY>=radius);             // radius can't be too big
+    for(work=8;work>0 && (dst.ncols%(BX*work))!=0;--work); // search for a good size for work-per-thread
+    TRY(work>0);
+    dim3 blocks(dst.ncols/(work*BX), ceil(dst.nrows/(float)BY));
     dim3 threads(BX,BY);
-    TRY(BX*BY>=radius);                    // radius can't be too big
-    TRY(dst.ncols%(WORK*BX)==0);           // width  must be aligned (8*32=256)
-    TRY(dst.nrows%BY==0);                  // height must be aligned (4)
-    #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,WORK><<<blocks,threads>>>(dst,radius,*param); break
-    TYPECASE(ndtype(dst_));
-    #undef CASE 
+
+    switch(work)
+    {
+    case 1:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,1><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));} // scope just in case the compiler needs help with big switch statements.
+      #undef CASE 
+      break;
+    case 2:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,2><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    case 3:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,3><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    case 4:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,4><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    case 5:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,5><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    case 6:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,6><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    case 7:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,7><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    case 8:
+      #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,8><<<blocks,threads>>>(dst,radius,*param); break
+      {TYPECASE(ndtype(dst_));}
+      #undef CASE 
+      break;
+    default:
+      FAIL;
+    }
   } else
   { 
     const unsigned BX=32,BY=8,WORK=8,HALO=1;
     dim3 blocks(dst.ncols/(WORK*BX), dst.nrows/BY);
     dim3 threads(BX,BY);
     TRY(BY*HALO>=radius);                  // radius can't be too big
-    TRY(dst.ncols%BX==0);                  // width  must be aligned (32)
     TRY(dst.nrows%(BY*WORK)==0);           // height must be aligned (8*8)
     #define CASE(T) conv1_ip_cols<T,BX,BY,HALO,WORK><<<blocks,threads>>>(dst,radius,*param); break
     TYPECASE(ndtype(dst_));
