@@ -14,6 +14,8 @@
 #include "math_functions.h"
 
 #include "generic/macros.h"
+//define short name basic types: u8,u16,...
+//  These are used for spe
 TYPEDEFS;
 
 /// @cond DEFINES

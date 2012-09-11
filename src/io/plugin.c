@@ -33,7 +33,7 @@
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)),"Memory allocation failed.")
 #define REALLOC(type,e,nelem) TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)),"Memory allocation failed.")
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
-#if 1
+#if 0
 #define DBG(...) LOG(__VA_ARGS__)
 #else
 #define DBG(...)

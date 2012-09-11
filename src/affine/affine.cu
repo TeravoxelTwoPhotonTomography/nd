@@ -190,7 +190,7 @@ static unsigned nextdim(unsigned n, unsigned limit, unsigned *rem)
   *rem=0;  
   if(n<limit) return n;
   for(c=low+1;c<limit&&v>0;c++)
-  { v=c*ceil(n/(float)c)-n;
+  { v=(unsigned)(c*ceil(n/(float)c)-n);
     if(v<min)
     { min=v;
       argmin=c;

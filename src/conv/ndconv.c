@@ -113,12 +113,13 @@ static unsigned inc(const size_t ndims,
                     u8 **ptr,
                     size_t *restrict pos)
 { size_t d=(idim==0); // skip idim if idim=0
-  const size_t s=strides[0];
+  size_t s=strides[idim==0];
   while(d<ndims && pos[d]==shape[d]-1) //carry
   { pos[d++]=0;
+    s=(d==idim)?strides[idim]:s;
     d+=(d==idim);     //skip idim
   }
-  if(d>=ndims) return 0;
+  if(d>=ndims) return 0;  
   pos[d]++;
   (*ptr)+=s;          // move ptr to pos
   return 1;
@@ -155,7 +156,10 @@ nd_t ndconv1_ip(nd_t dst, const nd_t filter, const unsigned idim,const nd_conv_p
   TRY(ndndim(filter)==1);
   TRY(idim<ndndim(dst));
   switch(ndkind(dst))
-  { case nd_gpu_cuda: TRY(ndconv1_ip_cuda(dst,filter,idim,params)); break;
+  { case nd_gpu_cuda: 
+      REQUIRE(filter,CAN_MEMCPY); // must use a host pointer at the moment (no reason this can't be changed)
+      TRY(ndconv1_ip_cuda(dst,filter,idim,params)); 
+      break;
     case nd_heap:
     case nd_static:   TRY(ndconv1_ip_cpu (dst,filter,idim,params)); break;
     default: FAIL;

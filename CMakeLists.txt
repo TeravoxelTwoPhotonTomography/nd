@@ -41,8 +41,11 @@ include_directories(${CUDA_INCLUDE_DIRS})
 cuda_build_clean_target()
 set(cuda_build_cubin on)
 set(CUDA_ARCH sm_30 CACHE STRING "Target archetecture for cuda kernels.")
+if(CUDA_ARCH)
+  set(CUDA_ARCH_OPT --arch=${CUDA_ARCH})
+endif()
 set(CUOPTS
-  -arch=sm_30
+  ${CUDA_ARCH_OPT}
   DEBUG -g -G
   RELEASE --use_fast_math
   RELWITHDEBINFO --use_fast_math;-g

@@ -193,7 +193,7 @@ ErrorSpecificFormat:
       __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing",format);
   return NULL;
 ErrorDetectFormat:
-  LOG("%s(%d): %s"ENDL "\tCould not open \"%s\" for %s."ENDL,
+  LOG("%s(%d): %s"ENDL "\tCould not detect file format of \"%s\" for %s."ENDL,
       __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing"); 
   return NULL;
 Error:

@@ -121,7 +121,7 @@ TYPED_TEST(Affine,Identity_GPU)
   ASSERT_NE((void*)NULL,dst_=ndcuda(this->dst,NULL));
   EXPECT_EQ(dst_,ndCudaCopy(dst_,this->dst,NULL));
   EXPECT_EQ(src_,ndCudaCopy(src_,this->src,NULL));
-  EXPECT_EQ(dst_,ndaffine(dst_,src_,(float*)xform_,&this->params));
+  EXPECT_EQ(dst_,ndaffine(dst_,src_,(float*)xform_,&this->params))<<nderror(dst_);
   //EXPECT_EQ(cudaSuccess,cudaStreamSynchronize(NULL))<<cudaGetErrorString(cudaGetLastError());
   EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL))<<nderror(this->dst);  
   //write("src-out.h5",this->src);

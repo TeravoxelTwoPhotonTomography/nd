@@ -91,7 +91,8 @@ static unsigned NAME(ndconv1_ip_cpu,TSRC,TDST)(
 { const int64_t CF=ndnelem(filter),
                 half=CF/2,
                 CD=ndshape(dst)[idim],
-                SD=ndstrides(dst)[idim];
+                SD=ndstrides(dst)[idim],
+                stride_elems = SD/ndstrides(dst)[0];
   boundary_t boundary=select_boundary_condition(param);
   TDST *restrict t=0,
        *restrict d=nddata(dst);
@@ -113,13 +114,14 @@ static unsigned NAME(ndconv1_ip_cpu,TSRC,TDST)(
       for(j=half;(j>i)&&(j>=-half);--j)
         v+=f[j]*(*(TDST*)boundary(i-j,d,SD,CD,param));
       for(;(j>i-CD)&&(j>=-half);--j)
-        v+=f[j]*d[i-j];
+        v+=f[j]*d[(i-j)*stride_elems];
       for(;j>=-half;--j)
         v+=f[j]*(*(TDST*)boundary(i-j,d,SD,CD,param));
       t[i]=NAME(saturate,TSRC,TDST)(v);
     }
     // copy t to dst
-    memcpy(d,t,CD*sizeof(TDST));
+    for(i=0;i<CD;++i)
+      d[i*stride_elems]=t[i];
   } while(inc(ndndim(dst),idim,ndshape(dst),ndstrides(dst),(u8**)&d,dstpos));
   free(t);
   return 1;

@@ -6,6 +6,7 @@
 
 #define MAX_FILTER_WIDTH     32  // max size of kernel (allocated in constant memory)
                                  // actual max depends on kernel launch parameters
+
   /**
    * Treat the nd data as 2d around idim:
    * idim is the dimension to be convolved.
@@ -46,9 +47,7 @@ __constant__ float c_kernel[MAX_FILTER_WIDTH];
 #define LOG(...) printf(__VA_ARGS__)
 static unsigned upload_kernel(float *kernel,unsigned n)
 { TRY(n<MAX_FILTER_WIDTH);
-  size_t sz;
-  CUTRY(cudaGetSymbolSize(&sz,c_kernel));
-  CUTRY(cudaMemcpyToSymbol(c_kernel,kernel,n*sizeof(float),0,cudaMemcpyHostToDevice));
+  CUTRY(cudaMemcpyToSymbol(c_kernel,kernel,n*sizeof(float)));
   return 1;
 Error:
   return 0;
@@ -71,13 +70,16 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   const int ox=threadIdx.x+(blockIdx.x*WORK-HALO)*BX,
             oy=threadIdx.y+ blockIdx.y           *BY;
   if(oy<dst_.nrows)
-  {  dst+=ox+oy*dst_.rstride;  
+  {  dst+=ox+oy*(int)dst_.rstride;  
     #pragma unroll
-    for(int i=HALO     ;i<HALO+WORK  ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=dst[i*BX];
+    for(int i=HALO     ;i<HALO+WORK  ;++i)
+      buf[threadIdx.y][threadIdx.x+i*BX]=dst[i*BX];
     #pragma unroll
-    for(int i=0        ;i<HALO       ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*BX)          ?dst[i*BX]:dst[0]; // clamp to edge boundary condition  
+    for(int i=0        ;i<HALO       ;++i)
+      buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*(int)BX)    ?dst[i*BX]:dst[-ox]; // clamp to edge boundary condition  
     #pragma unroll
-    for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(dst_.ncols-ox>=i*BX)?dst[i*BX]:dst[dst_.ncols-ox-1]; // clamp to edge boundary condition
+    for(int i=HALO+WORK;i<2*HALO+WORK;++i)
+      buf[threadIdx.y][threadIdx.x+i*BX]=(dst_.ncols-ox>i*BX)?dst[i*BX]:dst[dst_.ncols-ox-1]; // clamp to edge boundary condition
     // COMPUTE
     __syncthreads();
     #pragma unroll
@@ -106,17 +108,17 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
             oy=threadIdx.y+(blockIdx.y*WORK-HALO)*BY;
   
   if(ox<dst_.ncols)
-  { dst+=ox+oy*dst_.rstride;
+  { dst+=ox+oy*(int)dst_.rstride;
   }else
-  { dst+=(dst_.ncols-1)+oy*dst_.rstride; // clamp to edge boundary condition
+  { dst+=(dst_.ncols-1)+oy*(int)dst_.rstride; // clamp to edge boundary condition
   }
   // LOAD
   #pragma unroll
   for(int i=HALO     ;i<HALO+WORK  ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=dst[i*BY*dst_.rstride];
   #pragma unroll
-  for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*BY)          ?dst[i*BY*dst_.rstride]:dst[0];  // clamp to edge boundary condition  
+  for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*(int)BY)    ?dst[i*BY*dst_.rstride]:dst[-oy];  // clamp to edge boundary condition  
   #pragma unroll
-  for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(dst_.ncols-oy>=i*BY)?dst[i*BY*dst_.rstride]:dst[(dst_.nrows-oy-1)*dst_.rstride]; // clamp to edge boundary condition
+  for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(dst_.ncols-oy>i*BY)?dst[i*BY*dst_.rstride]:dst[(dst_.nrows-oy-1)*dst_.rstride]; // clamp to edge boundary condition
   
   // COMPUTE
   __syncthreads();
@@ -153,7 +155,10 @@ extern "C" unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigne
 
   /// @cond DEFINES
   if(idim==0)
-  { const unsigned BX=32,BY=4,HALO=1;
+  { //
+    // ROW-WISE
+    //
+    const unsigned BX=32,BY=4,HALO=1;
     unsigned work;
     TRY(dst.ncols%BX==0);           // width  must be aligned to a warp (32)    
     TRY(BX*BY>=radius);             // radius can't be too big
@@ -162,7 +167,7 @@ extern "C" unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigne
     dim3 blocks(dst.ncols/(work*BX), ceil(dst.nrows/(float)BY));
     dim3 threads(BX,BY);
 
-    switch(work)
+    switch(work) // kernels unroll a certain amount of work per thread
     {
     case 1:
       #define CASE(T) conv1_ip_rows<T,BX,BY,HALO,1><<<blocks,threads>>>(dst,radius,*param); break
@@ -208,7 +213,9 @@ extern "C" unsigned ndconv1_ip_cuda(nd_t dst_, const nd_t filter_, const unsigne
       FAIL;
     }
   } else
-  { 
+  { //
+    // COLUMN-WISE
+    //
     const unsigned BX=32,BY=8,WORK=8,HALO=1;
     dim3 blocks(dst.ncols/(WORK*BX), dst.nrows/BY);
     dim3 threads(BX,BY);
