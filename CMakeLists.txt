@@ -42,7 +42,7 @@ cuda_build_clean_target()
 set(cuda_build_cubin on)
 set(CUDA_ARCH sm_30 CACHE STRING "Target archetecture for cuda kernels.")
 if(CUDA_ARCH)
-  set(CUDA_ARCH_OPT --arch=${CUDA_ARCH})
+  set(CUDA_ARCH_OPT "-arch=${CUDA_ARCH}")
 endif()
 set(CUOPTS
   ${CUDA_ARCH_OPT}

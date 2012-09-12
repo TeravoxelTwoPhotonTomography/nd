@@ -116,7 +116,7 @@ static unsigned inc(const size_t ndims,
   size_t s=strides[idim==0];
   while(d<ndims && pos[d]==shape[d]-1) //carry
   { pos[d++]=0;
-    s=(d==idim)?strides[idim]:s;
+    s+=(d==idim)?(strides[idim+1]-strides[idim]):0;
     d+=(d==idim);     //skip idim
   }
   if(d>=ndims) return 0;  

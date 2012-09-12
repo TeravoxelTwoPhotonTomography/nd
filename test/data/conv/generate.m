@@ -17,7 +17,7 @@ save avg2.mat avg2 -v7.3
 %% seperable convolution
 avg1=imfilter(avg0,avg,'replicate');
 avg2=imfilter(avg1,reshape(avg,[1 1 3]),'replicate');
-save avg.mat avg -v7.3
+save avg.mat avg2 -v7.3
 
 
 

@@ -1,6 +1,8 @@
 /**
  * \file
  * Convolution tests.
+ *
+ * \todo ensure loaded test data has expected shape
  * @cond TEST
  */
 
@@ -16,6 +18,7 @@
 //
 
 #define WIDTH (256)
+#define DEBUG_DUMP
 
 static
 struct _files_t
@@ -74,23 +77,53 @@ struct Convolve3d:public testing::Test
 const float Convolve3d::f[]={1.0/3.0,1.0/3.0,1.0/3.0};
 const nd_conv_params_t Convolve3d::params={nd_boundary_replicate};
 
+// === CPU ===
 TEST_F(Convolve3d,CPU_dim0)
 { EXPECT_EQ(orig,ndconv1_ip(orig,filter,0,&params));
+#ifdef DEBUG_DUMP  
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg0));
+#endif
   EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg0)));
 }
 TEST_F(Convolve3d,CPU_dim1)
 { EXPECT_EQ(orig,ndconv1_ip(orig,filter,1,&params));
+#ifdef DEBUG_DUMP
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg1));
+#endif
   EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg1)));
 }
 TEST_F(Convolve3d,CPU_dim2)
 { EXPECT_EQ(orig,ndconv1_ip(orig,filter,2,&params));
+#ifdef DEBUG_DUMP
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg2));
+#endif
   EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg2)));
+}
+TEST_F(Convolve3d,CPU_alldims)
+{ EXPECT_EQ(orig,ndconv1_ip(orig,filter,0,&params));
+  EXPECT_EQ(orig,ndconv1_ip(orig,filter,1,&params));
+  EXPECT_EQ(orig,ndconv1_ip(orig,filter,2,&params));
+#ifdef DEBUG_DUMP
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg2));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg)));
+}
+
+// === GPU ===
+TEST_F(Convolve3d,GPU_dim0)
+{ nd_t dev=ndcuda(orig,0);
+  EXPECT_EQ(dev,ndCudaCopy(dev,orig,0));
+  EXPECT_EQ(dev,ndconv1_ip(dev,filter,0,&params));
+  EXPECT_EQ(orig,ndCudaCopy(orig,dev,0));
+#ifdef DEBUG_DUMP  
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg0));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg0))); 
 }
 
 //
