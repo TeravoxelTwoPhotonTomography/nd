@@ -53,10 +53,13 @@ struct _nd_t
 };
 
 typedef struct _nd_cuda_t* nd_cuda_t;
+/// Castable to nd_t.
 struct _nd_cuda_t
-{ struct _nd_t vol;             ///< host bound shape,strides. device bound data.
-  void *restrict dev_shape;   ///< device bound shape array
-  void *restrict dev_strides; ///< device bound strides array
+{ struct _nd_t vol;             ///< host bound shape,strides. device bound data.  Must be the first element in the struct.
+                                
+  cudaStream_t stream;          ///< currently bound stream
+  void *restrict dev_shape;     ///< device bound shape array
+  void *restrict dev_strides;   ///< device bound strides array
 };
 
 #include "private/kind.c"
@@ -389,14 +392,15 @@ Error:
  */
 nd_t ndcuda(nd_t a,cudaStream_t stream)
 { nd_cuda_t out;
-  TRY(out=ndcuda_init());
+  TRY(out=ndcuda_init());  
+  out->stream=stream;
   TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
   CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
   CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
   CUTRY(cudaMalloc(&out->vol.data   ,ndnbytes(a)));
 
-  TRY(ndCudaSyncShape((nd_t)out,stream));
+  TRY(ndCudaSyncShape((nd_t)out));
   return (nd_t)out;
 Error:  
   if(out) free(out);  // I suppose ndfree should know how to free gpu-based shape and strides
@@ -407,7 +411,7 @@ Error:
  * Copies host-based shapes and strides to the GPU.
  * \todo bad name: can't tell from name direction of transfer
  */
-nd_t ndCudaSyncShape(nd_t a,cudaStream_t stream)
+nd_t ndCudaSyncShape(nd_t a)
 { nd_cuda_t self=(nd_cuda_t)a;
   REQUIRE(a,CAN_CUDA);
   CUTRY(cudaMemcpy(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice));
@@ -428,32 +432,34 @@ Error:
  * Stream may be 0.  Specifies the stream to use for async copies.
  * Async copies are the default.
  */
-nd_t ndCudaCopy(nd_t dst, nd_t src,cudaStream_t stream)
+nd_t ndCudaCopy(nd_t dst, nd_t src)
 { enum cudaMemcpyKind direction;
+  cudaStream_t stream;
   size_t sz;
   if(ndkind(dst)==nd_gpu_cuda)
     { REQUIRE(src,CAN_MEMCPY);
       direction=cudaMemcpyHostToDevice;
       sz=ndnbytes(src);
+      stream=ndCudaStream(dst);
     }
   else if(ndkind(src)==nd_gpu_cuda)
     { REQUIRE(dst,CAN_MEMCPY);
       direction=cudaMemcpyDeviceToHost;
       sz=ndnbytes(dst);
+      stream=ndCudaStream(src);
       //CUTRY(cudaStreamSynchronize(stream)); // sync before read
     }
   else
     FAIL("Only Host-to-Device or Device-to-Host copies are supported");
-  //CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
-  CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
+  CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  //CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
   return dst;
 Error:
   return 0;
 }
 
 /**
- * GPU based shape array.349
- * 
+ * GPU based shape array.
  * \returns device pointer on success, otherwise 0.
  */
 void* ndCudaShape    (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((nd_cuda_t)self)->dev_shape  :0;}
@@ -464,4 +470,32 @@ void* ndCudaShape    (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((n
  */
 void* ndCudaStrides  (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((nd_cuda_t)self)->dev_strides:0;}
 
+cudaStream_t ndCudaStream(nd_t self)
+{ return ((nd_cuda_t)self)->stream;
+}
+
+/**
+ * Set the stream to be used for asynchronous operations on the array.
+ * \param[in]   self    The nd_t array.
+ * \param[in]   stream  May be 0. A Cuda stream identifier.
+ * \returns \a self (always succeeeds).
+ */
+nd_t ndCudaBindStream(nd_t self_, cudaStream_t stream)
+{ nd_cuda_t self=(nd_cuda_t)self_;
+  self->stream=stream;
+  return self_;
+}
+
+#undef LOG
+#define LOG(...) ndLogError(self_,__VA_ARGS__)
+
+/** Synchronize on the currently bound stream. */
+nd_t ndCudaWait(nd_t self_)
+{ nd_cuda_t self=(nd_cuda_t)self_;
+  if(self->stream)
+    CUTRY(cudaStreamSynchronize(self->stream));
+  return self_;
+Error:
+  return 0;
+}
 #pragma warning( pop )

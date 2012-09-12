@@ -2,6 +2,9 @@
  * \file
  * Convolution tests.
  *
+ * \todo FIXME inplace convolution requires dynamic work size (no overlapped halos between blocks)
+ *             Should do out-of-place (simplest fix).
+ * \todo add unrolling for common small kernel sizes
  * \todo ensure loaded test data has expected shape
  * @cond TEST
  */
@@ -18,7 +21,7 @@
 //
 
 #define WIDTH (256)
-#define DEBUG_DUMP
+//#define DEBUG_DUMP
 
 static
 struct _files_t
@@ -116,14 +119,53 @@ TEST_F(Convolve3d,CPU_alldims)
 // === GPU ===
 TEST_F(Convolve3d,GPU_dim0)
 { nd_t dev=ndcuda(orig,0);
-  EXPECT_EQ(dev,ndCudaCopy(dev,orig,0));
+  EXPECT_EQ(dev,ndCudaCopy(dev,orig))<<nderror(dev);
   EXPECT_EQ(dev,ndconv1_ip(dev,filter,0,&params));
-  EXPECT_EQ(orig,ndCudaCopy(orig,dev,0));
+  EXPECT_EQ(orig,ndCudaCopy(orig,dev))<<nderror(orig);;
 #ifdef DEBUG_DUMP  
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg0));
 #endif
-  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg0))); 
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg0)));
+  EXPECT_EQ(cudaSuccess,cudaDeviceReset());
+}
+TEST_F(Convolve3d,GPU_dim1)
+{ nd_t dev=ndcuda(orig,0);
+  EXPECT_EQ(dev,ndCudaCopy(dev,orig))<<nderror(dev);
+  EXPECT_EQ(dev,ndconv1_ip(dev,filter,1,&params));
+  EXPECT_EQ(orig,ndCudaCopy(orig,dev))<<nderror(orig);
+#ifdef DEBUG_DUMP  
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg1));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg1)));
+  EXPECT_EQ(cudaSuccess,cudaDeviceReset());
+}
+TEST_F(Convolve3d,GPU_dim2)
+{ nd_t dev=ndcuda(orig,0);
+  EXPECT_EQ(dev,ndCudaCopy(dev,orig))<<nderror(dev);
+  EXPECT_EQ(dev,ndconv1_ip(dev,filter,2,&params));
+  EXPECT_EQ(orig,ndCudaCopy(orig,dev))<<nderror(orig);
+#ifdef DEBUG_DUMP  
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg2));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg2)));
+  EXPECT_EQ(cudaSuccess,cudaDeviceReset());
+}
+TEST_F(Convolve3d,GPU_alldims)
+{ nd_t dev=ndcuda(orig,0);
+  EXPECT_EQ(dev,ndCudaCopy(dev,orig))<<nderror(dev);
+  EXPECT_EQ(dev,ndconv1_ip(dev,filter,0,&params));
+  EXPECT_EQ(dev,ndconv1_ip(dev,filter,1,&params));
+  EXPECT_EQ(dev,ndconv1_ip(dev,filter,2,&params));
+  EXPECT_EQ(orig,ndCudaCopy(orig,dev))<<nderror(orig);
+#ifdef DEBUG_DUMP  
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg)));
+  EXPECT_EQ(cudaSuccess,cudaDeviceReset());
 }
 
 //
@@ -198,9 +240,9 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
 
   { nd_t ff,ss;
     ASSERT_NE((void*)NULL,ss=ndcuda(s,NULL));
-    EXPECT_EQ(ss,ndCudaCopy(ss,s,NULL));
+    EXPECT_EQ(ss,ndCudaCopy(ss,s));
     EXPECT_EQ(ss,ndconv1_ip(ss,f,0,&params))<<nderror(ss);
-    EXPECT_EQ(s,ndCudaCopy(s,ss,NULL))<<nderror(s);
+    EXPECT_EQ(s,ndCudaCopy(s,ss))<<nderror(s);
     ndfree(ss);
   }
 

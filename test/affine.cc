@@ -119,11 +119,10 @@ TYPED_TEST(Affine,Identity_GPU)
   //write("dst-in.h5",this->dst);
   ASSERT_NE((void*)NULL,src_=ndcuda(this->src,NULL));
   ASSERT_NE((void*)NULL,dst_=ndcuda(this->dst,NULL));
-  EXPECT_EQ(dst_,ndCudaCopy(dst_,this->dst,NULL));
-  EXPECT_EQ(src_,ndCudaCopy(src_,this->src,NULL));
+  EXPECT_EQ(dst_,ndCudaCopy(dst_,this->dst));
+  EXPECT_EQ(src_,ndCudaCopy(src_,this->src));
   EXPECT_EQ(dst_,ndaffine(dst_,src_,(float*)xform_,&this->params))<<nderror(dst_);
-  //EXPECT_EQ(cudaSuccess,cudaStreamSynchronize(NULL))<<cudaGetErrorString(cudaGetLastError());
-  EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL))<<nderror(this->dst);  
+  EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_))<<nderror(this->dst);  
   //write("src-out.h5",this->src);
   //write("dst-out.h5",this->dst);
   EXPECT_NEAR(0.0, RMSE(ndnelem(this->dst),(TypeParam*)nddata(this->dst),(TypeParam*)nddata(this->src)), TOL_F32);
