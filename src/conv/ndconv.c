@@ -59,7 +59,9 @@ typedef double   f64;
 #define restrict __restrict__
 #endif
 
-extern unsigned ndconv1_ip_cuda(nd_t dst, const nd_t filter, const unsigned idim, const nd_conv_params_t *param);
+extern unsigned ndconv1_cuda(nd_t dst,nd_t src,const nd_t filter,const unsigned idim,const nd_conv_params_t *param);
+/// \todo extern unsigned ndconv1_ip_cuda(nd_t dst, const nd_t filter, const unsigned idim, const nd_conv_params_t *param);
+
 /// @endcond
 
 // import kind capabilities
@@ -131,6 +133,21 @@ static unsigned inc(const size_t ndims,
 #include "src/conv/generic/macros.h"
 
 /**
+ * Generic out-of-place 1d convolution transform on the cpu.
+ * Implementation first copies data to dst, and then does the in-place
+ * 1d convolution.
+ * 
+ * \see ndconv1_ip()
+ */
+static unsigned ndconv1_cpu(nd_t dst, nd_t src, const nd_t filter, const unsigned idim, const nd_conv_params_t *param)
+{ TRY(ndcopy(dst,src,0,0));
+  TRY(ndconv1_ip(dst,filter,idim,param));
+  return 1;
+Error:
+  return 0;
+}
+
+/**
  * Generic in-place 1d convolution transform on the cpu.
  * \see ndconv1_ip()
  */
@@ -148,6 +165,31 @@ Error:
 }
 
 /**
+ * 1D Out-of-place convolution against an nD array for performing seperable 
+ * convolutions.
+ */
+nd_t ndconv1(nd_t dst, nd_t src, const nd_t filter, const unsigned idim,const nd_conv_params_t* params)
+{ REQUIRE(dst,PTR_ARITHMETIC);
+  REQUIRE(src,PTR_ARITHMETIC);
+  TRY(ndndim(filter)==1);
+  TRY(idim<ndndim(dst));
+  switch(ndkind(dst))
+  { case nd_gpu_cuda:
+      REQUIRE(src,CAN_CUDA);
+      REQUIRE(filter,CAN_MEMCPY); // must use a host pointer at the moment (no reason this can't be changed)
+      TRY(ndconv1_cuda(dst,src,filter,idim,params)); 
+      break;
+    case nd_heap:
+    case nd_static:
+      TRY(ndconv1_cpu (dst,src,filter,idim,params)); break;
+    default: FAIL;
+  }
+  return dst;
+Error:
+  return 0;
+}
+
+/**
  * 1D In-place convolution against an nD array for performing seperable 
  * convolutions.
  */
@@ -158,7 +200,7 @@ nd_t ndconv1_ip(nd_t dst, const nd_t filter, const unsigned idim,const nd_conv_p
   switch(ndkind(dst))
   { case nd_gpu_cuda: 
       REQUIRE(filter,CAN_MEMCPY); // must use a host pointer at the moment (no reason this can't be changed)
-      TRY(ndconv1_ip_cuda(dst,filter,idim,params)); 
+      FAIL; //TRY(ndconv1_ip_cuda(dst,filter,idim,params)); 
       break;
     case nd_heap:
     case nd_static:   TRY(ndconv1_ip_cpu (dst,filter,idim,params)); break;

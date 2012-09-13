@@ -88,6 +88,14 @@ foreach(PLUGIN ${PLUGINS})
   add_subdirectory(${PLUGIN})
 endforeach(PLUGIN)
 
+### APPS
+
+# ndconvert
+set(_TARGET ndconvert)
+add_executable(${_TARGET} app/ndconvert.c)
+target_link_libraries(${_TARGET} nd)
+install(TARGETS ${_TARGET} DESTINATION bin)
+
 ###############################################################################
 #  Testing
 ###############################################################################
