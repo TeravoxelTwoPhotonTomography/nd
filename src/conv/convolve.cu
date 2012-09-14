@@ -188,7 +188,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     const unsigned BX=32,BY=8,HALO=1;
     unsigned work;
     TRY(src.ncols%BX==0);           // width  must be aligned to a warp (32)    
-    TRY(BX*BY>=radius);             // radius can't be too big
+    TRY(BX*HALO>=radius);           // radius can't be too big
     for(work=8;work>0 && (src.ncols%(BX*work))!=0;--work); // search for a good size for work-per-thread
     TRY(work>0);
     dim3 blocks(src.ncols/(work*BX), ceil(src.nrows/(float)BY), src.nplanes);
@@ -243,7 +243,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
   { //
     // COLUMN-WISE
     //
-    const unsigned BX=32,BY=8,WORK=16,HALO=1;
+    const unsigned BX=32,BY=8,WORK=8,HALO=1;
     dim3 blocks(ceil(src.ncols/(float)BX), src.nrows/(WORK*BY), src.nplanes);
     dim3 threads(BX,BY);
     TRY(BY*HALO>=radius);                  // radius can't be too big
