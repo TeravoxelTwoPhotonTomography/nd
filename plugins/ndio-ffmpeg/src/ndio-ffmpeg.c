@@ -17,21 +17,22 @@
 
     Writer
     -----
-    \todo progressive writing (append)
-    \todo I'm getting the duration or pts or something wrong.
-          VLC and browsers don't know how long the videos are.
-    \todo map signed ints to unsigned before encoding.  sws scale
-          doesn't know signed.
-          * convert by flipping the sign bit x^=(1<<7) for i8->u8
-          * where to do the conversion?
-            * could do it in a temporary buffer held by the context
-            * do it with array library?
+    \todo Apples VPXDecode service crashes due to my h264 encoded videos...not sure what's
+          wrong. Transcoding with ffmpeg cleans them up, so it's certainly my code.
+    \todo Channel ordering on read is different than channel ordering required for write, which
+          is awkward.
+    \todo convert more formats to a writable form.  Favor writing something approximate over not
+          writing anything at all.
+    \todo probabaly have to do a copy for some conversions.
     \todo handle options
 
     Reader
     ------
     \todo what to do with multiple video streams?
+    \todo Channel ordering on read is different than channel ordering required for write, which
+          is awkward.
     \todo for appropriate 1d data, use audio streams
+    \todo Correct format translation for PAL.
 
     \section ndio-ffmpeg-notes Notes
 
@@ -110,10 +111,9 @@ typedef struct _ndio_ffmpeg_t
   AVDictionary      *opts;    ///< (unused at the moment)
 } *ndio_ffmpeg_t;
 
-//-//
-//-// HELPERS
-//-//
-
+//
+//  === HELPERS ===
+//
 
 /** One-time initialization for ffmpeg library.
 
@@ -129,7 +129,7 @@ static void maybe_init()
   is_one_time_inited = 1;
 
   av_log_set_level(0
-#if 0
+#if 1
     |AV_LOG_DEBUG
     |AV_LOG_VERBOSE
     |AV_LOG_INFO
@@ -195,16 +195,19 @@ enum PixelFormat to_pixfmt(int nbytes, int ncomponents)
 
 /** Recommend output pixel format based on intermediate pixel format. */
 enum PixelFormat pixfmt_to_output_pixfmt(int pxfmt)
-{ int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
+{ uint8_t flags = av_pix_fmt_descriptors[pxfmt].flags;
+  int ncomponents   =av_pix_fmt_descriptors[pxfmt].nb_components;
   int bits_per_pixel=av_get_bits_per_pixel(av_pix_fmt_descriptors+pxfmt);
   int bytes=ncomponents?(int)ceil(bits_per_pixel/ncomponents/8.0f):0;
+  //if(flags&(PIX_FMT_PAL|PIX_FMT_PSEUDOPAL))
+  //  return PIX_FMT_RGB;
   return to_pixfmt(bytes,ncomponents);
 }
 
 
-//-//
-//-// INTERFACE
-//-//
+//
+//  === INTERFACE ===
+//
 
 /** Returns the plugin name. */
 static const char* name_ffmpeg(void) { return "ffmpeg"; }
@@ -222,8 +225,6 @@ static unsigned test_readable(const char *path)
       int i=av_find_best_stream(fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/);
       if(!codec || codec->id==CODEC_ID_TIFF) //exclude tiffs because ffmpeg can't properly do multiplane tiff
         ok=0;
-      //cctx=fmt->streams[i]->codec;
-      //if(cctx) avcodec_close(cctx);
     }
     avformat_close_input(&fmt);
     return ok;
@@ -269,9 +270,10 @@ static ndio_ffmpeg_t open_reader(const char* path)
     AVCodecContext *cctx=CCTX(self);
     AVTRY(self->istream=av_find_best_stream(self->fmt,AVMEDIA_TYPE_VIDEO,-1,-1,&codec,0/*flags*/),"Failed to find a video stream.");
     AVTRY(avcodec_open2(cctx,codec,NULL/*options*/),"Cannot open video decoder."); // inits the selected stream's codec context
+
     TRY(self->sws=sws_getContext(cctx->width,cctx->height,cctx->pix_fmt,
-                                 cctx->width,cctx->height,pixfmt_to_output_pixfmt(cctx->pix_fmt),
-                                 SWS_BICUBIC,NULL,NULL,NULL));
+                                  cctx->width,cctx->height,pixfmt_to_output_pixfmt(cctx->pix_fmt),
+                                  SWS_BICUBIC,NULL,NULL,NULL));
 
     self->nframes  = DURATION(self);
   }
@@ -474,7 +476,7 @@ static nd_t shape_ffmpeg(ndio_t file)
   d=(int)self->nframes;
   w=cctx->width;
   h=cctx->height;
-  TRY(pixfmt_to_nd_type(cctx->pix_fmt,&type,&c));
+  TRY(pixfmt_to_nd_type(pixfmt_to_output_pixfmt(cctx->pix_fmt),&type,&c));
   { nd_t out=ndinit();
     size_t k,shape[]={w,h,d,c};
     k=pack(shape,countof(shape));
@@ -519,6 +521,8 @@ static int next(ndio_t file,nd_t plane,int64_t iframe)
 { ndio_ffmpeg_t self;
   AVPacket packet = {0};
   int yielded = 0;
+  nd_t tmp=ndinit();
+  ndreshapev(tmp,2,640,480);
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   do
   { yielded=0;
@@ -526,17 +530,16 @@ static int next(ndio_t file,nd_t plane,int64_t iframe)
     AVTRY(av_read_frame(self->fmt,&packet),"Failed to read frame.");   // !!NOTE: see docs on packet.convergence_duration for proper seeking
     if(packet.stream_index!=self->istream)
       continue;
-    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&yielded,&packet),NULL);
+    AVTRY(avcodec_decode_video2(CCTX(self),self->raw,&yielded,&packet),NULL);    
     // Handle odd cases and debug
-    if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO && !yielded)
-    { zero(self->raw); // Emit a blank frame.  Something off about the stream.
+    if(CCTX(self)->codec_id==CODEC_ID_RAWVIDEO)
+    { if(!yielded) zero(self->raw); // Emit a blank frame. Something off about the stream.  Raw should always yield.           
       yielded=1;
     }
     DEBUG_PRINT_PACKET_INFO;
     if(!yielded && packet.size==0) // packet.size==0 usually means EOF
         break;
-  } while(!yielded || self->raw->best_effort_timestamp<iframe);  
-  av_free_packet(&packet);
+  } while(!yielded || self->raw->best_effort_timestamp<iframe);
   self->iframe=iframe;
 
   /*  === Copy out data, translating to desired pixel format ===
@@ -558,12 +561,13 @@ static int next(ndio_t file,nd_t plane,int64_t iframe)
     sws_scale(self->sws,              // sws context
               (const uint8_t*const*)self->raw->data, // src slice
               self->raw->linesize,    // src stride
-              0,                      // src slice origin y
+              0, // src slice origin y
               CCTX(self)->height,     // src slice height
               planes,                 // dst
               lines);                 // dst line stride
   }
-
+  av_free_packet(&packet); // For rawvideo, the packet.data is referenced by raw->data, so free here.
+  ndfree(tmp);
   return 1;
 Error:
   av_free_packet( &packet );
@@ -723,9 +727,9 @@ Error:
   return 0;
 }
 
-//-//
-//-// EXPORT
-//-//
+//
+//  === EXPORT ===
+//
 
 /// @cond DEFINES
 #ifdef _MSC_VER
@@ -748,6 +752,7 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
   api.write  = write_ffmpeg;
   api.canseek= canseek_ffmpeg;
   api.seek   = seek_ffmpeg;
+  api.add_plugin=ndioAddPlugin; // useful for dumping files for debugging
   return &api;
 }
 

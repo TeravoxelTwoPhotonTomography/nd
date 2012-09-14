@@ -79,8 +79,9 @@ nd_t          ndref (nd_t a, void *buf, size_t nelem);    ///< Binds the buffer 
 nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
 
-nd_t          ndreshape(nd_t a,unsigned ndim,const size_t *shape);
-nd_t          ndShapeSet(nd_t a, unsigned idim, size_t val);
+nd_t          ndreshape  (nd_t a, unsigned ndim, const size_t *shape);
+nd_t          ndreshapev (nd_t a, unsigned ndim, ...);
+nd_t          ndShapeSet (nd_t a, unsigned idim, size_t val);
 nd_t          ndInsertDim(nd_t a, unsigned idim);
 nd_t          ndRemoveDim(nd_t a, unsigned idim);
 

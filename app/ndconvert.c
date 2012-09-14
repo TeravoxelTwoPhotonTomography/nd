@@ -12,8 +12,11 @@
  *       read into memory.
  * \todo setup producer/consumer threads so that one thread can be
  *       reading while the other is writing.
+ * \todo dimension annotation so color dimensions get identified properly
+ * \todo (limitation) when possible persist frame rate information for ffmpeg transcoding?
  */
 #include "nd.h"
+#include "config.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -48,10 +51,16 @@ Error:
   return 0;
 }
 
+void init()
+{ ndioAddPluginPath(NDIO_BUILD_ROOT); // add build root so we can successfully run the program from an msvc build system
+}
+
 int main(int argc,char* argv[])
 { struct _opt_t opts;
   ndio_t src,dst;
   nd_t a;
+  int ecode=0;
+  init();
   if(!optparse(&opts,argc,argv)) return -1;
   src=ndioOpen(opts.srcname,0,"r");
   dst=ndioOpen(opts.dstname,0,"w");
@@ -59,9 +68,9 @@ int main(int argc,char* argv[])
   ndref(a,malloc(ndnbytes(a)),ndnelem(a));
   ndioClose(ndioRead(src,a));
   ndioClose(ndioWrite(dst,a));
+Finalize:
+  ecode=nderror(a)!=NULL;
   free(nddata(a));
   ndfree(a);
-  return 0;
-Error:
-  return 1;
+  return ecode;
 }

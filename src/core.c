@@ -7,10 +7,14 @@
 
 #include "cuda_runtime_api.h"
 #include "nd.h"
+#include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #ifdef _MSC_VER
+#include <malloc.h>
+#define alloca _alloca
 #define va_copy(a,b) (a=b)
 #endif
 
@@ -276,6 +280,19 @@ nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
   return a;
 //Error:
 //  return NULL;
+}
+
+nd_t ndreshapev(nd_t a,unsigned ndim,...)
+{ size_t *shape=0;
+  int i;
+  va_list args;  
+  TRY(shape=(size_t*)alloca(ndim*sizeof(size_t)));
+  va_start(args,ndim);
+  for(i=0;i<ndim;++i) shape[i]=va_arg(args,size_t);
+  va_end(args);
+  return ndreshape(a,ndim,shape);
+Error:
+  return 0;
 }
 
 /** Sets the shape for dimension \a idim to \a val.
