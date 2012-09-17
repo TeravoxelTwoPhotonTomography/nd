@@ -76,7 +76,6 @@ add_library(nd
   config.h.in
   ${PROJECT_BINARY_DIR}/config.h
   )
-show(CUDA_LIBRARIES)
 target_link_libraries(nd
   ${CUDA_LIBRARIES}
   ${CMAKE_DL_LIBS}

@@ -98,8 +98,8 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 // === CUDA ===
 //
 
-//From #include "cuda_runtime_api.h"
-typedef struct CUstream_st* cudaStream_t;
+#include "cuda_runtime_api.h"
+//typedef struct CUstream_st* cudaStream_t;
 
 nd_t         ndcuda          (nd_t a, cudaStream_t stream);
 nd_t         ndCudaSyncShape (nd_t self);
