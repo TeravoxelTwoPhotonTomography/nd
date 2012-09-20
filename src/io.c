@@ -101,6 +101,11 @@ static int get_format_by_name(const char *format)
 // === INTERFACE ===
 //
 
+ndio_fmt_t** ndioPlugins(size_t *count)
+{ if(count) *count=g_countof_formats;
+  return g_formats;
+}
+
 void* ndioContext(ndio_t file) { return file?file->context:0; }
 char* ndioError  (ndio_t file) { return file?file->log:0; }
 

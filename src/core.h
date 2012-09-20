@@ -99,8 +99,7 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 //
 
 #include "cuda_runtime_api.h"
-
-/// \todo Add current stream as a state (global or bind to array) and use that instead of a common argument.  Especially think of kernel launches.
+//typedef struct CUstream_st* cudaStream_t;
 
 nd_t         ndcuda          (nd_t a, cudaStream_t stream);
 nd_t         ndCudaSyncShape (nd_t self);
