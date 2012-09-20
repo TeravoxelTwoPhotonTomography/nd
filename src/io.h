@@ -19,8 +19,9 @@ typedef struct _ndio_t* ndio_t;
 typedef struct _ndio_fmt_t ndio_fmt_t;
 //typedef struct _nd_t*   nd_t;
 
-int       ndioPreloadPlugins();
-unsigned  ndioAddPlugin(ndio_fmt_t *api);
+int           ndioPreloadPlugins();
+unsigned      ndioAddPlugin(ndio_fmt_t *api);
+ndio_fmt_t**  ndioPlugins(size_t *count);
 
 int       ndioIsFile(const char *filename);
 

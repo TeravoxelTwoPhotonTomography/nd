@@ -40,16 +40,16 @@ if(GTEST_FOUND)
   enable_testing()
   include_directories(${PROJECT_SOURCE_DIR})
   include_directories(${GTEST_INCLUDE_DIR})
-  add_executable(ndio-raw-tests ${TEST_SOURCES})
-  target_link_libraries(ndio-raw-tests
+  add_executable(test-ndio-raw ${TEST_SOURCES})
+  target_link_libraries(test-ndio-raw
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     nd
     )
-  add_dependencies(ndio-raw-tests gtest)
-  gtest_copy_shared_libraries(ndio-raw-tests)
-  add_test(TestNDIOSeries ndio-raw-tests)
-  install(TARGETS ndio-raw-tests RUNTIME DESTINATION bin)
+  add_dependencies(test-ndio-raw gtest)
+  gtest_copy_shared_libraries(test-ndio-raw)
+  add_test(TestNDIOSeries test-ndio-raw)
+  install(TARGETS test-ndio-raw RUNTIME DESTINATION bin)
 endif()
 
 ##############################################################################

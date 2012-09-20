@@ -18,11 +18,11 @@ template<> nd_t cast< double >(nd_t a) {return ndcast(a,nd_f64);}
 #define CLAMP(v,a,b) min(max(v,a),b)
 template<> uint8_t  clamp(double v) { return CLAMP(v,0,CHAR_MAX);}
 template<> uint16_t clamp(double v) { return CLAMP(v,0,SHRT_MAX);}
-template<> uint32_t clamp(double v) { return CLAMP(v,0,LONG_MAX);}
-template<> uint64_t clamp(double v) { return CLAMP(v,0,LLONG_MAX);}
+template<> uint32_t clamp(double v) { return CLAMP(v,0,UINT32_MAX);}
+template<> uint64_t clamp(double v) { return CLAMP(v,0,UINT64_MAX);}
 template<>  int8_t  clamp(double v) { return CLAMP(v,CHAR_MIN,CHAR_MAX);}
 template<>  int16_t clamp(double v) { return CLAMP(v,SHRT_MIN,CHAR_MAX);}
-template<>  int32_t clamp(double v) { return CLAMP(v,LONG_MIN,CHAR_MAX);}
-template<>  int64_t clamp(double v) { return CLAMP(v,LLONG_MIN,LLONG_MAX);}
+template<>  int32_t clamp(double v) { return CLAMP(v,INT32_MIN,INT32_MAX);}
+template<>  int64_t clamp(double v) { return CLAMP(v,INT64_MIN,INT64_MAX);}
 template<> float    clamp(double v) { return CLAMP(v,-FLT_MAX,FLT_MAX);}
 template<> double   clamp(double v) { return CLAMP(v,-DBL_MAX,DBL_MAX);}

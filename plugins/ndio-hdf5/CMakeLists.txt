@@ -45,16 +45,16 @@ if(HDF5_FOUND)
     enable_testing()
     include_directories(${PROJECT_SOURCE_DIR})
     include_directories(${GTEST_INCLUDE_DIR})
-    add_executable(ndio-hdf5-tests ${TEST_SOURCES} config.h)
-    target_link_libraries(ndio-hdf5-tests
+    add_executable(test-ndio-hdf5 ${TEST_SOURCES} config.h)
+    target_link_libraries(test-ndio-hdf5
       ${GTEST_BOTH_LIBRARIES}
       ${CMAKE_THREAD_LIBS_INIT}
       nd
       )
-    add_dependencies(ndio-hdf5-tests gtest)
-    gtest_copy_shared_libraries(ndio-hdf5-tests)
-    install(TARGETS ndio-hdf5-tests DESTINATION bin)
-    add_test(TestNDIOSeries ndio-hdf5-tests)
+    add_dependencies(test-ndio-hdf5 gtest)
+    gtest_copy_shared_libraries(test-ndio-hdf5)
+    install(TARGETS test-ndio-hdf5 DESTINATION bin)
+    add_test(TestNDIOSeries test-ndio-hdf5)
   endif()
 
   ##############################################################################

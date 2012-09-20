@@ -106,19 +106,19 @@ if(GTEST_FOUND)
   include_directories(${PROJECT_SOURCE_DIR})
   include_directories(${GTEST_INCLUDE_DIR})
   file(GLOB TEST_SOURCES test/*.cc)
-  add_executable(libnd-tests
+  add_executable(test-libnd
     ${TEST_SOURCES}
     )
-  target_link_libraries(libnd-tests
+  target_link_libraries(test-libnd
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     nd
     )
-  add_dependencies(libnd-tests
+  add_dependencies(test-libnd
     gtest
     ndio-tiff
     ndio-ffmpeg)
-  add_test(TestLibND libnd-tests)
+  add_test(TestLibND test-libnd)
 endif()
 
 ###############################################################################
@@ -142,14 +142,14 @@ endif()
 ###############################################################################
 #  Install
 ###############################################################################
-install(TARGETS nd libnd-tests
+install(TARGETS nd
   EXPORT libnd-targets
-  RUNTIME DESTINATION bin/
-  LIBRARY DESTINATION lib/
-  ARCHIVE DESTINATION lib/static
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
   PUBLIC_HEADER DESTINATION include/nd
 )
-export(TARGETS nd libnd-tests FILE libnd-targets.cmake)
-install(EXPORT libnd-targets DESTINATION cmake/)
-
-
+#install(FILES nd.h DESTINATION include/nd) # public header...not relocatable/self-contained at the moment
+install(TARGETS test-libnd RUNTIME DESTINATION bin/tests)
+export(TARGETS nd test-libnd FILE libnd-targets.cmake)
+install(EXPORT libnd-targets DESTINATION cmake)

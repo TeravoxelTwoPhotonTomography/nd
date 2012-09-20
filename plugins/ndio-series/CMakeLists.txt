@@ -48,16 +48,16 @@ if(RE2_FOUND)
     enable_testing()
     include_directories(${PROJECT_SOURCE_DIR})
     include_directories(${GTEST_INCLUDE_DIR})
-    add_executable(ndio-series-tests ${TEST_SOURCES} config.h)
-    target_link_libraries(ndio-series-tests
+    add_executable(test-ndio-series ${TEST_SOURCES} config.h)
+    target_link_libraries(test-ndio-series
       ${GTEST_BOTH_LIBRARIES}
       ${CMAKE_THREAD_LIBS_INIT}
       nd
       )
-    add_dependencies(ndio-series-tests gtest)
-    gtest_copy_shared_libraries(ndio-series-tests)
-    add_test(TestNDIOSeries ndio-series-tests)
-    install(TARGETS ndio-series-tests RUNTIME DESTINATION bin)
+    add_dependencies(test-ndio-series gtest)
+    gtest_copy_shared_libraries(test-ndio-series)
+    add_test(TestNDIOSeries test-ndio-series)
+    install(TARGETS test-ndio-series RUNTIME DESTINATION bin)
   endif()
 
   ##############################################################################
