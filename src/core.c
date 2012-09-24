@@ -31,7 +31,7 @@
 #define FAIL(msg)                    do{ LOG("%s(%d):"ENDL "\t%s"ENDL,__FILE__,__LINE__,msg); goto Error;} while(0)
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
-#define SAFEFREE(e)                  if(e){free(e); (e)=NULL;}
+#define SAFEFREE(e)                  if((e)){free(e); (e)=NULL;}
 #define CUTRY(e)                     do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
 #define CUWARN(e)                    do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode));             }}while(0)
 /// @endcond
@@ -515,4 +515,24 @@ nd_t ndCudaWait(nd_t self_)
 Error:
   return 0;
 }
+
+/**
+ * Free's the old gpu-based buffer referenced by \a self, and allocates a new
+ * one with size \a nbytes.
+ *
+ * Does nothing else; the new allocation size is not reflected in the shape or
+ * strides of the array.
+ *
+ * Also, in contrast to the traditional realloc(), this does NOT copy the old 
+ * data to the new buffer.
+ */
+nd_t ndCudaSetCapacity(nd_t self_, size_t nbytes)
+{ nd_cuda_t self=(nd_cuda_t)self_;
+  CUTRY(cudaFree(self_->data));
+  CUTRY(cudaMalloc(&self_->data,nbytes));
+  return self_;
+Error:
+  return 0;
+}
+
 #pragma warning( pop )

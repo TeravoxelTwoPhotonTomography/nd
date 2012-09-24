@@ -243,14 +243,27 @@ Error:
 }
 
 ndio_t ndioWrite(ndio_t file, nd_t a)
-{ TRY(file);
+{ nd_t t=0;
+  ndio_t out=file;
+  TRY(file);
   TRY(a);
+  if(ndkind(a)==nd_gpu_cuda)
+  { TRY(ndcast(ndreshape(t=ndinit(),ndndim(a),ndshape(a)),ndtype(a)));
+    TRY(ndCudaCopy(t,a));
+    a=t; 
+  }
   TRY(file->fmt->write(file,a));
+Finalize:
+  if(t)
+  { free(nddata(t));
+    ndfree(t);
+  }
   return file;
 Error:
+  out=NULL;
   if(ndioError(file))
     ndLogError(a,"[nD IO Error]"ENDL "%s"ENDL,ndioError(file));
-  return NULL;
+  goto Finalize;
 }
 #undef LOG
 
@@ -375,7 +388,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
  */
 static unsigned inc(nd_t domain,size_t *pos, char *mask)
 { unsigned kdim=0;//=ndndim(domain)-1;
-  while(kdim>=0 && (!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1))
+  while(!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1)
     pos[kdim++]=0;
   if(kdim>=ndndim(domain)) return 0;
   pos[kdim]++;

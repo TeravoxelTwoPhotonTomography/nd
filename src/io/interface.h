@@ -59,7 +59,7 @@ extern "C" {
     _ndio__open_t     open;       ///< Opens the file at \a path according to the \a mode. \returns a the address of the file context on success, otherwise 0.
     _ndio__close_t    close;      ///< Closes the file and releases any internally acquired resources.  Should always succeed.
     _ndio__shape_t    shape;      ///< \returns 0 on failure, otherwise returns the shape, dimensions, and type of the data in a dummy nd_t object.  Caller is responsible for freeing the returned object.
-    _ndio__read_t     read;       ///< \returns 0 on failure, otherwise returns 1.  \param[out] dst Destination container for the file's contents. Should have been allocated with enough storage to hold the data.
+    _ndio__read_t     read;       ///< \returns 0 on failure, otherwise returns 1.  \param[out] dst Destination container for the file's contents. Should have been allocated with enough storage to hold the data.  Should always read the whole file (rewind if necessecary).
     _ndio__write_t    write;      ///< \returns 0 on failure, otherwise returns 1.  \param[in]  src The data to save to the file.  Should be treated as an append operation.  Append vs overwrite behavior should be handled on opening the file.
     _ndio__set_t      set;        ///< Set format specific data.  \returns 0 on failure, otherwise returns 1.
     _ndio__get_t      get;        ///< Get format specific data.  \returns 0 on failure, otherwise returns 1.

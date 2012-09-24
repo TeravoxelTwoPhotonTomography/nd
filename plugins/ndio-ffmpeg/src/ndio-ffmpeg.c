@@ -617,7 +617,7 @@ Error:
 static unsigned read_ffmpeg(ndio_t file, nd_t a)
 { int64_t i;
   void *o=nddata(a);
-  //seek(file,0);
+  TRY(seek(file,0));
   for(i=0;i<nframes(file);++i,ndoffset(a,2,1))
     TRY(next(file,a,i));
   ndref(a,o,ndnelem(a));

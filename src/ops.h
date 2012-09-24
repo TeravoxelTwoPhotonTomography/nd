@@ -19,7 +19,8 @@ extern "C" {
 
 typedef enum boundary_condition_t_
 { nd_boundary_unknown=-1,
-  nd_boundary_replicate, /// out-of-bounds values are set to the value at the nearest edge
+  /// out-of-bounds values are set to the value at the nearest edge
+  nd_boundary_replicate, // [x] impl cpu    [x] impl gpu    [x] test
   nd_boundary_symmetric, // [x] impl cpu    [ ] impl gpu    [ ] test
   nd_boundary_circular,  // [x] impl cpu    [ ] impl gpu    [ ] test
   nd_boundary_zero,      // [x] impl cpu    [ ] impl gpu    [ ] test

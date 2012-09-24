@@ -101,14 +101,15 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 #include "cuda_runtime_api.h"
 //typedef struct CUstream_st* cudaStream_t;
 
-nd_t         ndcuda          (nd_t a, cudaStream_t stream);
-nd_t         ndCudaSyncShape (nd_t self);
-nd_t         ndCudaCopy      (nd_t dst,nd_t src);
-void*        ndCudaShape     (nd_t self);
-void*        ndCudaStrides   (nd_t self);
-cudaStream_t ndCudaStream    (nd_t self);
-nd_t         ndCudaBindStream(nd_t self, cudaStream_t stream);
-nd_t         ndCudaWait      (nd_t self);
+nd_t         ndcuda           (nd_t a, cudaStream_t stream);
+nd_t         ndCudaSyncShape  (nd_t self);
+nd_t         ndCudaCopy       (nd_t dst,nd_t src);
+void*        ndCudaShape      (nd_t self);
+nd_t         ndCudaSetCapacity(nd_t self, size_t nbytes);
+void*        ndCudaStrides    (nd_t self);
+cudaStream_t ndCudaStream     (nd_t self);
+nd_t         ndCudaBindStream (nd_t self, cudaStream_t stream);
+nd_t         ndCudaWait       (nd_t self);
 
 #ifdef __cplusplus
 } //extern "C" {
