@@ -199,7 +199,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
         }
     }
     TRY(work>0);
-    dim3 blocks(src.ncols/(work*BX), ceil(src.nrows/(float)BY), src.nplanes);
+    dim3 blocks(ceil(src.ncols/(float)(work*BX)), ceil(src.nrows/(float)BY), src.nplanes);
     dim3 threads(BX,BY);
 
     switch(work) // kernels unroll a certain amount of work per thread
