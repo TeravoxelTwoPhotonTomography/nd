@@ -88,13 +88,13 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   { src+=ox+oy*(int)src_.rstride; /*+blockIdx.z*src_.pstride;*/ // never launch more than one plane
     dst+=ox+oy*(int)dst_.rstride;
     #pragma unroll
-    for(int i=HALO     ;i<HALO+WORK  ;++i)
+    for(int i=HALO     ;i<WORK  ;++i) // the last work element might be hanging off an unaligned edge
       buf[threadIdx.y][threadIdx.x+i*BX]=src[i*BX];
     #pragma unroll
     for(int i=0        ;i<HALO       ;++i)
       buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*(int)BX)    ?src[i*BX]:src[-ox]; // clamp to edge boundary condition  
     #pragma unroll
-    for(int i=HALO+WORK;i<2*HALO+WORK;++i)
+    for(int i=WORK;i<2*HALO+WORK;++i)
       buf[threadIdx.y][threadIdx.x+i*BX]=(src_.ncols-ox>i*BX)?src[i*BX]:src[src_.ncols-ox-1]; // clamp to edge boundary condition
     // COMPUTE
     __syncthreads();
@@ -187,7 +187,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     //
     const unsigned BX=32,BY=8,HALO=1;
     unsigned work;
-    TRY(src.ncols%BX==0);           // width  must be aligned to a warp (32)    
+    //TRY(src.ncols%BX==0);           // width  must be aligned to a warp (32)    
     TRY(BX*HALO>=radius);           // radius can't be too big
     for(work=8;work>0 && (src.ncols%(BX*work))!=0;--work); // search for a good size for work-per-thread
     TRY(work>0);
