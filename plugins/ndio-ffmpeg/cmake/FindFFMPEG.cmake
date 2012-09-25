@@ -39,7 +39,9 @@ if(MSVC)
   foreach(type ${CMAKE_CONFIGURATION_TYPES})
     file(COPY ${FFMPEG_DLLS} DESTINATION ${PROJECT_BINARY_DIR}/${type})
   endforeach()
-  # \todo Should install the dll's next to the plugin dll
+  ### INSTALL
+  install(FILES ${FFMPEG_DLLS} DESTINATION bin)
+  
 else()
   GenerateFFMPEG(https://github.com/FFmpeg/FFmpeg.git n0.11.1)
 endif()
