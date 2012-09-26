@@ -40,7 +40,7 @@ if(MSVC)
     file(COPY ${FFMPEG_DLLS} DESTINATION ${PROJECT_BINARY_DIR}/${type})
   endforeach()
   ### INSTALL
-  install(FILES ${FFMPEG_DLLS} DESTINATION bin)
+  install(FILES ${FFMPEG_DLLS} DESTINATION bin/plugins)
   
 else()
   GenerateFFMPEG(https://github.com/FFmpeg/FFmpeg.git n0.11.1)

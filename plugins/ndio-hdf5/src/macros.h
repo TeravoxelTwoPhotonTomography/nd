@@ -3,7 +3,11 @@
  * Macros!  Commong macros for exception handling, allocation, and other fun stuff.
  */
 /// @cond DEFINES
+#ifdef _MSC_VER
+#define PATHSEP "\\"
+#else
 #define PATHSEP "/"
+#endif
 #define countof(e) (sizeof(e)/sizeof(*e))
 #define ENDL                  "\n"
 #define LOG(...)              printf(__VA_ARGS__)

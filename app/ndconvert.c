@@ -31,13 +31,13 @@ typedef struct _opt_t
   char *dstname;
 } *opt_t;
 
-char* exename(char* path)
+char* basename(char* path)
 { char *n=strrchr(path,PATHSEP);
   return n?(n+1):path;
 }
 
 void usage(char *name)
-{ printf("Usage:\n\t%s <source-file-name> <destination-file-name>\n\t%s\n",exename("ndconvert"),name);
+{ printf("Usage:\n\t%s <source-file-name> <destination-file-name>\n\t%s\n",basename("ndconvert"),name);
 }
 
 int optparse(opt_t opts, int argc,char* argv[])

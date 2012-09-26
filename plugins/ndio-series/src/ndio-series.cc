@@ -50,7 +50,11 @@
 #endif
 
 /// @cond DEFINES
+#ifdef _MSC_VER
+#define PATHSEP "\\"
+#else
 #define PATHSEP "/"
+#endif
 #define countof(e) (sizeof(e)/sizeof(*e))
 
 #define ENDL                  "\n"
@@ -179,18 +183,23 @@ struct series_t
   , fdim_(-1)
   , ptn_field("%+")
   , eg_field("\\.(\\d+)")
-  { size_t n=path.rfind(PATHSEP[0]);
+  { char t[1024];
+    std::string p(path);
+    size_t n;
     TRY(parse_mode_string(mode,&isr_,&isw_));
-
-    
-
-    { n=(n>=path.size())?0:n; // if not found set to 0
-      path_=path.substr(0,n); // if PATHSEP not found will be ""
-      std::string name((n==0)?path:path.substr(n+1));
+#ifdef _MSC_VER
+    GetFullPathName(path.c_str(),1024,t,NULL); // normalizes slashes for windows
+    p.assign(t);
+#endif
+    n=p.rfind(PATHSEP[0]);
+    { n=(n>=p.size())?0:n; // if not found set to 0
+      path_=p.substr(0,n); // if PATHSEP not found will be ""
+      std::string name((n==0)?p:p.substr(n+1));
       if(!gen_pattern_(name,ptn_field,"(\\\\d+)"))
         gen_pattern_(name,eg_field,".(\\\\d+)");
 #if 0
-      std::cout << "   PATH: "<<path_<<std::endl
+      std::cout << "  INPUT: "<<path<<std::endl
+                << "   PATH: "<<path_<<std::endl
                 << "PATTERN: "<<pattern_<<std::endl
                 << "   NDIM: "<<ndim_<<std::endl; 
 #endif                

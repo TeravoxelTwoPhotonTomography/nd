@@ -22,7 +22,11 @@ struct _files_t
 file_table[] =
 { // Set a: Should be i16, but is read by mylib as u16
   {NDIO_SERIES_TEST_DATA_PATH"/a/vol.1ch%.tif"  ,nd_u16,3,{620,512,10,1,1}},
+#if _MSC_VER
+  {NDIO_SERIES_TEST_DATA_PATH"\\b\\vol.0.0000.tif",nd_u8 ,4,{620,512,2,16,1}},
+#else
   {NDIO_SERIES_TEST_DATA_PATH"/b/vol.0.0000.tif",nd_u8 ,4,{620,512,2,16,1}},
+#endif
   {0}
 };
 
