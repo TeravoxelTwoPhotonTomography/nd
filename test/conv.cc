@@ -242,12 +242,14 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
   EXPECT_EQ(s,cast<TypeParam>(ndref(s,signal,countof(signal))));
   EXPECT_EQ(s,ndShapeSet(s,0,countof(signal)));
 
-  { nd_t ff,ss;
-    ASSERT_NE((void*)NULL,ss=ndcuda(s,NULL));
-    EXPECT_EQ(ss,ndCudaCopy(ss,s));
-    EXPECT_EQ(ss,ndconv1_ip(ss,f,0,&params))<<nderror(ss);
+  { nd_t ff,ss1,ss;
+    ASSERT_NE((void*)NULL,ss =ndcuda(s,NULL));
+    ASSERT_NE((void*)NULL,ss1=ndcuda(s,NULL));
+    EXPECT_EQ(ss1,ndCudaCopy(ss1,s));
+    EXPECT_EQ(ss,ndconv1(ss,ss1,f,0,&params))<<nderror(ss1);
     EXPECT_EQ(s,ndCudaCopy(s,ss))<<nderror(s);
     ndfree(ss);
+    ndfree(ss1);
   }
 
   EXPECT_EQ(-1,firstdiff_clamped(countof(signal),signal,expect,0.1));

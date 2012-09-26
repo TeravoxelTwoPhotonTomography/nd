@@ -20,7 +20,7 @@ endmacro()
 
 ### GTest (as an ExternalProject)
 #   do this before anything else so gtest gets built in the root dir
-find_package(GTEST CONFIG PATHS cmake NAMES GTest)
+find_package(GTEST CONFIG PATHS cmake)
 
 ### NDIO plugins
 set(NDIO_PLUGIN_PATH  plugins)
@@ -37,15 +37,12 @@ endif()
 
 ### CUDA
 find_package(CUDA 4.0)
+include(cmake/CheckCudaComputeCaps.cmake)
 include_directories(${CUDA_INCLUDE_DIRS})
 cuda_build_clean_target()
 set(cuda_build_cubin on)
-set(CUDA_ARCH sm_30 CACHE STRING "Target archetecture for cuda kernels.")
-if(CUDA_ARCH)
-  set(CUDA_ARCH_OPT "-arch=${CUDA_ARCH}")
-endif()
 set(CUOPTS
-  ${CUDA_ARCH_OPT}
+  --generate-code ${CUDA_GENERATE_CODE}
   DEBUG -g -G
   RELEASE --use_fast_math
   RELWITHDEBINFO --use_fast_math;-g
@@ -65,6 +62,9 @@ cuda_compile(CUFILES STATIC ${CUSRC} OPTIONS ${CUOPTS})
 ################################################################################
 # TARGETS
 ################################################################################
+
+#add_executable(cuda_compute_capability cmake/cuda_compute_capability.c)
+#target_link_libraries(cuda_compute_capability ${CUDA_LIBRARIES})
 
 add_definitions(-fPIC)
 
@@ -119,6 +119,7 @@ if(GTEST_FOUND)
     ndio-tiff
     ndio-ffmpeg)
   add_test(TestLibND test-libnd)
+  gtest_copy_shared_libraries(test-libnd)
 endif()
 
 ###############################################################################

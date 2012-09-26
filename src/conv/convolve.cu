@@ -190,7 +190,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     //TRY(src.ncols%BX==0);           // width  must be aligned to a warp (32)    
     TRY(BX*HALO>=radius);             // radius can't be too big
     { unsigned i,rem,minrem;          // search for a good size for work-per-thread
-      for(i=1,work=1,rem=src.nrows;i<8;++i)
+      for(i=1,work=1,minrem=src.nrows;i<8;++i)
         { rem=src.nrows%(BX*i);
           if(rem<minrem)
             { work=i;

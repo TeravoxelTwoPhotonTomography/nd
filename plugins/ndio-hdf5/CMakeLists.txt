@@ -37,7 +37,7 @@ if(HDF5_FOUND)
   #  Testing
   ##############################################################################
 
-  find_package(GTEST CONFIG PATHS cmake NAMES GTest)
+  find_package(GTEST CONFIG PATHS cmake)
 
   file(GLOB TEST_SOURCES test/*.cc)
   if(GTEST_FOUND AND TEST_SOURCES)
@@ -55,6 +55,7 @@ if(HDF5_FOUND)
     gtest_copy_shared_libraries(test-ndio-hdf5)
     install(TARGETS test-ndio-hdf5 DESTINATION bin)
     add_test(TestNDIOSeries test-ndio-hdf5)
+    gtest_copy_shared_libraries(test-ndio-hdf5)
   endif()
 
   ##############################################################################

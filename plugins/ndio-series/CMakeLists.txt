@@ -41,7 +41,7 @@ if(RE2_FOUND)
   #  Testing
   ##############################################################################
 
-  find_package(GTEST CONFIG PATHS cmake NAMES GTest)
+  find_package(GTEST CONFIG PATHS cmake)
   file(GLOB TEST_SOURCES test/*.cc)
   if(GTEST_FOUND)
     find_package(Threads)
@@ -58,6 +58,7 @@ if(RE2_FOUND)
     gtest_copy_shared_libraries(test-ndio-series)
     add_test(TestNDIOSeries test-ndio-series)
     install(TARGETS test-ndio-series RUNTIME DESTINATION bin)
+    gtest_copy_shared_libraries(test-ndio-series)
   endif()
 
   ##############################################################################

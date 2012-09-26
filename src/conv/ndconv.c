@@ -200,7 +200,7 @@ nd_t ndconv1_ip(nd_t dst, const nd_t filter, const unsigned idim,const nd_conv_p
   switch(ndkind(dst))
   { case nd_gpu_cuda: 
       REQUIRE(filter,CAN_MEMCPY); // must use a host pointer at the moment (no reason this can't be changed)
-      FAIL; //TRY(ndconv1_ip_cuda(dst,filter,idim,params)); 
+      FAIL; //IN-PLACE NOT IMPLEMENTED: TRY(ndconv1_ip_cuda(dst,filter,idim,params)); 
       break;
     case nd_heap:
     case nd_static:   TRY(ndconv1_ip_cpu (dst,filter,idim,params)); break;
