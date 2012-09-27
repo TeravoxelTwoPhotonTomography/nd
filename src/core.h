@@ -102,6 +102,7 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 //typedef struct CUstream_st* cudaStream_t;
 
 nd_t         ndcuda           (nd_t a, cudaStream_t stream);
+nd_t         ndCudaMemset     (nd_t a, unsigned char v);
 nd_t         ndCudaSyncShape  (nd_t self);
 void*        ndCudaShape      (nd_t self);
 nd_t         ndCudaSetCapacity(nd_t self, size_t nbytes);

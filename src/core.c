@@ -426,6 +426,17 @@ Error:
   return 0;
 }
 
+/** memset() for the gpu-based nd_t array.
+ *  A thin wrapper around CUDA's cudaMemset function.
+ *  \returns the input array, \a a, on sucess.  Otherwise 0.
+ */
+nd_t ndCudaMemset(nd_t a, unsigned char v)
+{ CUTRY(cudaMemset(nddata(a),v,ndnbytes(a)));
+  return a;
+Error:
+  return 0;
+}
+
 /**
  * Copies host-based shapes and strides to the GPU.
  * \todo bad name: can't tell from name direction of transfer

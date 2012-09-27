@@ -209,7 +209,9 @@ extern "C" unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *trans
         src=make_arg(src_);
   unsigned r,blocks=(unsigned)ceil(dst.nelem/float(BLOCKSIZE)),
            tpb   =BLOCKSIZE;  
-  //unsigned b=blocks;
+#ifdef DEBUG_OUTPUT
+  unsigned b=blocks;
+#endif
   struct cudaDeviceProp prop;
   dim3 grid,threads=make_uint3(tpb,1,1);
   CUTRY(cudaGetDeviceProperties(&prop,0));
