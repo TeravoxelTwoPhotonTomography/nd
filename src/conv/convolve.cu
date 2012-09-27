@@ -169,7 +169,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
 { arg_t dst(dst_,idim),
         src(src_,idim);
   unsigned radius;
-  
+  CUTRY(cudaGetLastError());
   // check args
   TRY(param->boundary_condition==nd_boundary_replicate); // only support this boundary condition for now
   TRY(dst.isok());
@@ -178,8 +178,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
   TRY(2*radius+1==ndnelem(filter_));      // filter has odd size
   TRY(ndnelem(filter_)<MAX_FILTER_WIDTH);  
 
-  TRY(upload_kernel((float*)nddata(filter_),ndnelem(filter_))); /// \todo Ideally I'd only upload the kernel once and then do the seperable convolution on each dimension
-
+  TRY(upload_kernel((float*)nddata(filter_),ndnelem(filter_))); /// \todo Ideally I'd only upload the kernel once and then do the seperable convolution on each dimension 
   /// @cond DEFINES
   if(idim==0)
   { //
@@ -200,8 +199,8 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     }
     TRY(work>0);
     dim3 blocks(ceil(src.ncols/(float)(work*BX)), ceil(src.nrows/(float)BY), src.nplanes);
+    //dim3 blocks(10,10,1);
     dim3 threads(BX,BY);
-
     switch(work) // kernels unroll a certain amount of work per thread
     {
     case 1:

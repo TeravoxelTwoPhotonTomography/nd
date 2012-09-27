@@ -21,7 +21,7 @@
 //
 
 #define WIDTH (256)
-//#define DEBUG_DUMP
+#define DEBUG_DUMP
 
 static
 struct _files_t

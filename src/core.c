@@ -62,6 +62,7 @@ struct _nd_cuda_t
 { struct _nd_t vol;             ///< host bound shape,strides. device bound data.  Must be the first element in the struct.
                                 
   cudaStream_t stream;          ///< currently bound stream
+  size_t         dev_ndim;      ///< dimension of device-bound shape
   void *restrict dev_shape;     ///< device bound shape array
   void *restrict dev_strides;   ///< device bound strides array
 };
@@ -416,6 +417,7 @@ nd_t ndcuda(nd_t a,cudaStream_t stream)
   CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
   CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
   CUTRY(cudaMalloc(&out->vol.data   ,ndnbytes(a)));
+  out->dev_ndim=ndndim(a);
 
   TRY(ndCudaSyncShape((nd_t)out));
   return (nd_t)out;
@@ -431,6 +433,14 @@ Error:
 nd_t ndCudaSyncShape(nd_t a)
 { nd_cuda_t self=(nd_cuda_t)a;
   REQUIRE(a,CAN_CUDA);
+
+  if(self->dev_ndim<ndndim(a)) // resize device shape and strides arrays if necessary
+  { CUTRY(cudaFree(self->dev_shape));
+    CUTRY(cudaFree(self->dev_strides));
+    CUTRY(cudaMalloc(&self->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
+    CUTRY(cudaMalloc(&self->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
+    self->dev_ndim=ndndim(a);
+  }
   CUTRY(cudaMemcpy(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice));
   CUTRY(cudaMemcpy(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice));
   return a;
@@ -453,6 +463,7 @@ nd_t ndCudaCopy(nd_t dst, nd_t src)
 { enum cudaMemcpyKind direction;
   cudaStream_t stream;
   size_t sz;
+
   if(ndkind(dst)==nd_gpu_cuda)
     { REQUIRE(src,CAN_MEMCPY);
       direction=cudaMemcpyHostToDevice;
@@ -468,8 +479,8 @@ nd_t ndCudaCopy(nd_t dst, nd_t src)
     }
   else
     FAIL("Only Host-to-Device or Device-to-Host copies are supported");
-  CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
-  //CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
+  //CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
   return dst;
 Error:
   return 0;
@@ -487,8 +498,14 @@ void* ndCudaShape    (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((n
  */
 void* ndCudaStrides  (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((nd_cuda_t)self)->dev_strides:0;}
 
-cudaStream_t ndCudaStream(nd_t self)
-{ return ((nd_cuda_t)self)->stream;
+#undef LOG
+#define LOG(...) ndLogError(self_,__VA_ARGS__)
+
+cudaStream_t ndCudaStream(nd_t self_)
+{ CUTRY(cudaGetLastError());
+  return ((nd_cuda_t)self_)->stream;
+Error:
+  return 0;
 }
 
 /**
@@ -502,9 +519,6 @@ nd_t ndCudaBindStream(nd_t self_, cudaStream_t stream)
   self->stream=stream;
   return self_;
 }
-
-#undef LOG
-#define LOG(...) ndLogError(self_,__VA_ARGS__)
 
 /** Synchronize on the currently bound stream. */
 nd_t ndCudaWait(nd_t self_)
