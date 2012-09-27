@@ -6,6 +6,7 @@
  *  \todo interface for kind-dependent implementations.
  *  \todo optimize 1d core ops (sse, etc)
  *  \todo distribute over threads
+ *  \todo get rid of subshape syntax if possible?  It's convenient but complicates cuda implementatons of simple functions
  *
  *  \author Nathan Clack
  *  \date   June 2012
@@ -38,12 +39,27 @@ typedef struct nd_conv_params_t_
 // Required: Include "nd.h" before this header.  
 // typedef struct _nd_t* nd_t;
 
+// === SUPPORT ===
+// ndcopy       [x] impl cpu    [x] impl gpu    [x] test
+// ndtranspose  [x] impl cpu    [ ] impl gpu    [x] test
+// ndcat        [x] impl cpu    [ ] impl gpu    [x] test
+// ndcat_ip     [x] impl cpu    [ ] impl gpu    [~] test
+// ndadd        [x] impl cpu    [ ] impl gpu    [x] test
+// ndfmad       [x] impl cpu    [ ] impl gpu    [ ] test
+// ndfill       [x] impl cpu    [x] impl gpu    [ ] test
+// ndxor_ip     [x] impl cpu    [ ] impl gpu    [~] test
+// ndconvert_ip [x] impl cpu    [ ] impl gpu    [~] test
+// ndaffine     [x] impl cpu    [x] impl gpu    [x] test
+// ndconv1      [x] impl cpu    [x] impl gpu    [x] test
+// ndconv1_ip   [x] impl cpu    [ ] impl gpu    [~] test
+
 nd_t ndcopy       (nd_t dst,const nd_t src,size_t ndim,size_t* shape);
 nd_t ndtranspose  (nd_t dst, const nd_t src, unsigned i, unsigned j, size_t ndim, size_t *shape);
 nd_t ndcat        (nd_t x,nd_t y, size_t idim);
 nd_t ndcat_ip     (nd_t dst,nd_t src);
 nd_t ndadd        (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
 nd_t ndfmad       (nd_t z,float a,const nd_t x,float b,const nd_t y,size_t ndim,size_t* shape);
+nd_t ndfill       (nd_t z,uint64_t c);
 nd_t ndxor_ip     (nd_t z,uint64_t c,size_t ndim, size_t* shape);
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type);
 

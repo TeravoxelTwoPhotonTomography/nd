@@ -563,6 +563,40 @@ Error:
 #undef LOG
 #define LOG(...) ndLogError(z,__VA_ARGS__)
 /// @endcond
+
+extern unsigned fill_cuda(nd_t dst,uint64_t v);
+/** Set each voxel in \a z to \a c (reinterpreted as ndtype(z))
+ *  \code
+ *  ndcast(z,nd_f64);          // z is an array of doubles.
+ *  ndfill(z,*(int64_t*)&8.5); // fill z with the value 8.5
+ *  \endcode
+ *
+ *  \param[in,out]  z The array on which to operate.
+ *  \param[in]      c Each voxel will be set to \a c through a cast.
+ *  \returns \a z on success, or NULL otherwise.
+ *  \ingroup ndops
+ */
+nd_t ndfill(nd_t z,uint64_t c)
+{ u64 param[] = {c};
+  REQUIRE(z,PTR_ARITHMETIC|CAN_MEMCPY);
+  if(ndkind(z)==nd_gpu_cuda)
+  { TRY(fill_cuda(z,c));
+  } else
+  {
+    /// @cond DEFINES
+    #define CASE(T) TRY(inplace_op(ndndim(z),ndshape(z), \
+                                   nddata(z),ndstrides(z), \
+                                   (void*)param,sizeof(param), \
+                                   fill_ip_##T)); break
+    /// @endcond
+    TYPECASE(ndtype(z));  
+    #undef CASE
+  }
+  return z;
+Error:
+  return NULL;
+}
+
 /** In-place xor.
  *  \code
  *  z^=c

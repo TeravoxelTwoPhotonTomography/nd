@@ -33,6 +33,28 @@
 #define TSPECIAL
 #include "ops.xor_ip.c"
 
+///// FILL IN-PLACE
+#define TDST u8
+#include "ops.fill.c"
+#define TDST u16
+#include "ops.fill.c"
+#define TDST u32
+#include "ops.fill.c"
+#define TDST u64
+#include "ops.fill.c"
+#define TDST i8
+#include "ops.fill.c"
+#define TDST i16
+#include "ops.fill.c"
+#define TDST i32
+#include "ops.fill.c"
+#define TDST i64
+#include "ops.fill.c"
+#define TDST f32
+#include "ops.fill.c"
+#define TDST f64
+#include "ops.fill.c"
+
 //
 // TWO TYPE OPS
 //

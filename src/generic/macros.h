@@ -6,12 +6,12 @@
  *
  *  Why use C++ templates when you could just use macros!
  *
- *  Just kidding.  Sort of.  C interfaces are very portable; almost every
- *  higher level language can call C-style functions.  Developing a library with 
- *  such an interface means that C++ templates must be hidden at some
- *  point.
+ *  Just kidding.  Sort of.  Developing a library with an surface API that can
+ *  be expressed in pure C means that any C++ templates must be hidden at some
+ *  point (the advantage of a C API, as opposed to C++, is that the library can
+ *  be called from another language, for example).
  *
- *  As a result, one needs a mechanism for calling type specific functions
+ *  This means that one needs a mechanism for calling type specific functions
  *  from a generic interface function.  That is what these macros are intended
  *  to facilitate.
  *
@@ -69,6 +69,21 @@
  */
 #pragma once
 
+/**
+ * Define the short type names used for the other macros.
+ */
+#define TYPEDEFS \
+  typedef uint8_t  u8; \
+  typedef uint16_t u16;\
+  typedef uint32_t u32;\
+  typedef uint64_t u64;\
+  typedef  int8_t  i8; \
+  typedef  int16_t i16;\
+  typedef  int32_t i32;\
+  typedef  int64_t i64;\
+  typedef  float   f32;\
+  typedef  double  f64
+
 /** Requires a macro \c CASE(T) to be defined where \c T is a type parameter.
  *  Requires a macro \c FAIL to be defined that handles when an invalid \a type_id is used.
  *  \param[in] type_id Must be a valid nd_type_id_t.
@@ -76,11 +91,11 @@
 #define TYPECASE(type_id) \
 switch(type_id) \
 {            \
-  case nd_u8 :CASE(u8);  \
+  case nd_u8 :CASE(u8 ); \
   case nd_u16:CASE(u16); \
   case nd_u32:CASE(u32); \
   case nd_u64:CASE(u64); \
-  case nd_i8 :CASE(i8);  \
+  case nd_i8 :CASE(i8 ); \
   case nd_i16:CASE(i16); \
   case nd_i32:CASE(i32); \
   case nd_i64:CASE(i64); \
