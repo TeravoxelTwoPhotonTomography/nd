@@ -72,14 +72,14 @@ typedef void *(*boundary_t)(int64_t i,void* data,size_t stride,size_t n,const nd
 
 
 static void *replicate(int64_t i,void* data,size_t stride,size_t n,const nd_conv_params_t* params)
-{ if(i<0)  return data;
-  if(i>=n) return ((u8*)data)+stride*(n-1);
+{ if(i<0)           return data;
+  if(i>=(int64_t)n) return ((u8*)data)+stride*(n-1);
   return NULL;  // fail fast if called for in-bounds value.
 }
 
 static void *symmetric(int64_t i,void* data,size_t stride,size_t n,const nd_conv_params_t* params)
-{ if(i<0)  return ((u8*)data)+stride*(-i);
-  if(i>=n) return ((u8*)data)+stride*(2*n-1-i); // (n-1)-(i-n)
+{ if(i<0)           return ((u8*)data)+stride*(-i);
+  if(i>=(int64_t)n) return ((u8*)data)+stride*(2*n-1-i); // (n-1)-(i-n)
   return NULL;}
 
 static void *circular(int64_t i,void* data,size_t stride,size_t n,const nd_conv_params_t* params)

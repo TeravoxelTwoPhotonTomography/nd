@@ -50,6 +50,7 @@ nd_t ndconvert_ip (nd_t z, nd_type_id_t type);
 nd_t ndaffine     (nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t *params);
 nd_t ndconv1      (nd_t dst, nd_t src, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
 nd_t ndconv1_ip   (nd_t dst, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
+
 #ifdef __cplusplus
 } //extern "C" {
 #endif

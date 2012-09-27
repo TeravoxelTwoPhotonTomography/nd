@@ -249,7 +249,8 @@ ndio_t ndioWrite(ndio_t file, nd_t a)
   TRY(a);
   if(ndkind(a)==nd_gpu_cuda)
   { TRY(ndcast(ndreshape(t=ndinit(),ndndim(a),ndshape(a)),ndtype(a)));
-    TRY(ndCudaCopy(t,a));
+    TRY(ndref(t,malloc(ndnbytes(t)),ndnelem(t)));
+    TRY(ndcopy(t,a,0,0));
     a=t; 
   }
   TRY(file->fmt->write(file,a));

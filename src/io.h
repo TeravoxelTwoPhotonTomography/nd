@@ -30,7 +30,7 @@ void      ndioClose (ndio_t file);
 
 nd_t      ndioShape (ndio_t file);  // caller must free the returned object
 ndio_t    ndioRead  (ndio_t file, nd_t dst);
-ndio_t    ndioWrite (ndio_t file, nd_t src);
+ndio_t    ndioWrite (ndio_t file, nd_t src); /// \todo respect shape.  Write subvolume if possible?
 
 const char* ndioFormatName(ndio_t file);
 ndio_t    ndioSet(ndio_t file, void *param, size_t nbytes);

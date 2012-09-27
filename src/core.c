@@ -285,7 +285,7 @@ nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
 
 nd_t ndreshapev(nd_t a,unsigned ndim,...)
 { size_t *shape=0;
-  int i;
+  unsigned i;
   va_list args;  
   TRY(shape=(size_t*)alloca(ndim*sizeof(size_t)));
   va_start(args,ndim);
@@ -452,39 +452,6 @@ Error:
 #undef LOG
 #define LOG(...) ndLogError((nd_t)dst,__VA_ARGS__)
 /// @endcond
-
-/**
- * Copies data to/from the GPU from/to a host array.
- * 
- * Stream may be 0.  Specifies the stream to use for async copies.
- * Async copies are the default.
- */
-nd_t ndCudaCopy(nd_t dst, nd_t src)
-{ enum cudaMemcpyKind direction;
-  cudaStream_t stream;
-  size_t sz;
-
-  if(ndkind(dst)==nd_gpu_cuda)
-    { REQUIRE(src,CAN_MEMCPY);
-      direction=cudaMemcpyHostToDevice;
-      sz=ndnbytes(src);
-      stream=ndCudaStream(dst);
-    }
-  else if(ndkind(src)==nd_gpu_cuda)
-    { REQUIRE(dst,CAN_MEMCPY);
-      direction=cudaMemcpyDeviceToHost;
-      sz=ndnbytes(dst);
-      stream=ndCudaStream(src);
-      //CUTRY(cudaStreamSynchronize(stream)); // sync before read
-    }
-  else
-    FAIL("Only Host-to-Device or Device-to-Host copies are supported");
-  //CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
-  CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
-  return dst;
-Error:
-  return 0;
-}
 
 /**
  * GPU based shape array.

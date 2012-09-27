@@ -19,7 +19,9 @@ avg1=imfilter(avg0,avg,'replicate');
 avg2=imfilter(avg1,reshape(avg,[1 1 3]),'replicate');
 save avg.mat avg2 -v7.3
 
-
-
-
-
+%% Make unaligned volume (prime dimensions)
+a=a(1:127,1:127,1:127);
+avg0=imfilter(a,avg','replicate');
+avg1=imfilter(avg0,avg,'replicate');
+avg2=imfilter(avg1,reshape(avg,[1 1 3]),'replicate');
+save primedim.mat avg2 -v7.3

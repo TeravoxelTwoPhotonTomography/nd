@@ -35,18 +35,18 @@ struct arg_t
     TRY(data=nddata(a));
     cstride=1;
     if(idim==0)
-    { rstride=(int)ndstrides(a)[1]/ndstrides(a)[0];
+    { rstride=(int)(ndstrides(a)[1]/ndstrides(a)[0]);
       pstride=1; //won't be used
-      ncols=ndshape(a)[0];
-      nrows=ndstrides(a)[ndndim(a)]/ndstrides(a)[1];
+      ncols=(int)ndshape(a)[0];
+      nrows=(int)(ndstrides(a)[ndndim(a)]/ndstrides(a)[1]);
       nplanes=1;
     }
     else // idim>0
-    { rstride=(int)ndstrides(a)[idim]     /ndstrides(a)[0];
-      pstride=(int)ndstrides(a)[idim+1]   /ndstrides(a)[0];
-      ncols  =(int)ndstrides(a)[idim]     /ndstrides(a)[0];
-      nrows  =(int)ndstrides(a)[idim+1]   /ndstrides(a)[idim];
-      nplanes=(int)ndstrides(a)[ndndim(a)]/ndstrides(a)[idim+1];
+    { rstride=(int)(ndstrides(a)[idim]     /ndstrides(a)[0]);
+      pstride=(int)(ndstrides(a)[idim+1]   /ndstrides(a)[0]);
+      ncols  =(int)(ndstrides(a)[idim]     /ndstrides(a)[0]);
+      nrows  =(int)(ndstrides(a)[idim+1]   /ndstrides(a)[idim]);
+      nplanes=(int)(ndstrides(a)[ndndim(a)]/ndstrides(a)[idim+1]);
     }
 Error:
     return; // data will be 0 if there was an error
@@ -85,28 +85,49 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
             oy=threadIdx.y+ blockIdx.y           *BY;
 
   if(oy<dst_.nrows)
-  { src+=ox+oy*(int)src_.rstride; /*+blockIdx.z*src_.pstride;*/ // never launch more than one plane
+  { // LOAD
+    src+=ox+oy*(int)src_.rstride; /*+blockIdx.z*src_.pstride;*/ // never launch more than one plane
     dst+=ox+oy*(int)dst_.rstride;
     #pragma unroll
-    for(int i=HALO     ;i<WORK  ;++i) // the last work element might be hanging off an unaligned edge
-      buf[threadIdx.y][threadIdx.x+i*BX]=src[i*BX];
-    #pragma unroll
-    for(int i=0        ;i<HALO       ;++i)
-      buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*(int)BX)    ?src[i*BX]:src[-ox]; // clamp to edge boundary condition  
-    #pragma unroll
-    for(int i=WORK;i<2*HALO+WORK;++i)
-      buf[threadIdx.y][threadIdx.x+i*BX]=(src_.ncols-ox>i*BX)?src[i*BX]:src[src_.ncols-ox-1]; // clamp to edge boundary condition
+    for(int i=0        ;i<HALO       ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*(int)BX)?src[i*BX]:src[-ox];                 // clamp to edge boundary condition
+    if(blockIdx.x!=(gridDim.x-1)) 
+    { // not last block...everything should be in bounds
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=src[i*BX];
+    } else
+    { // last block...might hang off an unaligned edge
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(src_.ncols-ox>i*BX)?src[i*BX]:src[src_.ncols-ox-1]; // clamp to edge boundary condition
+    }
+    
     // COMPUTE
     __syncthreads();
-    #pragma unroll
-    for(int i=HALO;i<HALO+WORK;++i)
-    { float sum=0.0f;
-      sum+=c_kernel[radius]*buf[threadIdx.y][threadIdx.x+i*BX];
-      for(int j=1;j<=radius;++j)
-      { sum+=c_kernel[radius-j]*buf[threadIdx.y][threadIdx.x+i*BX-j];
-        sum+=c_kernel[radius+j]*buf[threadIdx.y][threadIdx.x+i*BX+j];
+    if(blockIdx.x!=(gridDim.x-1))
+    {
+      #pragma unroll
+      for(int i=HALO;i<HALO+WORK;++i)
+      { float sum=0.0f;
+        sum+=c_kernel[radius]*buf[threadIdx.y][threadIdx.x+i*BX];
+        for(int j=1;j<=radius;++j)
+        { sum+=c_kernel[radius-j]*buf[threadIdx.y][threadIdx.x+i*BX-j];
+          sum+=c_kernel[radius+j]*buf[threadIdx.y][threadIdx.x+i*BX+j];
+        }
+        dst[i*BX]=sum;
       }
-      dst[i*BX]=sum;
+    } else
+    { // last block 
+      #pragma unroll
+      for(int i=HALO;i<HALO+WORK;++i)
+      { if(dst_.ncols-ox>i*BX)
+        { float sum=0.0f;
+          sum+=c_kernel[radius]*buf[threadIdx.y][threadIdx.x+i*BX];
+          for(int j=1;j<=radius;++j)
+          { sum+=c_kernel[radius-j]*buf[threadIdx.y][threadIdx.x+i*BX-j];
+            sum+=c_kernel[radius+j]*buf[threadIdx.y][threadIdx.x+i*BX+j];
+          }       
+          dst[i*BX]=sum;
+        }
+      }
     }
   }
 }
@@ -136,22 +157,44 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   }
   // LOAD
   #pragma unroll
-  for(int i=HALO     ;i<HALO+WORK  ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=src[i*BY*src_.rstride];
-  #pragma unroll
-  for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*(int)BY)    ?src[i*BY*src_.rstride]:src[-oy*src_.rstride];  // clamp to edge boundary condition  
-  #pragma unroll
-  for(int i=HALO+WORK;i<2*HALO+WORK;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(src_.nrows-oy>i*BY)?src[i*BY*src_.rstride]:src[(src_.nrows-oy-1)*src_.rstride]; // clamp to edge boundary condition
+    for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*(int)BY)    ?src[i*BY*src_.rstride]:src[-oy*src_.rstride];  // clamp to edge boundary condition  
+  if(blockIdx.y!=(gridDim.y-1)) 
+  { // not the last block
+    #pragma unroll
+    for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=src[i*BY*src_.rstride];    
+  } else  
+  { // last block: bounds check every access    
+    #pragma unroll
+    for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(src_.nrows-oy>i*BY)?src[i*BY*src_.rstride]:src[(src_.nrows-oy-1)*src_.rstride]; // clamp to edge boundary condition
+  }
   // COMPUTE
   __syncthreads();
-#pragma unroll
-  for(int i=HALO;i<HALO+WORK;++i)
-  { float sum=0.0f;
-    sum+=c_kernel[radius]*buf[threadIdx.x][threadIdx.y+i*BY];
-    for(int j=1;j<=radius;++j)
-    { sum+=c_kernel[radius-j]*buf[threadIdx.x][threadIdx.y+i*BY-j];
-      sum+=c_kernel[radius+j]*buf[threadIdx.x][threadIdx.y+i*BY+j];
+  if(blockIdx.y!=(gridDim.y-1))
+  {
+    #pragma unroll
+    for(int i=HALO;i<HALO+WORK;++i)
+    { float sum=0.0f;
+      sum+=c_kernel[radius]*buf[threadIdx.x][threadIdx.y+i*BY];
+      for(int j=1;j<=radius;++j)
+      { sum+=c_kernel[radius-j]*buf[threadIdx.x][threadIdx.y+i*BY-j];
+        sum+=c_kernel[radius+j]*buf[threadIdx.x][threadIdx.y+i*BY+j];
+      }
+      dst[i*BY*dst_.rstride]=sum;
     }
-    dst[i*BY*dst_.rstride]=sum;
+  } else // last block
+  { 
+    #pragma unroll
+    for(int i=HALO;i<HALO+WORK;++i)
+    { if(dst_.nrows-oy>i*BY)
+      { float sum=0.0f;
+        sum+=c_kernel[radius]*buf[threadIdx.x][threadIdx.y+i*BY];
+        for(int j=1;j<=radius;++j)
+        { sum+=c_kernel[radius-j]*buf[threadIdx.x][threadIdx.y+i*BY-j];
+          sum+=c_kernel[radius+j]*buf[threadIdx.x][threadIdx.y+i*BY+j];
+        }
+        dst[i*BY*dst_.rstride]=sum;
+      }
+    }
   }
 }
 
@@ -174,87 +217,30 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
   TRY(param->boundary_condition==nd_boundary_replicate); // only support this boundary condition for now
   TRY(dst.isok());
   TRY(ndtype(filter_)==nd_f32); // only float kernels supported at the moment
-  radius=ndnelem(filter_)/2;
+  radius=(int)(ndnelem(filter_)/2);
   TRY(2*radius+1==ndnelem(filter_));      // filter has odd size
   TRY(ndnelem(filter_)<MAX_FILTER_WIDTH);  
 
-  TRY(upload_kernel((float*)nddata(filter_),ndnelem(filter_))); /// \todo Ideally I'd only upload the kernel once and then do the seperable convolution on each dimension 
+  TRY(upload_kernel((float*)nddata(filter_),(unsigned)ndnelem(filter_))); /// \todo Ideally I'd only upload the kernel once and then do the seperable convolution on each dimension 
   /// @cond DEFINES
   if(idim==0)
   { //
     // ROW-WISE
     //
-    const unsigned BX=32,BY=8,HALO=1;
-    unsigned work;
-    //TRY(src.ncols%BX==0);           // width  must be aligned to a warp (32)    
-    TRY(BX*HALO>=radius);             // radius can't be too big
-    { unsigned i,rem,minrem;          // search for a good size for work-per-thread
-      for(i=1,work=1,minrem=src.nrows;i<8;++i)
-        { rem=src.nrows%(BX*i);
-          if(rem<minrem)
-            { work=i;
-              minrem=rem;
-            }
-        }
-    }
-    TRY(work>0);
-    dim3 blocks(ceil(src.ncols/(float)(work*BX)), ceil(src.nrows/(float)BY), src.nplanes);
-    //dim3 blocks(10,10,1);
+    const unsigned BX=32,BY=8,HALO=1,WORK=8;
+    dim3 blocks((unsigned)ceil(src.ncols/(float)(WORK*BX)), (unsigned)ceil(src.nrows/(float)BY), src.nplanes);
     dim3 threads(BX,BY);
-    switch(work) // kernels unroll a certain amount of work per thread
-    {
-    case 1:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,1><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
+    #define CASE(T) conv1_rows<T,BX,BY,HALO,WORK><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
       {TYPECASE(ndtype(src_));} // scope just in case the compiler needs help with big switch statements.
-      #undef CASE 
-      break;
-    case 2:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,2><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    case 3:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,3><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    case 4:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,4><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    case 5:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,5><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    case 6:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,6><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    case 7:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,7><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    case 8:
-      #define CASE(T) conv1_rows<T,BX,BY,HALO,8><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));}
-      #undef CASE 
-      break;
-    default:
-      FAIL;
-    }
+    #undef CASE     
   } else
   { //
     // COLUMN-WISE
     //
     const unsigned BX=32,BY=8,WORK=8,HALO=1;
-    dim3 blocks(ceil(src.ncols/(float)BX), src.nrows/(WORK*BY), src.nplanes);
+    dim3 blocks((unsigned)ceil(src.ncols/(float)BX), (unsigned)ceil(src.nrows/(float)(WORK*BY)), src.nplanes);
     dim3 threads(BX,BY);
     TRY(BY*HALO>=radius);                  // radius can't be too big
-    TRY(src.nrows%(BY*WORK)==0);           // height must be aligned 
     #define CASE(T) conv1_cols<T,BX,BY,HALO,WORK><<<blocks,threads>>>(dst,src,radius,*param); break
     TYPECASE(ndtype(dst_));
     #undef CASE

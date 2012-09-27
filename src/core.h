@@ -81,7 +81,7 @@ nd_kind_t     ndkind(const nd_t a);
 
 nd_t          ndreshape  (nd_t a, unsigned ndim, const size_t *shape);
 nd_t          ndreshapev (nd_t a, unsigned ndim, ...);
-nd_t          ndShapeSet (nd_t a, unsigned idim, size_t val);
+nd_t          ndShapeSet (nd_t a, unsigned idim, size_t val); /// \todo bad name: should distinguish from using ndshape(a)[i]=c
 nd_t          ndInsertDim(nd_t a, unsigned idim);
 nd_t          ndRemoveDim(nd_t a, unsigned idim);
 
@@ -103,7 +103,6 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 
 nd_t         ndcuda           (nd_t a, cudaStream_t stream);
 nd_t         ndCudaSyncShape  (nd_t self);
-nd_t         ndCudaCopy       (nd_t dst,nd_t src);
 void*        ndCudaShape      (nd_t self);
 nd_t         ndCudaSetCapacity(nd_t self, size_t nbytes);
 void*        ndCudaStrides    (nd_t self);

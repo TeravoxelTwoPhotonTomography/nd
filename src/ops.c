@@ -8,6 +8,7 @@
  *
  *   \todo Refactor setting ndim and shape to it's own function.
  */
+#include "cuda_runtime_api.h"
 #include <stdint.h>
 #if defined(__APPLE__) || defined(__MACH__)
 #include <malloc/malloc.h>
@@ -60,6 +61,7 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #define ENDL     "\n"
 #define LOG(...) fprintf(stderr,__VA_ARGS__)
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
+#define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
 #define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
 #define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
@@ -258,6 +260,40 @@ static size_t min_sz_t(size_t a, size_t b)
 
 /// @cond DEFINES
 #undef LOG
+#define LOG(...)
+/// @endcond
+
+struct _cuda_copy_param_t
+{ enum cudaMemcpyKind direction;
+  cudaStream_t stream;
+  cudaError_t  ecode; ///< out
+};
+
+struct _cuda_copy_param_t make_cuda_copy_params(nd_t dst,nd_t src)
+{ struct _cuda_copy_param_t out={cudaMemcpyDeviceToDevice,0,cudaSuccess};
+  out.stream=(ndkind(src)==nd_gpu_cuda)?ndCudaStream(src):ndCudaStream(dst);
+  if(ndkind(src)==nd_gpu_cuda  && ndkind(dst)!=nd_gpu_cuda)
+    out.direction=cudaMemcpyDeviceToHost;
+  if(ndkind(src)!=nd_gpu_cuda  && ndkind(dst)==nd_gpu_cuda)
+    out.direction=cudaMemcpyHostToDevice;
+  return out;
+}
+
+void cuda_copy_op(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes)
+{ struct _cuda_copy_param_t* p=(struct _cuda_copy_param_t*)param;
+  cudaError_t ecode=cudaErrorInvalidValue;
+  TRY(p->ecode==cudaSuccess);
+  TRY(xst==zst);
+  CUTRY(ecode=cudaMemcpy(z,x,N*xst,p->direction));
+  p->ecode=cudaSuccess;
+  return;
+Error:
+  if(p->ecode!=cudaSuccess) return;
+  p->ecode=ecode;
+}
+
+/// @cond DEFINES
+#undef LOG
 #define LOG(...) do{ ndLogError(dst,__VA_ARGS__); ndLogError(src,__VA_ARGS__); } while(0)
 /// @endcond
 
@@ -281,8 +317,8 @@ static size_t min_sz_t(size_t a, size_t b)
  *  \ingroup ndops
  */
 nd_t ndcopy(nd_t dst, const nd_t src, size_t ndim, size_t *shape)
-{ REQUIRE(src,PTR_ARITHMETIC|CAN_MEMCPY);
-  REQUIRE(dst,PTR_ARITHMETIC|CAN_MEMCPY);
+{ REQUIRE(src,PTR_ARITHMETIC);
+  REQUIRE(dst,PTR_ARITHMETIC);
   // if shape or ndims is unspecified use smallest
   if(!ndim)
     ndim=min_sz_t(ndndim(dst),ndndim(src));
@@ -292,21 +328,30 @@ nd_t ndcopy(nd_t dst, const nd_t src, size_t ndim, size_t *shape)
     for(i=0;i<ndim;++i)
       shape[i]=min_sz_t(ndshape(dst)[i],ndshape(src)[i]);
   }
-  /// @cond DEFINES
-  #define CASE2(T1,T2) TRY(unary_op(ndim,shape, \
-                              nddata(dst),ndstrides(dst), \
-                              nddata(src),ndstrides(src), \
-                              0,0, \
-                              copy_##T1##_##T2)); break
-  #define CASE(T)      TYPECASE2(ndtype(dst),T); break
-  /// @endcond
-      TYPECASE(ndtype(src));
-  #undef CASE
-  #undef CASE2
-  // convert signed vals to unsigned vals in case of type change
-  { int b;
-    if(b=get_sign_change_bit(ndtype(dst),ndtype(src)))
-      ndxor_ip(dst,1ULL<<b,ndim,shape);
+  if(ndkind(src)==nd_gpu_cuda || ndkind(dst)==nd_gpu_cuda)
+  { struct _cuda_copy_param_t param=make_cuda_copy_params(dst,src);
+    TRY(unary_op(ndim,shape,nddata(dst),ndstrides(dst),nddata(src),ndstrides(src),&param,sizeof(param),cuda_copy_op));
+    CUTRY(param.ecode);
+  } else
+  { // RAM
+    REQUIRE(src,CAN_MEMCPY);
+    REQUIRE(dst,CAN_MEMCPY);
+    /// @cond DEFINES
+    #define CASE2(T1,T2) TRY(unary_op(ndim,shape, \
+                                nddata(dst),ndstrides(dst), \
+                                nddata(src),ndstrides(src), \
+                                0,0, \
+                                copy_##T1##_##T2)); break
+    #define CASE(T)      TYPECASE2(ndtype(dst),T); break
+    /// @endcond
+        TYPECASE(ndtype(src));
+    #undef CASE
+    #undef CASE2
+    // convert signed vals to unsigned vals in case of type change
+    { int b;
+      if(b=get_sign_change_bit(ndtype(dst),ndtype(src)))
+        ndxor_ip(dst,1ULL<<b,ndim,shape);
+    }
   }
   return dst;
 Error:

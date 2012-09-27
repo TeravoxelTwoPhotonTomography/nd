@@ -6,6 +6,7 @@
  *             Should do out-of-place (simplest fix).
  * \todo add unrolling for common small kernel sizes
  * \todo ensure loaded test data has expected shape
+ * \todo load reference data only once.
  * @cond TEST
  */
 
@@ -13,6 +14,11 @@
 #include "config.h"
 #include "helpers.h"
 #include <gtest/gtest.h>
+#include <stdio.h>
+
+#ifdef _MSC_VER
+#define snprintf _snprintf
+#endif
 
 #define countof(e) (sizeof(e)/sizeof(*(e)))
 
@@ -25,22 +31,24 @@
 
 static
 struct _files_t
-{ const char  *path;
+{ const char  *name;
+  const char  *path;
   nd_type_id_t type;
   size_t       ndim;
   size_t       shape[3];
 } file_table[] =
 {
-  {ND_TEST_DATA_PATH"/conv/orig.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
-  {ND_TEST_DATA_PATH"/conv/avg0.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
-  {ND_TEST_DATA_PATH"/conv/avg1.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
-  {ND_TEST_DATA_PATH"/conv/avg2.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
-  {ND_TEST_DATA_PATH"/conv/avg.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
+  {"orig",ND_TEST_DATA_PATH"/conv/orig.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
+  {"avg0",ND_TEST_DATA_PATH"/conv/avg0.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
+  {"avg1",ND_TEST_DATA_PATH"/conv/avg1.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
+  {"avg2",ND_TEST_DATA_PATH"/conv/avg2.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
+  {"avg" ,ND_TEST_DATA_PATH"/conv/avg.mat",nd_f32,3,{WIDTH,WIDTH,WIDTH}},
+  {"pdim",ND_TEST_DATA_PATH"/conv/primedim.mat",nd_f32,3,{127,127,127}},
   {0}
 };
 
 struct Convolve3d:public testing::Test
-{ nd_t orig,avg0,avg1,avg2,avg;
+{ nd_t orig,avg0,avg1,avg2,avg,pdim;
   nd_t filter;
   float *data;
   static const nd_conv_params_t params;
@@ -48,25 +56,33 @@ struct Convolve3d:public testing::Test
   void SetUp(void)
   { ndioAddPluginPath(NDIO_BUILD_ROOT);
     // read in example data
-    { const size_t nelem=WIDTH*WIDTH*WIDTH;
-      const size_t shape[]={WIDTH,WIDTH,WIDTH};
-      nd_t *as[]={&orig,&avg0,&avg1,&avg2,&avg};
-      ASSERT_NE((void*)NULL,data=(float*)malloc(nelem*5*sizeof(float)));
-      for(int i=0;i<countof(as);++i)
+    { nd_t *as[]={&orig,&avg0,&avg1,&avg2,&avg,&pdim};
+      float *d;
+      int i;
+      ASSERT_NE((void*)NULL,data=(float*)malloc(WIDTH*WIDTH*WIDTH*countof(as)*sizeof(float))); // one big buffer to hold all the data
+      for(i=0,d=data;i<countof(as);++i)
       { ndio_t file;
-        ASSERT_NE((void*)NULL,*as[i]=ndinit());
-        EXPECT_EQ(*as[i],ndcast(ndref(*as[i],data+nelem*i,nelem),nd_f32));
-        EXPECT_EQ(*as[i],ndreshape(*as[i],3,shape));
+        size_t nelem;
+        ASSERT_NE((void*)NULL,*as[i]=ndinit());        
+        EXPECT_EQ(*as[i],ndreshape(*as[i],(unsigned)file_table[i].ndim,file_table[i].shape));
+        nelem=ndnelem(*as[i]);
+        EXPECT_EQ(*as[i],ndcast(ndref(*as[i],d,nelem),nd_f32));        
+        d+=nelem;
         EXPECT_NE((void*)NULL,file=ndioOpen(file_table[i].path,NULL,"r"));
         EXPECT_EQ(file,ndioRead(file,*as[i]));
         ndioClose(file);
       }
+#if 0
+      for(i=0,d=data;i<countof(as);++i)
+      { char name[1024]={0};
+        snprintf(name,1024,"%s.tif",file_table[i].name);
+        ndioClose(ndioWrite(ndioOpen(name,0,"w"),*as[i]));
+      }
+#endif
     }
     // setup the box filter 
-    { size_t shape[]={3};
-      EXPECT_NE((void*)NULL,filter=ndinit());
-      EXPECT_EQ(filter,ndreshape(ndcast(ndref(filter,(void*)f,3),nd_f32),1,shape));
-    }
+    EXPECT_NE((void*)NULL,filter=ndinit());
+    EXPECT_EQ(filter,ndreshapev(ndcast(ndref(filter,(void*)f,3),nd_f32),1,3));
   }
 
   void TearDown()
@@ -77,7 +93,7 @@ struct Convolve3d:public testing::Test
     ndfree(filter);
   }
 };
-const float Convolve3d::f[]={1.0/3.0,1.0/3.0,1.0/3.0};
+const float Convolve3d::f[]={1.0f/3.0f,1.0f/3.0f,1.0f/3.0f};
 const nd_conv_params_t Convolve3d::params={nd_boundary_replicate};
 
 // === CPU ===
@@ -106,23 +122,40 @@ TEST_F(Convolve3d,CPU_dim2)
   EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg2)));
 }
 TEST_F(Convolve3d,CPU_alldims)
-{ EXPECT_EQ(orig,ndconv1_ip(orig,filter,0,&params));
+{ 
+  EXPECT_EQ(orig,ndconv1_ip(orig,filter,0,&params));
   EXPECT_EQ(orig,ndconv1_ip(orig,filter,1,&params));
   EXPECT_EQ(orig,ndconv1_ip(orig,filter,2,&params));
 #ifdef DEBUG_DUMP
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
-  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg2));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg));
 #endif
   EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg)));
+}
+TEST_F(Convolve3d,CPU_unaligned_shape)
+{ nd_t sub;
+  EXPECT_NE((void*)0,sub=ndinit());
+  EXPECT_EQ(sub,ndreshape(ndcast(ndref(sub,malloc(ndnbytes(pdim)),ndnelem(pdim)),ndtype(pdim)),ndndim(pdim),ndshape(pdim)));
+  EXPECT_EQ(sub,ndcopy(sub,orig,0,0));
+  EXPECT_EQ(sub,ndconv1_ip(sub,filter,0,&params));
+  EXPECT_EQ(sub,ndconv1_ip(sub,filter,1,&params));
+  EXPECT_EQ(sub,ndconv1_ip(sub,filter,2,&params));
+#ifdef DEBUG_DUMP
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),sub));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),pdim));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(sub),(float*)nddata(sub),(float*)nddata(pdim)));
+  free(nddata(sub));
+  ndfree(sub);
 }
 
 // === GPU ===
 TEST_F(Convolve3d,GPU_dim0)
 { nd_t src=ndcuda(orig,0),
        dst=ndcuda(orig,0);
-  EXPECT_EQ(src,ndCudaCopy(src,orig))<<nderror(src);
+  EXPECT_EQ(src,ndcopy(src,orig,0,0))<<nderror(src);
   EXPECT_EQ(dst,ndconv1(dst,src,filter,0,&params));
-  EXPECT_EQ(orig,ndCudaCopy(orig,dst))<<nderror(orig);;
+  EXPECT_EQ(orig,ndcopy(orig,dst,0,0))<<nderror(orig);;
 #ifdef DEBUG_DUMP  
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg0));
@@ -133,9 +166,9 @@ TEST_F(Convolve3d,GPU_dim0)
 TEST_F(Convolve3d,GPU_dim1)
 { nd_t dst=ndcuda(orig,0),
        src=ndcuda(orig,0);
-  EXPECT_EQ(src,ndCudaCopy(src,orig))<<nderror(dst);
+  EXPECT_EQ(src,ndcopy(src,orig,0,0))<<nderror(dst);
   EXPECT_EQ(dst,ndconv1(dst,src,filter,1,&params));
-  EXPECT_EQ(orig,ndCudaCopy(orig,dst))<<nderror(orig);
+  EXPECT_EQ(orig,ndcopy(orig,dst,0,0))<<nderror(orig);
 #ifdef DEBUG_DUMP  
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg1));
@@ -146,9 +179,9 @@ TEST_F(Convolve3d,GPU_dim1)
 TEST_F(Convolve3d,GPU_dim2)
 { nd_t dst=ndcuda(orig,0),
        src=ndcuda(orig,0);
-  EXPECT_EQ(src,ndCudaCopy(src,orig))<<nderror(dst);
+  EXPECT_EQ(src,ndcopy(src,orig,0,0))<<nderror(dst);
   EXPECT_EQ(dst,ndconv1(dst,src,filter,2,&params));
-  EXPECT_EQ(orig,ndCudaCopy(orig,dst))<<nderror(orig);
+  EXPECT_EQ(orig,ndcopy(orig,dst,0,0))<<nderror(orig);
 #ifdef DEBUG_DUMP  
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg2));
@@ -159,16 +192,34 @@ TEST_F(Convolve3d,GPU_dim2)
 TEST_F(Convolve3d,GPU_alldims)
 { nd_t dst=ndcuda(orig,0),
        src=ndcuda(orig,0);
-  EXPECT_EQ(src,ndCudaCopy(src,orig))<<nderror(src);
+  EXPECT_EQ(src,ndcopy(src,orig,0,0))<<nderror(src);
   EXPECT_EQ(dst,ndconv1(dst,src,filter,0,&params));
   EXPECT_EQ(src,ndconv1(src,dst,filter,1,&params));
   EXPECT_EQ(dst,ndconv1(dst,src,filter,2,&params));
-  EXPECT_EQ(orig,ndCudaCopy(orig,dst))<<nderror(orig);
+  EXPECT_EQ(orig,ndcopy(orig,dst,0,0))<<nderror(orig);
 #ifdef DEBUG_DUMP  
   ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),avg));
 #endif
   EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(avg)));
+  EXPECT_EQ(cudaSuccess,cudaDeviceReset());
+}
+TEST_F(Convolve3d,GPU_unaligned_shape)
+{ for(unsigned i=0;i<ndndim(pdim);++i)
+    ndshape(orig)[i]=ndshape(pdim)[i];
+  nd_t dst=ndcuda(orig,0),
+       src=ndcuda(orig,0);
+  EXPECT_EQ(src,ndcopy(src,orig,0,0))<<nderror(src);
+  EXPECT_EQ(dst,ndconv1(dst,src,filter,0,&params));
+  EXPECT_EQ(src,ndconv1(src,dst,filter,1,&params));
+  EXPECT_EQ(dst,ndconv1(dst,src,filter,2,&params));
+  ndreshape(orig,ndndim(dst),ndshape(dst));
+  EXPECT_EQ(orig,ndcopy(orig,dst,0,0))<<nderror(orig);
+#ifdef DEBUG_DUMP  
+  ndioClose(ndioWrite(ndioOpen("result.tif",NULL,"w"),orig));
+  ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),pdim));
+#endif
+  EXPECT_EQ(-1,firstdiff(ndnelem(orig),(float*)nddata(orig),(float*)nddata(pdim)));
   EXPECT_EQ(cudaSuccess,cudaDeviceReset());
 }
 
@@ -221,16 +272,16 @@ TYPED_TEST(Convolve_1DTypeTest,CPU)
 }
 
 TYPED_TEST(Convolve_1DTypeTest,GPU)
-{ float laplace[]   ={-1/6.0,2/6.0,-1/6.0}; // sum=0, sum squares=1
+{ float laplace[]   ={-1/6.0f,2/6.0f,-1/6.0f}; // sum=0, sum squares=1
   TypeParam signal[]={21,  51,   65,   84,122,100,    21, 21, //8 
                       21,  51,   65,   84,122,100,    21, 21, //16
                       21,  51,   65,   84,122,100,    21, 21, //24
                       21,  51,   65,   84,122,100,    21, 21, //32
                     };
-  float     expect[]={-5,2.67,-0.83,-3.17, 10,9.5,-13.17,  0,
-                      -5,2.67,-0.83,-3.17, 10,9.5,-13.17,  0,
-                      -5,2.67,-0.83,-3.17, 10,9.5,-13.17,  0,
-                      -5,2.67,-0.83,-3.17, 10,9.5,-13.17,  0,
+  float     expect[]={-5.0f,2.67f,-0.83f,-3.17f, 10.0f,9.5f,-13.17f,  0.0f,
+                      -5.0f,2.67f,-0.83f,-3.17f, 10.0f,9.5f,-13.17f,  0.0f,
+                      -5.0f,2.67f,-0.83f,-3.17f, 10.0f,9.5f,-13.17f,  0.0f,
+                      -5.0f,2.67f,-0.83f,-3.17f, 10.0f,9.5f,-13.17f,  0.0f,
                      };
   nd_t f=0,s=0;
   EXPECT_EQ(cudaSuccess,cudaSetDevice(0));
@@ -245,9 +296,9 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
   { nd_t ff,ss1,ss;
     ASSERT_NE((void*)NULL,ss =ndcuda(s,NULL));
     ASSERT_NE((void*)NULL,ss1=ndcuda(s,NULL));
-    EXPECT_EQ(ss1,ndCudaCopy(ss1,s));
+    EXPECT_EQ(ss1,ndcopy(ss1,s,0,0));
     EXPECT_EQ(ss,ndconv1(ss,ss1,f,0,&params))<<nderror(ss1);
-    EXPECT_EQ(s,ndCudaCopy(s,ss))<<nderror(s);
+    EXPECT_EQ(s,ndcopy(s,ss,0,0))<<nderror(s);
     ndfree(ss);
     ndfree(ss1);
   }
