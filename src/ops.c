@@ -578,11 +578,11 @@ extern unsigned fill_cuda(nd_t dst,uint64_t v);
  */
 nd_t ndfill(nd_t z,uint64_t c)
 { u64 param[] = {c};
-  REQUIRE(z,PTR_ARITHMETIC|CAN_MEMCPY);
+  REQUIRE(z,PTR_ARITHMETIC);
   if(ndkind(z)==nd_gpu_cuda)
   { TRY(fill_cuda(z,c));
   } else
-  {
+  { REQUIRE(z,CAN_MEMCPY);
     /// @cond DEFINES
     #define CASE(T) TRY(inplace_op(ndndim(z),ndshape(z), \
                                    nddata(z),ndstrides(z), \
