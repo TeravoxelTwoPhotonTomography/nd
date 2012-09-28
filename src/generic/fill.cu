@@ -35,7 +35,7 @@ fill_kernel(T* dst,unsigned w,unsigned h,T v)
       #pragma unroll
       for(int i=0;i<WORK;++i) if(w-ox>i*BX) dst[i*BX]=v;
     }
-  }
+  } 
 }
 
 static unsigned prod(size_t n, size_t *v)
@@ -47,9 +47,9 @@ static unsigned prod(size_t n, size_t *v)
 extern "C" unsigned fill_cuda(nd_t dst,uint64_t v)
 { unsigned w=ndshape(dst)[0],
            h=prod(ndndim(dst)-1,ndshape(dst)+1);
-  const unsigned BX=32,BY=4,WORK=8;
+  const unsigned BX=32,BY=32,WORK=8;
   dim3 blocks((unsigned)ceil(w/(float)(WORK*BX)), (unsigned)ceil(h/(float)BY)),
-       threads(BX,BY);
+       threads(BX,BY); // run max threads per block (1024).  Set BX to be 1 warp (32).
   /// @cond DEFINES
   #define CASE(T) fill_kernel<T,BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((T*)nddata(dst),w,h,*(T*)&v); break
        {TYPECASE(ndtype(dst));}
