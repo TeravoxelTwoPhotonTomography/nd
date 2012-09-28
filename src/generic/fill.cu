@@ -20,7 +20,7 @@ TYPEDEFS;
 
 
 template<typename T,unsigned BX,unsigned BY,unsigned WORK>
-__global__ void __launch_bounds__(BX,BY)
+__global__ void __launch_bounds__(BX*BY,1)
 fill_kernel(T* dst,unsigned w,unsigned h,T v)
 { const int ox=threadIdx.x+(blockIdx.x*WORK)*BX,
             oy=threadIdx.y+ blockIdx.y      *BY;

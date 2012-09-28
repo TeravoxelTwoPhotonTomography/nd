@@ -69,4 +69,16 @@ T* zeros(size_t ndim, size_t* shape)
   T* v = new T[nelem];
   memset(v,0,nelem*sizeof(T));
 }
+
+/**
+ * Returns index of first value in \a a not equal to \a v.
+ * Or -1, if no such index exists.
+ */
+template<class T>
+int all(size_t n, const T* a, const T v)
+{ for(size_t i=0;i<n;++i)
+    if(a[i]!=v)
+      return i;
+  return -1;
+}
 /// @endcond
