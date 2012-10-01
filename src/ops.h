@@ -47,8 +47,8 @@ typedef struct nd_conv_params_t_
 // ndadd        [x] impl cpu    [ ] impl gpu    [x] test
 // ndfmad       [x] impl cpu    [ ] impl gpu    [ ] test
 // ndfill       [x] impl cpu    [x] impl gpu    [ ] test
-// ndxor_ip     [x] impl cpu    [ ] impl gpu    [~] test
-// ndconvert_ip [x] impl cpu    [ ] impl gpu    [~] test
+// ndxor_ip     [x] impl cpu    [x] impl gpu    [~] test
+// ndconvert_ip [x] impl cpu    [x] impl gpu    [~] test
 // ndaffine     [x] impl cpu    [x] impl gpu    [x] test
 // ndconv1      [x] impl cpu    [x] impl gpu    [x] test
 // ndconv1_ip   [x] impl cpu    [ ] impl gpu    [~] test

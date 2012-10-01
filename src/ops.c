@@ -615,7 +615,7 @@ Error:
  */
 nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
 { u64 param[] = {c};
-  REQUIRE(z,PTR_ARITHMETIC|CAN_MEMCPY);
+  REQUIRE(z,PTR_ARITHMETIC);
   // set shape and dim if necessary
   if(!ndim)
   { ndim=ndndim(z);
@@ -624,14 +624,19 @@ nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
   { TRY(shape=(size_t*)alloca(sizeof(size_t)*ndim));
     memcpy(shape,ndshape(z),sizeof(size_t)*ndim);
   }
-  /// @cond DEFINES
-  #define CASE(T) TRY(inplace_op(ndim,shape, \
-                                 nddata(z),ndstrides(z), \
-                                 (void*)param,sizeof(param), \
-                                 xor_ip_##T)); break
-  /// @endcond
-  TYPECASE(ndtype(z));
-  #undef CASE
+  if(ndkind(z)==nd_gpu_cuda)
+  { TRY(xor_ip_cuda(z,c));
+  } else
+  { REQUIRE(z,CAN_MEMCPY);
+    /// @cond DEFINES
+    #define CASE(T) TRY(inplace_op(ndim,shape, \
+                                   nddata(z),ndstrides(z), \
+                                   (void*)param,sizeof(param), \
+                                   xor_ip_##T)); break
+    /// @endcond
+    TYPECASE(ndtype(z));
+    #undef CASE
+  }
   return z;
 Error:
   return NULL;

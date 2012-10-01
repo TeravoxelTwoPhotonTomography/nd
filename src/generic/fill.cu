@@ -29,7 +29,7 @@ fill_kernel(T* dst,unsigned w,unsigned h,T v)
     if(blockIdx.x!=(gridDim.x-1))
     {
       #pragma unroll
-      for(int i=0;i<WORK;++i) dst[i*BX]=v;      
+      for(int i=0;i<WORK;++i) dst[i*BX]=v;
     } else
     { // last block 
       #pragma unroll
@@ -39,9 +39,9 @@ fill_kernel(T* dst,unsigned w,unsigned h,T v)
 }
 
 static unsigned prod(size_t n, size_t *v)
-{ unsigned o=1;
+{ size_t o=1;
   while(n-->0) o*=v[n];
-  return o;
+  return (unsigned)o;
 }
 
 extern "C" unsigned fill_cuda(nd_t dst,uint64_t v)
