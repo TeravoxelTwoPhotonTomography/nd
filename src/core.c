@@ -63,6 +63,7 @@ struct _nd_cuda_t
                                 
   cudaStream_t stream;          ///< currently bound stream
   size_t         dev_ndim;      ///< dimension of device-bound shape
+  size_t         dev_cap;       ///< capacity of device buffer (aids reallocation)
   void *restrict dev_shape;     ///< device bound shape array
   void *restrict dev_strides;   ///< device bound strides array
 };
@@ -416,7 +417,7 @@ nd_t ndcuda(nd_t a,cudaStream_t stream)
   
   CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
   CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
-  CUTRY(cudaMalloc(&out->vol.data   ,ndnbytes(a)));
+  CUTRY(cudaMalloc(&out->vol.data   ,out->dev_cap=ndnbytes(a)));
   out->dev_ndim=ndndim(a);
 
   TRY(ndCudaSyncShape((nd_t)out));
@@ -454,6 +455,7 @@ nd_t ndCudaSyncShape(nd_t a)
   }
   CUTRY(cudaMemcpy(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice));
   CUTRY(cudaMemcpy(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice));
+  TRY(ndCudaSetCapacity(a,ndnbytes(a)));
   return a;
 Error:
   return 0;
@@ -520,8 +522,11 @@ Error:
  */
 nd_t ndCudaSetCapacity(nd_t self_, size_t nbytes)
 { nd_cuda_t self=(nd_cuda_t)self_;
-  CUTRY(cudaFree(self_->data));
-  CUTRY(cudaMalloc(&self_->data,nbytes));
+  if(self->dev_cap<nbytes)
+  { CUTRY(cudaFree(self_->data));
+    CUTRY(cudaMalloc(&self_->data,nbytes));
+    self->dev_cap=nbytes;
+  }
   return self_;
 Error:
   return 0;
