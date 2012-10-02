@@ -212,9 +212,24 @@ enum PixelFormat pixfmt_to_output_pixfmt(int pxfmt)
 /** Returns the plugin name. */
 static const char* name_ffmpeg(void) { return "ffmpeg"; }
 
-/** \returns true if the file is readible using this interface. */
+/** 
+ * Just does matching of the extension to a format shortname registered with ffmpeg.
+ * \returns true if the file is readible using this interface. 
+ */
 static unsigned test_readable(const char *path)
-{ AVFormatContext *fmt=0;
+{ 
+#if 1  
+  AVInputFormat *fmt=0;
+  const char *ext;
+  ext=(ext=strrchr(path,'.'))?(ext+1):""; // yields something like "mp4" or, if no extension found, "".
+  while( fmt=av_iformat_next(fmt) )
+  { if(strstr(fmt->name,ext))
+      return 1;
+  }
+  return fmt!=0;
+#endif
+#if 0  // This approach tries to open the file.  Too expensive. 
+  AVFormatContext *fmt=0;
   // just check that container can be opened; don't worry about streams, etc...
   if(0==avformat_open_input(&fmt,path,NULL/*input format*/,NULL/*options*/))
   {
@@ -230,6 +245,7 @@ static unsigned test_readable(const char *path)
     return ok;
   }
   return 0;
+#endif
 }
 
 /** \returns true if the file is writable using this interface. */
