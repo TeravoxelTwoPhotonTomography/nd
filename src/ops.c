@@ -62,7 +62,7 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #define LOG(...) fprintf(stderr,__VA_ARGS__)
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
 #define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
-#define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
+#define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
 #define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
 /// @endcond
@@ -615,7 +615,7 @@ Error:
  */
 nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
 { u64 param[] = {c};
-  REQUIRE(z,PTR_ARITHMETIC|CAN_MEMCPY);
+  REQUIRE(z,PTR_ARITHMETIC);
   // set shape and dim if necessary
   if(!ndim)
   { ndim=ndndim(z);
@@ -624,14 +624,19 @@ nd_t ndxor_ip(nd_t z,uint64_t c,size_t ndim,size_t* shape)
   { TRY(shape=(size_t*)alloca(sizeof(size_t)*ndim));
     memcpy(shape,ndshape(z),sizeof(size_t)*ndim);
   }
-  /// @cond DEFINES
-  #define CASE(T) TRY(inplace_op(ndim,shape, \
-                                 nddata(z),ndstrides(z), \
-                                 (void*)param,sizeof(param), \
-                                 xor_ip_##T)); break
-  /// @endcond
-  TYPECASE(ndtype(z));
-  #undef CASE
+  if(ndkind(z)==nd_gpu_cuda)
+  { TRY(xor_ip_cuda(z,c));
+  } else
+  { REQUIRE(z,CAN_MEMCPY);
+    /// @cond DEFINES
+    #define CASE(T) TRY(inplace_op(ndim,shape, \
+                                   nddata(z),ndstrides(z), \
+                                   (void*)param,sizeof(param), \
+                                   xor_ip_##T)); break
+    /// @endcond
+    TYPECASE(ndtype(z));
+    #undef CASE
+  }
   return z;
 Error:
   return NULL;

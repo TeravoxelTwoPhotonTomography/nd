@@ -105,6 +105,25 @@ switch(type_id) \
     FAIL;    \
 }
 
+/** Requires a macro \c CASE(T) to be defined where \c T is a type parameter.
+ *  Requires a macro \c FAIL to be defined that handles when an invalid \a type_id is used.
+ *  \param[in] type_id Must be a valid nd_type_id_t.
+ */
+#define TYPECASE_INTEGERS(type_id) \
+switch(type_id) \
+{            \
+  case nd_u8 :CASE(u8 ); \
+  case nd_u16:CASE(u16); \
+  case nd_u32:CASE(u32); \
+  case nd_u64:CASE(u64); \
+  case nd_i8 :CASE(i8 ); \
+  case nd_i16:CASE(i16); \
+  case nd_i32:CASE(i32); \
+  case nd_i64:CASE(i64); \
+  default:   \
+    FAIL;    \
+}
+
 /** Requires a macro \c CASE2(T1,T2) to be defined where \c T1 and \c T2 are
  *  type parameters.
  *  Requires a macro \c FAIL to be defined that handles when an invalid \a type_id is used.
