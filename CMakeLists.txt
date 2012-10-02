@@ -38,6 +38,7 @@ endif()
 ### CUDA
 find_package(CUDA 4.0)
 include(cmake/CheckCudaComputeCaps.cmake)
+show(CUDA_GENERATE_CODE)
 include_directories(${CUDA_INCLUDE_DIRS})
 cuda_build_clean_target()
 set(cuda_build_cubin on)
@@ -63,8 +64,8 @@ cuda_compile(CUFILES STATIC ${CUSRC} OPTIONS ${CUOPTS})
 # TARGETS
 ################################################################################
 
-#add_executable(cuda_compute_capability cmake/cuda_compute_capability.c)
-#target_link_libraries(cuda_compute_capability ${CUDA_LIBRARIES})
+add_executable(cuda_compute_capability cmake/cuda_compute_capability.c)
+target_link_libraries(cuda_compute_capability ${CUDA_LIBRARIES})
 
 add_definitions(-fPIC)
 
