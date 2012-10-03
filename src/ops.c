@@ -641,10 +641,10 @@ Error:
 /** 
  *  In-place voxel type conversion.
  *
- *  In contrast to ndtype(), this performs signed to unsigned interger
+ *  In contrast to ndcast(), this performs signed to unsigned interger
  *  mapping.  The mapping preserves the "continuity" of the interval
  *  represented by the type.  It maps the minimum unsigned integer to the
- *  minimum signed integer, and the same for the maximum intergers.
+ *  minimum signed integer, and the same for the maximum integers.
  *
  *  \verbatim
       [min signed, max signed] <--> [min unsigned, max unsigned]
@@ -666,7 +666,8 @@ Error:
  *  2. split each \c u16 voxel into two \c u8 voxels.
  *     For example, <tt> 28672(0x7000) -> 112(0x70),0(0x00) </tt>
  *
- *  Reversing the order of operations would give <tt>112(0x70),128(0x80)</tt>.  I don't
+ *  Reversing the order of operations (split bytes, then sign change)
+ *  would give <tt>112(0x70),128(0x80)</tt>.  I don't
  *  know which answer is best, so I just picked one.
  *
  *  \returns \a z on success, or NULL otherwise.
