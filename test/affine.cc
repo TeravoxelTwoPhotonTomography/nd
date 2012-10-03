@@ -48,7 +48,7 @@ struct Affine:public testing::Test
     cast<T>(src);
     for(int i=0;i<NDIM;++i)
       EXPECT_EQ(src,ndShapeSet(src,i,64)); // Memory: sizeof(T) * 2^(NDIM*6)
-    EXPECT_EQ(src,ndref(src,malloc(ndnbytes(src)),ndnelem(src)));
+    EXPECT_EQ(src,ndref(src,malloc(ndnbytes(src)),nd_heap));
 
     { T* d=(T*)nddata(src);
       size_t n=ndnelem(src);
@@ -63,21 +63,15 @@ struct Affine:public testing::Test
                                    ndtype(src)),\
                             ndndim(src),\
                             ndshape(src)));
-    EXPECT_EQ(dst,ndref(dst,malloc(ndnbytes(dst)),ndnelem(dst)));
+    EXPECT_EQ(dst,ndref(dst,malloc(ndnbytes(dst)),nd_heap));
     memset(nddata(dst),0,ndnbytes(dst));
   }
 
   void TearDown()
   {
     free(transform);
-    if(src)
-    { free(nddata(src));
-      ndfree(src);
-    }
-    if(dst)
-    { free(nddata(dst));
-      ndfree(dst);
-    }
+    ndfree(src);
+    ndfree(dst);
   }
 };
 

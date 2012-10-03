@@ -209,14 +209,11 @@ Error:
 void ndioClose(ndio_t file)
 { if(!file) return;
   file->fmt->close(file);
-  
-  if(file->shape) ndfree(file->shape);
-  if(file->cache) 
-  { if(nddata(file->cache)) free(nddata(file->cache));
-    ndfree(file->cache);
-  }
+  ndfree(file->shape);
+  ndfree(file->cache);
   SAFEFREE(file->dstpos);
   SAFEFREE(file->srcpos);
+  SAFEFREE(file->seekable)
 
   if(file->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,file,file->log);
   SAFEFREE(file->log);
@@ -248,17 +245,12 @@ ndio_t ndioWrite(ndio_t file, nd_t a)
   TRY(file);
   TRY(a);
   if(ndkind(a)==nd_gpu_cuda)
-  { TRY(ndcast(ndreshape(t=ndinit(),ndndim(a),ndshape(a)),ndtype(a)));
-    TRY(ndref(t,malloc(ndnbytes(t)),ndnelem(t)));
-    TRY(ndcopy(t,a,0,0));
+  { TRY(ndcopy(t=ndheap(a),a,0,0));
     a=t; 
   }
   TRY(file->fmt->write(file,a));
 Finalize:
-  if(t)
-  { free(nddata(t));
-    ndfree(t);
-  }
+  ndfree(t);
   return file;
 Error:
   out=NULL;
@@ -378,7 +370,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
                             }\
                           } while(0)
 #define ZERO(T,ptr,n)     memset(ptr,0,sizeof(T)*(ptr##_n))
-/// @endcond
+/// @endcondw
 
 /**
  * Vector increment of \a pos in \a domain with carry.
@@ -389,7 +381,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
  */
 static unsigned inc(nd_t domain,size_t *pos, char *mask)
 { unsigned kdim=0;//=ndndim(domain)-1;
-  while(!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1)
+  while(kdim<ndndim(domain) && (!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1))
     pos[kdim++]=0;
   if(kdim>=ndndim(domain)) return 0;
   pos[kdim]++;
@@ -453,7 +445,7 @@ static unsigned cachemiss(ndio_t file)
  *    // Assume we know the dimensionality of our data and which dimension to iterate over.
  *    n=ndshape()[2];      // remember the range over which to iterate
  *    ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
- *    ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol)); // alloc just enough data      
+ *    ndref(vol,malloc(ndnbytes(vol)),nd_heap); // alloc just enough data      
  *    { int64_t pos[]={0,0,0,0}; // 4d data
  *      size_t i;
  *      for(i=0;i<n;++i,++pos[2])
@@ -566,10 +558,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
     const size_t *dsh=ndshape(dst),
                  *fsh=ndshape(file->shape);
     if(!file->cache)
-    { TRY(file->cache=ndinit());
-      ndcast(file->cache,ndtype(file->shape));
-      ndreshape(file->cache,(unsigned)ndndim(file->shape),fsh);
-    }
+      TRY(file->cache=ndunknown(file->shape));
     for(i=0;i<=max_unseekable;++i)
     { if(i>ndim || canseek_(file,i)) // other dims get full size
         ndShapeSet(file->cache,(unsigned)i,1); //may insert dimensions
@@ -579,14 +568,13 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
     // (re)alloc cache
     TRY(ndref(file->cache,
               realloc(nddata(file->cache),ndnbytes(file->cache)),
-              ndnelem(file->cache)));
+              nd_heap));
   }
 
   // Allocate and init position indexes
   MAYBE_REALLOC(size_t,file->dstpos,ndndim(dst));
   ZERO(size_t,file->dstpos,ndndim(dst));
   MAYBE_REALLOC(size_t,file->srcpos,ndndim(file->shape));
-
 
   // Read
   if(!use_cache)

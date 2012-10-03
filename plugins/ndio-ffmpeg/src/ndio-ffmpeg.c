@@ -620,7 +620,7 @@ static unsigned read_ffmpeg(ndio_t file, nd_t a)
   TRY(seek(file,0));
   for(i=0;i<nframes(file);++i,ndoffset(a,2,1))
     TRY(next(file,a,i));
-  ndref(a,o,ndnelem(a));
+  ndref(a,o,ndkind(a));
   return 1;
 Error:
   return 0;

@@ -371,8 +371,8 @@ Error:
       }
     }
   Error:
-    if(file)  ndioClose(file);
-    if(shape) ndfree(shape);
+    ndioClose(file);
+    ndfree(shape);
     return 0;
   }
 

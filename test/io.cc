@@ -121,12 +121,8 @@ TEST_F(ndio,Read)
     nd_t vol;
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,NULL,"r"));
     ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
-    { void *data;
-      EXPECT_NE((void*)NULL,data=malloc(ndnbytes(vol)));
-      ndref(vol,data,ndnelem(vol));
-      EXPECT_EQ(file,ndioRead(file,vol)); // could chain ndioClose(ndioRead(ndioOpen("file.name","r"),vol));
-      if(data) free(data);
-    }
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap));
+    EXPECT_EQ(file,ndioRead(file,vol)); // could chain ndioClose(ndioRead(ndioOpen("file.name","r"),vol));
     ndfree(vol);
     ndioClose(file);
   }
@@ -143,14 +139,13 @@ TEST_F(ndio,ReadSubarray)
     // Assume we know the dimensionality of our data and which dimension to iterate over.
     n=ndshape(vol)[2];      // remember the range over which to iterate
     ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
-    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol))); // alloc just enough data      
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap)); // alloc just enough data      
     { size_t pos[]={0,0,0,0}; // 4d data
       ndio_t a=file; //temp variable used to terminate loop early if something goes wrong
       for(size_t i=0;i<n && a;++i,++pos[2])
       { ASSERT_EQ(file,a=ndioReadSubarray(file,vol,pos,0))<<ndioError(file); // seek to pos and read, shape limited by vol
       }
     }
-    free(nddata(vol));
     ndfree(vol);
     ndioClose(file);
   }
@@ -163,25 +158,21 @@ TEST_F(ndio,MethodChainingErrors)
 }
 
 class Write:public ::testing::Test
-{ void *data;
+{ 
 public:
   nd_t a;
   ndio_t file;
-  Write() :a(0),file(0),data(NULL) {}
+  Write() :a(0),file(0){}
   void SetUp()
   { ndio_t infile=0;
     ASSERT_NE((void*)NULL,infile=ndioOpen(file_table[0].path,NULL,"r"));
     ASSERT_NE((void*)NULL, a=ndioShape(infile))<<ndioError(infile)<<"\n\t"<<file_table[0].path;
-    { void *data;
-      ASSERT_NE((void*)NULL,data=malloc(ndnbytes(a)));
-      ndref(a,data,ndnelem(a));
-      ASSERT_EQ(infile,ndioRead(infile,a));
-    }
+    EXPECT_EQ(a,ndref(a,malloc(ndnbytes(a)),nd_heap));
+    ASSERT_EQ(infile,ndioRead(infile,a));
     ndioClose(infile);
   }
   void TearDown()
   { ndfree(a);
-    if(data) free(data);
   }
 };
 

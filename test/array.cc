@@ -32,8 +32,8 @@ struct Example:public ::testing::Test
   void SetUp()
   { fill();
     a=ndinit();
-    ndref(a,buf,countof(buf));
-    cast<T>(a); // setting the type is only required for operations that rely on pixel arithmetic, may want to move to those tests
+    EXPECT_EQ(a,cast<T>(ndref(a,buf,nd_static))); // setting the type is only required for operations that rely on pixel arithmetic, may want to move to those tests
+    EXPECT_EQ(a,ndreshapev(a,1,countof(buf)));
   }
   void TearDown()
   { EXPECT_EQ(0,nderror(a));
@@ -76,7 +76,7 @@ class InsertDim: public ::testing::Test
   void SetUp()
   {
     size_t s[] = {20,500,100};
-    ndref(a=ndinit(),buf,sizeof(buf));
+    ndref(a=ndinit(),buf,nd_static);
     EXPECT_NE((void*)NULL,ndreshape(a,3,s))<<nderror(a);
   }
   void TearDown()
