@@ -78,12 +78,8 @@ TEST_F(HDF5,Read)
     nd_t vol;
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,"hdf5","r"));
     ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
-    { void *data;
-      EXPECT_NE((void*)NULL,data=malloc(ndnbytes(vol)));
-      ndref(vol,data,ndnelem(vol));
-      EXPECT_EQ(file,ndioRead(file,vol));
-      if(data) free(data);
-    }
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap));
+    EXPECT_EQ(file,ndioRead(file,vol));
     ndfree(vol);
     ndioClose(file);
   }
@@ -102,11 +98,10 @@ TEST_F(HDF5,ReadSubarray)
     // setup to read center hypercube
     for(size_t i=0;i<ndndim(vol);++i)
       ndShapeSet(vol,i,ndshape(vol)[i]/2);
-    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol)));
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap));
     for(size_t i=0;i<ndndim(vol);++i)
       pos[i]=ndshape(vol)[i]/2;
     EXPECT_EQ(file,ndioReadSubarray(file,vol,pos,NULL));
-    free(nddata(vol));
     ndfree(vol);
     ndioClose(file);
   }
@@ -124,20 +119,18 @@ typedef ::testing::Types<
 
 template<class T>
 class HDF5_Typed:public ::testing::Test
-{ T *data;
+{ 
 public:
   nd_t a;
-  HDF5_Typed() :a(0),data(NULL) {}
+  HDF5_Typed() :a(0) {}
   void SetUp()
   { size_t shape[]={134,513,52,34};
     ndioAddPluginPath(NDIO_BUILD_ROOT);
     EXPECT_NE((void*)NULL,ndreshape(cast<T>(a=ndinit()),countof(shape),shape))<<nderror(a);
-    EXPECT_NE((void*)NULL,data=(T*)malloc(ndnbytes(a)));
-    EXPECT_NE((void*)NULL,ndref(a,data,ndnelem(a)))<<nderror(a);
+    EXPECT_NE((void*)NULL,ndref(a,malloc(ndnbytes(a)),nd_heap))<<nderror(a);
   }
   void TearDown()
   { ndfree(a);
-    if(data) free(data);
   }
 };
 

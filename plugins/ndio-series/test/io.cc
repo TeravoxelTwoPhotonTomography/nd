@@ -79,12 +79,8 @@ TEST_F(Series,Read)
     nd_t vol;
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,"series","r"));
     ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
-    { void *data;
-      EXPECT_NE((void*)NULL,data=malloc(ndnbytes(vol)));
-      ndref(vol,data,ndnelem(vol));
-      EXPECT_EQ(file,ndioRead(file,vol));
-      if(data) free(data);
-    }
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap));
+    EXPECT_EQ(file,ndioRead(file,vol));
     ndfree(vol);
     ndioClose(file);
   }
@@ -101,14 +97,13 @@ TEST_F(Series,ReadSubarray)
     // Assume we know the dimensionality of our data and which dimension to iterate over.
     n=ndshape(vol)[2];      // remember the range over which to iterate
     ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
-    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),ndnelem(vol))); // alloc just enough data      
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap)); // alloc just enough data      
     { size_t pos[]={0,0,0,0}; // 4d data
       ndio_t a=file;
       for(size_t i=0;i<n && a;++i,++pos[2])
       { ASSERT_EQ(file,a=ndioReadSubarray(file,vol,pos,0))<<ndioError(file); // seek to pos and read, shape limited by vol
       }
     }
-    free(nddata(vol));
     ndfree(vol);
     ndioClose(file);
   }
@@ -122,10 +117,7 @@ TEST_F(Series,Write)
     struct _files_t *cur=file_table+1;// Open data set B
     EXPECT_NE((void*)NULL,file=ndioOpen(cur->path,"series","r"));
     ASSERT_NE((void*)NULL, vol=ndioShape(file))<<ndioError(file)<<"\n\t"<<cur->path;
-    { void *data;
-      EXPECT_NE((void*)NULL,data=malloc(ndnbytes(vol)));
-      ndref(vol,data,ndnelem(vol));
-    }
+    EXPECT_EQ(vol,ndref(vol,malloc(ndnbytes(vol)),nd_heap));
     ASSERT_EQ(file,ndioRead(file,vol));
     ndioClose(file);
   }
@@ -133,11 +125,10 @@ TEST_F(Series,Write)
 #if 1
   // Transpose colors to last dimension
   { nd_t dst=ndinit();
-    ndref(dst,malloc(ndnbytes(vol)),ndnelem(vol));
+    ndref(dst,malloc(ndnbytes(vol)),nd_heap);
     ndreshape(ndcast(dst,ndtype(vol)),ndndim(vol),ndshape(vol));
     EXPECT_EQ(dst,ndtranspose(dst,vol,2,3,0,NULL));
     // Cleanup vol
-    free(nddata(vol));  
     ndfree(vol);
     vol=dst; // Carry the array out of scope
   }

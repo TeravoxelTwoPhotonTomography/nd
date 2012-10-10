@@ -169,10 +169,10 @@ TEST_F(Ops3DF32,Copy)
 {
   size_t sh[]  = {3,3,2};
   EXPECT_NE((void*)NULL,
-    ndreshape( ndcast( ndref(x,ones,length), nd_f32),3,shape))
+    ndreshape( ndcast( ndref(x,ones,nd_static), nd_f32),3,shape))
     <<nderror(x);
   EXPECT_NE((void*)NULL,
-    ndreshape( ndcast( ndref(z,zeros,length), nd_f32),3,shape))
+    ndreshape( ndcast( ndref(z,zeros,nd_static), nd_f32),3,shape))
     <<nderror(z);
   EXPECT_NE((void*)NULL,
     ndcopy(z,x,3,sh))
@@ -186,7 +186,7 @@ TEST_F(Ops3DF32, Add)
     void  *bufs[]={e1,e2,zeros};
     for(int i=0;i<3;++i)
     EXPECT_NE((void*)NULL,
-      ndreshape( ndcast( ndref(arrs[i],bufs[i],length), nd_f32),3,shape))
+      ndreshape( ndcast( ndref(arrs[i],bufs[i],nd_static), nd_f32),3,shape))
       <<nderror(z);
   }
   EXPECT_NE((void*)NULL,
@@ -199,7 +199,7 @@ TEST_F(Ops3DF32,Cat)
 { nd_t e=0,t=0;
   // setup source array
   EXPECT_NE((void*)NULL,
-    ndreshape(ndcast(ndref(e=ndinit(),(void*)expt01,length),nd_f32),3,shape))
+    ndreshape(ndcast(ndref(e=ndinit(),(void*)expt01,nd_static),nd_f32),3,shape))
     <<nderror(e);
   ndRemoveDim(e,1);
   // setup arg arrays
@@ -211,7 +211,7 @@ TEST_F(Ops3DF32,Cat)
         ndreshape(ndcast(arrs[i],nd_f32),2,s[i]))
         <<nderror(arrs[i]);
       EXPECT_NE((void*)NULL,
-        ndref(arrs[i],malloc(ndnbytes(arrs[i])),ndnelem(arrs[i])))
+        ndref(arrs[i],malloc(ndnbytes(arrs[i])),nd_heap))
         <<nderror(arrs[i]);
     }
     ndcopy(x,e,0,NULL);
@@ -226,10 +226,7 @@ TEST_F(Ops3DF32,Cat)
   if(t)
     EXPECT_NEAR(0.0, RMSE<f32>(ndnelem(e),(f32*)nddata(e),(f32*)nddata(t)),TOL_F32);
   // cleanup
-  free(nddata(x));
-  free(nddata(y));
   ndfree(e);
-  if(t) free(nddata(t));
   ndfree(t);
 }
 
@@ -239,11 +236,13 @@ TEST_F(Ops3DF32,CatIP)
   size_t shape[]={5,3,2};
   for(int i=0;i<2;++i)
     EXPECT_NE((void*)NULL,
-      ndreshape( ndcast( ndref(arrs[i],bufs[i],length), nd_f32),3,shape))
+      ndreshape( ndcast( ndref(arrs[i],bufs[i],nd_heap), nd_f32),3,shape))
       <<nderror(arrs[i]);
   EXPECT_NE((void*)NULL,
       ndcat_ip(x,y))
       <<nderror(x);
+  ndsetkind(x, nd_static); // set the kind to static to prevent ndfree() from freeing...not a recommended pattern
+  ndsetkind(y, nd_static);
   /// \todo check shape and conetents
 }
 
@@ -253,8 +252,8 @@ TEST(Ops2DU8,Transpose)
           expt[]={1,4,2,5,3,6};
   size_t sh1[]={3,2},sh2[]={3,2};
   nd_t dst=0,src=0;
-  EXPECT_EQ(src,ndref(src=ndinit(),buf1,countof(buf1)))<<nderror(src);
-  EXPECT_EQ(dst,ndref(dst=ndinit(),buf2,countof(buf2)))<<nderror(dst);
+  EXPECT_EQ(src,ndref(src=ndinit(),buf1,nd_static))<<nderror(src);
+  EXPECT_EQ(dst,ndref(dst=ndinit(),buf2,nd_static))<<nderror(dst);
   EXPECT_EQ(src,ndreshape(src,2,sh1))<<nderror(src);
   EXPECT_EQ(dst,ndreshape(dst,2,sh2))<<nderror(dst);
   EXPECT_EQ(dst,ndtranspose(dst,src,0,1,0,NULL))<<nderror(dst);

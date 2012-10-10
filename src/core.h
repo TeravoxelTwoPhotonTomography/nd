@@ -3,8 +3,9 @@
 
     \section nd-notes Notes
 
-    - Keep a ref count against data?  Don't do memory management, so might not need one.  Could be useful to emit an
+    - Keep a ref count against data?  Could be useful to emit an
       event when the last reference is free'd.
+      - ndview() could return an array with an incremented reference count.
 
     - Why slices?  Iterating on dims isn't so hard.
       - opportunity to abstract next()/seek()
@@ -14,14 +15,13 @@
 
     - Be explicit about copies.
 
-    \todo ndref() should explicitly set kind.  Should eliminated nelem argument.
-
     \author Nathan Clack
     \date   June 2012
 */
 #pragma once
 #include <stdlib.h> // for size_t
 #include <stdint.h> // fixed width types
+#include "cuda_runtime_api.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,8 +73,7 @@ void          ndResetLog(nd_t a);                         ///< clears the error 
 
 nd_t          ndcast(nd_t a, nd_type_id_t desc);          ///< Changes the pixel data type
 nd_type_id_t  ndtype(const nd_t a);                       ///< \returns the pixel data type
-nd_t          ndref (nd_t a, void *buf, size_t nelem);    ///< Binds the buffer to \a and reshapes \a as a 1d container.
-//nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);    // (a better calling convention?)
+nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);  ///< Binds the buffer to \a and reshapes \a as a 1d container.
 
 nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
@@ -85,7 +84,7 @@ nd_t          ndShapeSet (nd_t a, unsigned idim, size_t val); /// \todo bad name
 nd_t          ndInsertDim(nd_t a, unsigned idim);
 nd_t          ndRemoveDim(nd_t a, unsigned idim);
 
-nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data pointer: data+=o*stride[idim]
+nd_t          ndoffset(nd_t a, unsigned idim, int64_t o); ///< increments data pointer: data+=o*stride[idim]
 
 /// \todo ndslice_t object. Castable to nd_t (ir is an nd_t, especially if there's a good default idim).
 /// \todo ndslice_t ndslice(nd_t a, unsigned idim);                        Starts an iterator along dimension idim.  Constructs a new object.  Want shape manip to be independent of parent array.
@@ -95,21 +94,28 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o);///< increments data po
 /// \todo ndslice_t ndSliceBounds(ndslice_t, int *start, int *step, int *end);
 
 //
+// === CONSTRUCTORS ====
+//
+
+nd_t         ndunknown        (nd_t a);
+nd_t         ndheap           (nd_t a);
+nd_t         ndcuda           (nd_t a, cudaStream_t stream);
+
+//
 // === CUDA ===
 //
 
-#include "cuda_runtime_api.h"
 //typedef struct CUstream_st* cudaStream_t;
 
-nd_t         ndcuda           (nd_t a, cudaStream_t stream);
 nd_t         ndCudaMemset     (nd_t a, unsigned char v);
-nd_t         ndCudaSyncShape  (nd_t self);
 void*        ndCudaShape      (nd_t self);
-nd_t         ndCudaSetCapacity(nd_t self, size_t nbytes);
 void*        ndCudaStrides    (nd_t self);
 cudaStream_t ndCudaStream     (nd_t self);
 nd_t         ndCudaBindStream (nd_t self, cudaStream_t stream);
 nd_t         ndCudaWait       (nd_t self);
+
+nd_t         ndCudaSyncShape  (nd_t self); // internalize
+nd_t         ndCudaSetCapacity(nd_t self, size_t nbytes); //internalize ??
 
 #ifdef __cplusplus
 } //extern "C" {

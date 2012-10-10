@@ -65,12 +65,11 @@ int main(int argc,char* argv[])
   src=ndioOpen(opts.srcname,0,"r");
   dst=ndioOpen(opts.dstname,0,"w");
   a=ndioShape(src);
-  ndref(a,malloc(ndnbytes(a)),ndnelem(a));
+  ndref(a,malloc(ndnbytes(a)),nd_heap);
   ndioClose(ndioRead(src,a));
   ndioClose(ndioWrite(dst,a));
 Finalize:
   ecode=nderror(a)!=NULL;
-  free(nddata(a));
   ndfree(a);
   return ecode;
 }

@@ -65,9 +65,8 @@ struct Convolve3d:public testing::Test
         size_t nelem;
         ASSERT_NE((void*)NULL,*as[i]=ndinit());        
         EXPECT_EQ(*as[i],ndreshape(*as[i],(unsigned)file_table[i].ndim,file_table[i].shape));
-        nelem=ndnelem(*as[i]);
-        EXPECT_EQ(*as[i],ndcast(ndref(*as[i],d,nelem),nd_f32));        
-        d+=nelem;
+        EXPECT_EQ(*as[i],ndcast(ndref(*as[i],d,nd_static),nd_f32));        
+        d+=ndnelem(*as[i]);
         EXPECT_NE((void*)NULL,file=ndioOpen(file_table[i].path,NULL,"r"));
         EXPECT_EQ(file,ndioRead(file,*as[i]));
         ndioClose(file);
@@ -82,7 +81,7 @@ struct Convolve3d:public testing::Test
     }
     // setup the box filter 
     EXPECT_NE((void*)NULL,filter=ndinit());
-    EXPECT_EQ(filter,ndreshapev(ndcast(ndref(filter,(void*)f,3),nd_f32),1,3));
+    EXPECT_EQ(filter,ndreshapev(ndcast(ndref(filter,(void*)f,nd_static),nd_f32),1,3));
   }
 
   void TearDown()
@@ -134,8 +133,7 @@ TEST_F(Convolve3d,CPU_alldims)
 }
 TEST_F(Convolve3d,CPU_unaligned_shape)
 { nd_t sub;
-  EXPECT_NE((void*)0,sub=ndinit());
-  EXPECT_EQ(sub,ndreshape(ndcast(ndref(sub,malloc(ndnbytes(pdim)),ndnelem(pdim)),ndtype(pdim)),ndndim(pdim),ndshape(pdim)));
+  EXPECT_NE((void*)0,sub=ndheap(pdim));
   EXPECT_EQ(sub,ndcopy(sub,orig,0,0));
   EXPECT_EQ(sub,ndconv1_ip(sub,filter,0,&params));
   EXPECT_EQ(sub,ndconv1_ip(sub,filter,1,&params));
@@ -145,7 +143,6 @@ TEST_F(Convolve3d,CPU_unaligned_shape)
   ndioClose(ndioWrite(ndioOpen("expect.tif",NULL,"w"),pdim));
 #endif
   EXPECT_EQ(-1,firstdiff(ndnelem(sub),(float*)nddata(sub),(float*)nddata(pdim)));
-  free(nddata(sub));
   ndfree(sub);
 }
 
@@ -258,10 +255,10 @@ TYPED_TEST(Convolve_1DTypeTest,CPU)
   nd_t f=0,s=0;
   nd_conv_params_t params={nd_boundary_replicate};
   ASSERT_NE((void*)0,f=ndinit());
-  EXPECT_EQ(f,ndcast(ndref(f,laplace,countof(laplace)),nd_f32));
+  EXPECT_EQ(f,ndcast(ndref(f,laplace,nd_static),nd_f32));
   EXPECT_EQ(f,ndShapeSet(f,0,countof(laplace)));
   ASSERT_NE((void*)0,s=ndinit());
-  EXPECT_EQ(s,cast<TypeParam>(ndref(s,signal,countof(signal))));
+  EXPECT_EQ(s,cast<TypeParam>(ndref(s,signal,nd_static)));
   EXPECT_EQ(s,ndShapeSet(s,0,countof(signal)));
 
   EXPECT_EQ(s,ndconv1_ip(s,f,0,&params));
@@ -287,10 +284,10 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
   EXPECT_EQ(cudaSuccess,cudaSetDevice(0));
   nd_conv_params_t params={nd_boundary_replicate};
   ASSERT_NE((void*)0,f=ndinit());
-  EXPECT_EQ(f,ndcast(ndref(f,laplace,countof(laplace)),nd_f32));
+  EXPECT_EQ(f,ndcast(ndref(f,laplace,nd_static),nd_f32));
   EXPECT_EQ(f,ndShapeSet(f,0,countof(laplace)));
   ASSERT_NE((void*)0,s=ndinit());
-  EXPECT_EQ(s,cast<TypeParam>(ndref(s,signal,countof(signal))));
+  EXPECT_EQ(s,cast<TypeParam>(ndref(s,signal,nd_static)));
   EXPECT_EQ(s,ndShapeSet(s,0,countof(signal)));
 
   { nd_t ff,ss1,ss;

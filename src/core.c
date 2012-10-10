@@ -156,6 +156,7 @@ nd_t ndinit(void)
 { nd_t a;
   NEW(struct _nd_t,a,1);
   memset(a,0,sizeof(struct _nd_t));
+  a->kind=nd_unknown_kind;
   NEW(size_t,a->strides,1);
   a->strides[0]=1;
   return a;
@@ -177,7 +178,7 @@ void ndfree(nd_t a)
 { if(!a) return;
   switch(ndkind(a)) // specially handle certain kinds
   { case nd_gpu_cuda: ndcuda_free((nd_cuda_t)a); break;
-    //case nd_heap:     if(a->data) free(a->data); break;
+    case nd_heap:     if(a->data) free(a->data); break;
     default:;
   }
   SAFEFREE(a->shape);
@@ -214,13 +215,13 @@ nd_type_id_t ndtype(const nd_t a)
     This supports clearing the data pointer like this:
 
     \code{C}
-    ndref(a,0,0);
+    ndref(a,0,nd_unknown_kind);
     \encode
 
     but permits catching errors like this:
     
     \code{C}
-    if(!ndref(a,malloc(1024),1024)) goto Error;
+    if(!ndref(a,malloc(1024),nd_heap)) goto Error;
     \endcode
 
     If the shape of the array \a is already set so that \nelem fits, then
@@ -238,9 +239,11 @@ nd_type_id_t ndtype(const nd_t a)
           multiple behaviors (trying to keep shape sometimes, changing it
           other times) also sucks.
 */
-nd_t ndref(nd_t a, void *buf, size_t nelem)
+nd_t ndref(nd_t a, void *buf, nd_kind_t kind)
 { TRY(a);
   TRY(a->data=buf);
+  a->kind=kind;
+#if 0
   if(a->strides && ndnelem(a)==nelem)
     return a;
   if(a->ndim==0)
@@ -249,6 +252,7 @@ nd_t ndref(nd_t a, void *buf, size_t nelem)
     a->strides[0]=ndbpp(a);
     a->strides[1]=ndbpp(a)*nelem;
   }
+#endif
   return a;
 Error:
   return NULL;
@@ -402,6 +406,40 @@ Error:
 #undef LOG
 #define LOG(...) ndLogError((nd_t)a,__VA_ARGS__)
 /// @endcond
+
+/**
+ * Constructor.  Creates a RAM based array according to the shape specified by \a a.
+ * Allocates the data buffer with malloc();
+ * Note that data isn't copied.  To allocate and genrate a copy do:
+ * \code{c}
+ * nd_t b=ndcopy(ndheap(a),a,0,0);
+ * \endcode
+ */
+nd_t ndunknown(nd_t a)
+{ nd_t out;
+  TRY(ndreshape(ndcast(out=ndinit(),ndtype(a)),ndndim(a),ndshape(a)));
+  TRY(ndref(out,malloc(ndnbytes(out)),nd_unknown_kind));
+  return out;
+Error:
+  return 0;
+}
+
+/**
+ * Constructor.  Creates a RAM based array according to the shape specified by \a a.
+ * Allocates the data buffer with malloc();
+ * Note that data isn't copied.  To allocate and genrate a copy do:
+ * \code{c}
+ * nd_t b=ndcopy(ndheap(a),a,0,0);
+ * \endcode
+ */
+nd_t ndheap(nd_t a)
+{ nd_t out;
+  TRY(ndreshape(ndcast(out=ndinit(),ndtype(a)),ndndim(a),ndshape(a)));
+  TRY(ndref(out,malloc(ndnbytes(out)),nd_heap));
+  return out;
+Error:
+  return 0;
+}
 
 /**
  * Allocate a gpu based array according to the shape specified by \a a.

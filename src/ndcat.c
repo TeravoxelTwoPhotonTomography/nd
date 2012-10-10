@@ -9,7 +9,7 @@
 /// @cond DEFINES
 #define ENDL     "\n"
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
-#define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%sENDL",__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
+#define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
 #define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
 
@@ -54,10 +54,7 @@ nd_t ndcat(nd_t x, nd_t y, size_t idim)
   ndcast(out=ndinit(),ndtype(x));
   TRY(ndreshape(out,(unsigned)ndndim(x),ndshape(x)));
   ndShapeSet(out,(unsigned)idim,ndshape(out)[idim]+ndshape(y)[idim]);
-  { void *data=0;
-    TRY(data=malloc(ndnbytes(out)));
-    ndref(out,data,ndnelem(out));
-  }
+  TRY(ndref(out,malloc(ndnbytes(out)),nd_heap));
   ndcopy(out,x,0,NULL);
   ndcopy(ndoffset(out,(unsigned)idim,ndshape(x)[idim]),y,0,NULL);
   ndoffset(out,(unsigned)idim,-(int64_t)ndshape(x)[idim]);
@@ -65,7 +62,7 @@ Finalize:
   if(cleanup) ndRemoveDim(y,(unsigned)idim);
   return out;
 Error:
-  if(out) ndfree(out);
+  ndfree(out);
   out=0;
   goto Finalize;
 }
@@ -107,11 +104,8 @@ nd_t ndcat_ip(nd_t dst, nd_t src)
   // reshape and realloc
   { size_t o=ndshape(dst)[idim];
     ndShapeSet(dst,(unsigned)idim,ndshape(dst)[idim]+ndshape(src)[idim]);
-    { void *data;
-      TRY(data=realloc(nddata(dst),ndnbytes(dst)));
-      ndref(dst,data,ndnelem(dst));
-    }
-    ndcopy(ndoffset(dst,(unsigned)idim,o),src,0,NULL);
+    TRY(ndref(dst,realloc(nddata(dst),ndnbytes(dst)),nd_heap));
+    TRY(ndcopy(ndoffset(dst,(unsigned)idim,o),src,0,NULL));
     out=ndoffset(dst,(unsigned)idim,-(int64_t)o);
   }
 Finalize:

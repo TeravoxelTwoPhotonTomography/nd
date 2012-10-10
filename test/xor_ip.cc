@@ -12,11 +12,10 @@ TEST(XOR,CPU)
  { nd_t a;
    EXPECT_NE((void*)NULL,a=ndinit());
    EXPECT_EQ(a,ndreshapev(ndcast(a,nd_u16),3,127,63,37));
-   EXPECT_EQ(a,ndref(a,malloc(ndnbytes(a)),ndnelem(a)));
+   EXPECT_EQ(a,ndref(a,malloc(ndnbytes(a)),nd_heap));
    EXPECT_EQ(a,ndfill(a,41204));
    EXPECT_EQ(a,ndxor_ip(a,38846,0,0));
    EXPECT_EQ(-1,all<uint16_t>(ndnelem(a),(uint16_t*)nddata(a),14154));
-   free(nddata(a));
    ndfree(a);
  }
 
@@ -24,7 +23,7 @@ TEST(XOR,GPU)
  { nd_t a,b;
    EXPECT_NE((void*)NULL,a=ndinit());
    EXPECT_EQ(a,ndreshapev(ndcast(a,nd_u16),3,127,63,37));
-   EXPECT_EQ(a,ndref(a,malloc(ndnbytes(a)),ndnelem(a)));
+   EXPECT_EQ(a,ndref(a,malloc(ndnbytes(a)),nd_heap));
 
    EXPECT_NE((void*)NULL,b=ndcuda(a,0));
    EXPECT_EQ(b,ndcopy(b,a,0,0))<<nderror(a);
@@ -34,6 +33,5 @@ TEST(XOR,GPU)
    ndfree(b);
 
    EXPECT_EQ(-1,all<uint16_t>(ndnelem(a),(uint16_t*)nddata(a),14154));
-   free(nddata(a));
    ndfree(a);
  }

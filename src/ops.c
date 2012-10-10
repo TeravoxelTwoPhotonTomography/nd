@@ -361,7 +361,7 @@ Error:
 /** Transpose two dimensions \a i and \a j.
  *
  *  The caller must set up \a dst by allocating memory and make sure it has the
- *  correct type and shape.  This operations act as if the data was first copied
+ *  correct type and shape.  This operation acts as if the data was first copied
  *  from \a src to \a dst (as in ndcopy()), and then the \a dst array is transposed
  *  in place.
  *
@@ -371,18 +371,14 @@ Error:
  *  Example:
  *  \code{c}
  *  // transpose vol
- *  { nd_t dst=ndinit();
- *    ndref(dst,malloc(ndnbytes(vol)),ndnelem(vol));
- *    ndreshape(ndcast(dst,ndtype(vol)),ndndim(vol),ndshape(vol));
- *    EXPECT_EQ(dst,ndtranspose(dst,vol,2,3,0,NULL)); 
- *    // replace original volume with transposed version
- *    free(nddata(vol));  
- *    ndfree(vol);
- *    vol=dst;
+ *  { nd_t dst=ndheap(vol);
+ *    EXPECT_EQ(dst,ndtranspose(dst,vol,2,3,0,NULL));
+ *    ndfree(vol); // replace original volume with transposed version
+ *    vol=dst; 
  *  }
  *  \endcode
  *
- *  \param[in,out]  dst   The output array.
+ *  \param[in,out]  dst   The output array.  The shapes for dimensions i and j will be switched.
  *  \param[in]      src   The input array.
  *  \param[in]     ndim   The number of dimensions in the sub-volume described by \a shape.
  *                        If 0, this is set to the largest dimension that still fits \a src

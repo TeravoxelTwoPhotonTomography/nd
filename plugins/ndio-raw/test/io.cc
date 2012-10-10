@@ -40,9 +40,8 @@ TEST_F(Raw,Write)
 { uint8_t data[128*128*128];
   nd_t vol=0;
   ndio_t file=0;
-  size_t shape[]={128,128,128};
   EXPECT_NE((void*)NULL,vol=ndinit());
-  EXPECT_EQ(vol,ndreshape(ndcast(ndref(vol,data,countof(data)),nd_u8),countof(shape),shape));
+  EXPECT_EQ(vol,ndreshapev(ndcast(ndref(vol,data,nd_static),nd_u8),3,128,128,128));
   for(size_t i=0;i<countof(data);++i)
     data[i]=(uint8_t)i;
   EXPECT_NE((void*)NULL,file=ndioOpen("test.u8","raw","w"));
