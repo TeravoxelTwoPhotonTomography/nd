@@ -212,6 +212,27 @@ enum PixelFormat pixfmt_to_output_pixfmt(int pxfmt)
 /** Returns the plugin name. */
 static const char* name_ffmpeg(void) { return "ffmpeg"; }
 
+/** \returns 1 if strings are the same, otherwise 0 */
+static unsigned streq(const char* a, const char* b)
+{ if(strlen(a)!=strlen(b)) return 0;
+  return strcmp(a,b)==0;
+}
+
+/** \returns 1 if \a is an exact match for a word in a comma-seperated list of words. */
+static unsigned in(const char* a, const char* list)
+{ unsigned out=0;
+  char *token,*bookmark,*copy;
+  TRY(copy=bookmark=strdup(list));
+  while(!out && (token=strsep(&bookmark,","))!=NULL)
+    out|=streq(a,token);
+Finalize:
+  free(copy);
+  return out;
+Error:
+  out=0;
+  goto Finalize;
+}
+
 /** 
  * Just does matching of the extension to a format shortname registered with ffmpeg.
  * \returns true if the file is readible using this interface. 
@@ -223,7 +244,7 @@ static unsigned test_readable(const char *path)
   const char *ext;
   ext=(ext=strrchr(path,'.'))?(ext+1):""; // yields something like "mp4" or, if no extension found, "".
   while( fmt=av_iformat_next(fmt) )
-  { if(strstr(fmt->name,ext))
+  { if(in(ext,fmt->name))
       return 1;
   }
   return fmt!=0;
@@ -254,7 +275,7 @@ static unsigned test_writable(const char *path)
   const char *ext;
   ext=(ext=strrchr(path,'.'))?(ext+1):""; // yields something like "mp4" or, if no extension found, "".
   while( fmt=av_oformat_next(fmt) )
-  { if(0==strcmp(fmt->name,ext))
+  { if(in(ext,fmt->name))
       return fmt->video_codec!=CODEC_ID_NONE;
   }
   return 0;
