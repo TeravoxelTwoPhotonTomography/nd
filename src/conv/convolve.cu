@@ -90,14 +90,21 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
     dst+=ox+oy*(int)dst_.rstride;
     #pragma unroll
     for(int i=0        ;i<HALO       ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*(int)BX)?src[i*BX]:src[-ox];                 // clamp to edge boundary condition
-    if(blockIdx.x!=(gridDim.x-1)) 
-    { // not last block...everything should be in bounds
-      #pragma unroll
-      for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=src[i*BX];
-    } else
-    { // last block...might hang off an unaligned edge
+    switch(gridDim.x-blockIdx.x)
+    { 
+    case 1:// last block...might hang off an unaligned edge
       #pragma unroll
       for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(src_.ncols-ox>i*BX)?src[i*BX]:src[src_.ncols-ox-1]; // clamp to edge boundary condition
+      break;
+    case 2:// next to last block: bounds check end halo
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+  HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=src[i*BX];
+      #pragma unroll
+      for(int i=HALO+WORK;i<WORK+2*HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(src_.ncols-ox>i*BX)?src[i*BX]:src[src_.ncols-ox-1]; // clamp to edge boundary condition
+      break;
+    default:// not last block...everything should be in bounds
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.y][threadIdx.x+i*BX]=src[i*BX];
     }
     
     // COMPUTE
@@ -157,16 +164,24 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
   }
   // LOAD
   #pragma unroll
-    for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*(int)BY)    ?src[i*BY*src_.rstride]:src[-oy*src_.rstride];  // clamp to edge boundary condition  
-  if(blockIdx.y!=(gridDim.y-1)) 
-  { // not the last block
-    #pragma unroll
-    for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=src[i*BY*src_.rstride];    
-  } else  
-  { // last block: bounds check every access    
-    #pragma unroll
-    for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(src_.nrows-oy>i*BY)?src[i*BY*src_.rstride]:src[(src_.nrows-oy-1)*src_.rstride]; // clamp to edge boundary condition
+  for(int i=0        ;i<HALO       ;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(oy>=-i*(int)BY)    ?src[i*BY*src_.rstride]:src[-oy*src_.rstride];  // clamp to edge boundary condition  
+
+  switch(gridDim.y-blockIdx.y)
+  { case 1:  // last block: bounds check every access
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(src_.nrows-oy>i*BY)?src[i*BY*src_.rstride]:src[(src_.nrows-oy-1)*src_.rstride]; // clamp to edge boundary condition
+      break;
+    case 2:  // next to last block: bounds check end halo
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+  HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=src[i*BY*src_.rstride];      
+      #pragma unroll
+      for(int i=WORK+HALO;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=(src_.nrows-oy>i*BY)?src[i*BY*src_.rstride]:src[(src_.nrows-oy-1)*src_.rstride]; // clamp to edge boundary condition
+      break;
+    default: // no bounds checking
+      #pragma unroll
+      for(int i=HALO     ;i<WORK+2*HALO;++i) buf[threadIdx.x][threadIdx.y+i*BY]=src[i*BY*src_.rstride];
   }
+
   // COMPUTE
   __syncthreads();
   if(blockIdx.y!=(gridDim.y-1))
