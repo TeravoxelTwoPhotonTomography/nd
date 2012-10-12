@@ -54,7 +54,7 @@
  * type.
  */
 static TDST NAME(saturate,TSRC,TDST)(TSRC v)
-{ return min(max((double)v,NAME1(min,TDST)),NAME1(max,TDST));
+{ return min(max((TDST)v,NAME1(min,TDST)),NAME1(max,TDST));
 }
 
 

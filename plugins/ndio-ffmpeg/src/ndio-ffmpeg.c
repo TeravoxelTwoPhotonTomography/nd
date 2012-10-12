@@ -59,6 +59,7 @@
 #include "src/io/interface.h"
 #include <stdint.h>
 #include <string.h>
+#include "strsep.h"
 
 // need to define inline before including av* headers on C89 compilers
 #ifdef _MSC_VER
