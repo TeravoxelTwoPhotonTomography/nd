@@ -14,6 +14,13 @@
  * Only the first data set encountered is the one that is read.
  *
  * Chunking is set up to support appending arrays to a data set.
+ *
+ * Notes:
+ * 1. Dimension ordering in HDF5 is reverse of the convention I use.
+ *    My dim[0] is the fastest, theirs is the slowest.
+ *    I didn't account for this on first writing.  There may still be some
+ *    bugs in here where I failed to reverse things correctly. (Need more
+ *    comprehensive tests!)
  */
 #pragma warning(disable:4996)
 #include <stdlib.h>
@@ -94,6 +101,11 @@ Error:
 static void copy_hsz_sz(size_t n, hsize_t *dst, size_t *src)
 { size_t i;
   for(i=0;i<n;++i) dst[i]=(hsize_t)src[i];
+}
+
+static void reverse_hsz_sz(size_t n, hsize_t *dst, size_t *src)
+{ size_t i;
+  for(i=0;i<n;++i) dst[n-1-i]=(hsize_t)src[i];
 }
 
 /// Type translation: hdf5->nd
@@ -178,7 +190,7 @@ static hid_t make_space(ndio_hdf5_t self,unsigned ndims,size_t *shape)
   { unsigned i;
     for(i=0;i<ndims;++i)
     { maxdims[i]=H5S_UNLIMITED;
-      dims[i]=shape[i];
+      dims[ndims-1-i]=shape[i];
     }
   }
   return self->space=H5Screate_simple(ndims,dims,maxdims);
@@ -212,7 +224,7 @@ static ndio_hdf5_t set_chunk(ndio_hdf5_t self, unsigned ndim, size_t *shape)
 { hsize_t *sh;
   hid_t out;
   STACK_ALLOC(hsize_t,sh,ndim);
-  copy_hsz_sz(ndim,sh,shape);
+  reverse_hsz_sz(ndim,sh,shape);
   //sh[ndim-1]=1; // not sure what's best for chunking...this is one guess
   HTRY(H5Pset_chunk(out=dataset_creation_properties(self),ndim,sh));
   return self;
@@ -230,7 +242,7 @@ static hid_t make_dataset(ndio_hdf5_t self,nd_type_id_t typeid,unsigned ndim,siz
   STACK_ALLOC(hsize_t,sh,ndim);
   if(self->dataset>=0) // data set already exists...needs extending
   { HTRY(H5Sget_simple_extent_dims(space(self),sh,NULL));
-    sh[ndim-1]+=shape[ndim-1];
+    sh[ndim-1]+=shape[ndim-1]; /// FIXME! - our dimension ordering and hdf5's are opposite
   } else
   { HTRY(self->dataset=H5Dcreate(
                        self->file,name(self),
@@ -242,7 +254,7 @@ static hid_t make_dataset(ndio_hdf5_t self,nd_type_id_t typeid,unsigned ndim,siz
                           set_chunk(self,ndim,shape))),
                        H5P_DEFAULT /*(rare) dataset access props*/
                        ));
-    copy_hsz_sz(ndim,sh,shape);
+    reverse_hsz_sz(ndim,sh,shape);
   }
   HTRY(H5Dset_extent(self->dataset,sh));
   return self->dataset;
@@ -346,7 +358,7 @@ static nd_t hdf5_shape(ndio_t file)
   HTRY(H5Sget_simple_extent_dims(space(self),sh,NULL));
   { unsigned i;
     for(i=0;i<ndims;++i)
-      ndShapeSet(out,i,sh[i]);
+      ndShapeSet(out,ndims-1-i,sh[i]);
   }
   return out;
 Error:

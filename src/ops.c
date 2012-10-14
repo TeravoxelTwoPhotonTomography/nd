@@ -650,7 +650,7 @@ Error:
       [min signed, max signed] <--> [min unsigned, max unsigned]
     \endverbatim
  *
- *  Normal integer casting leave's zero fixed, but this mapping does not.
+ *  Normal integer casting leaves zero fixed, but this mapping does not.
  *
  *  For other type conversions, this is just a cast.  The cast happens after
  *  the sign change operation.
