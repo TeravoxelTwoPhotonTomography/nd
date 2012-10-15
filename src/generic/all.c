@@ -33,6 +33,24 @@
 #define TSPECIAL
 #include "ops.xor_ip.c"
 
+///// BITSHIFT IN-PLACE
+#define TDST u8
+#include "ops.bitshift_ip.c"
+#define TDST u16
+#include "ops.bitshift_ip.c"
+#define TDST u32
+#include "ops.bitshift_ip.c"
+#define TDST u64
+#include "ops.bitshift_ip.c"
+#define TDST i8
+#include "ops.bitshift_ip.c"
+#define TDST i16
+#include "ops.bitshift_ip.c"
+#define TDST i32
+#include "ops.bitshift_ip.c"
+#define TDST i64
+#include "ops.bitshift_ip.c"
+
 ///// FILL IN-PLACE
 #define TDST u8
 #include "ops.fill.c"

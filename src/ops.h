@@ -61,6 +61,7 @@ nd_t ndadd        (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
 nd_t ndfmad       (nd_t z,float a,const nd_t x,float b,const nd_t y,size_t ndim,size_t* shape);
 nd_t ndfill       (nd_t z,uint64_t c);
 nd_t ndxor_ip     (nd_t z,uint64_t c,size_t ndim, size_t* shape);
+nd_t ndbitshift_ip(nd_t z, int bits, unsigned overflow_bit);
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type);
 
 nd_t ndaffine     (nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t *params);

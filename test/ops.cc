@@ -5,6 +5,8 @@
  *  \todo test signed-unsigned conversion
  *  \todo Add test that makes sure inplace op's work correctly over subvolumes.
  *  \todo Add test for transpose
+ *  \todo Add test for bitmask_ip
+ *  \todo Add test for ndvonvert_ip
  *
  *  @cond TEST
  */

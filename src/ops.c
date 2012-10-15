@@ -29,6 +29,9 @@
 /// @endcond
 
 /// @cond PRIVATE
+// Forward declarations
+unsigned xor_ip_cuda(nd_t dst,uint64_t v);
+
 typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -349,7 +352,7 @@ nd_t ndcopy(nd_t dst, const nd_t src, size_t ndim, size_t *shape)
     #undef CASE2
     // convert signed vals to unsigned vals in case of type change
     { int b;
-      if(b=get_sign_change_bit(ndtype(dst),ndtype(src)))
+      if((b=get_sign_change_bit(ndtype(dst),ndtype(src))))
         ndxor_ip(dst,1ULL<<b,ndim,shape);
     }
   }
@@ -484,7 +487,7 @@ nd_t ndadd(nd_t z, const nd_t x, const nd_t y, size_t ndim, size_t *shape)
   /// @endcond
   // convert signed vals to unsigned vals in case of type change
   { int b;
-    if(b=get_sign_change_bit(ndtype(z),ndtype(x)))
+    if((b=get_sign_change_bit(ndtype(z),ndtype(x))))
       ndxor_ip(z,1ULL<<b,ndim,shape);
   }
   return z;
@@ -547,7 +550,7 @@ nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, si
   /// @endcond
   // convert signed vals to unsigned vals in case of type change
   { int b;
-    if(b=get_sign_change_bit(ndtype(z),ndtype(x)))
+    if((b=get_sign_change_bit(ndtype(z),ndtype(x))))
       ndxor_ip(z,1ULL<<b,ndim,shape);
   }
   return z;
@@ -638,6 +641,43 @@ Error:
   return NULL;
 }
 
+/** In-place bitshift.
+ *  \code
+ *  z = (z<<b)&m
+ *  \endcode
+ *  where \c b=bits and \c m=~(1<<overflow_bit).
+ *  \endcode
+ *
+ *  \param[in,out]  z       The array on which to operate.
+ *                          The xor will operate on floating point values via
+ *                          integer casting.
+ *  \param[in]      bits    The number of bits to shift.  Positive is a left shift.
+ *                          Negative values give a right shift.
+ *  \param[in] overflow_bit Bits at greater than the overflow bit get masked out.
+ *  \returns \a z on success, or NULL otherwise.
+ *  \ingroup ndops
+ */
+nd_t ndbitshift_ip(nd_t z,int bits,unsigned overflow_bit)
+{ int param[] = {bits,(int)overflow_bit};
+  REQUIRE(z,PTR_ARITHMETIC);
+  if(ndkind(z)==nd_gpu_cuda)
+  { FAIL;//("Implement: TRY(bitshift_ip_cuda(z,c))");
+  } else
+  { REQUIRE(z,CAN_MEMCPY);
+    /// @cond DEFINES
+    #define CASE(T) TRY(inplace_op(ndndim(z),ndshape(z), \
+                                   nddata(z),ndstrides(z), \
+                                   (void*)param,sizeof(param), \
+                                   bitshift_ip_##T)); break
+    /// @endcond
+    TYPECASE_INTEGERS(ndtype(z));
+    #undef CASE
+  }
+  return z;
+Error:
+  return NULL;
+}
+
 /** 
  *  In-place voxel type conversion.
  *
@@ -673,9 +713,37 @@ Error:
  *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
+static size_t ndtype_bpp(nd_type_id_t type)
+{
+  static const size_t _Bpp[]={1,2,4,8,1,2,4,8,4,8};
+  if(type<=nd_id_unknown) return 0;
+  if(type>=nd_id_count)   return 0;
+  return _Bpp[(unsigned)type];
+}
+
+#define _isfloating(tid) ((tid)>nd_i64)
+
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type)
 { int b;
-  if(b=get_sign_change_bit(ndtype(z),type))
+  if((b=get_sign_change_bit(ndtype(z),type)))
     ndxor_ip(z,1ULL<<b,0,NULL);
-  return ndcast(z,type);
+  
+  if((b=ndtype_bpp(type)-ndbpp(z))!=0)
+  { nd_t t;
+    nd_type_id_t zt=ndtype(z);
+    TRY(t=ndmake(ndcast(z,type)));
+    ndcast(z,zt);
+    if(b>0 && !_isfloating(type) && !_isfloating(ndtype(z)) )
+      TRY(ndbitshift_ip(z,b,ndtype_bpp(type))); // [ ] TODO ndbitshift(a,b,n).  b is number of bits (signed), bits higher than bit n should be dropped 
+    TRY(ndcopy(t,z,0,0));
+    ndswap(t,z);
+    ndfree(t);
+  }
+  else
+  { TRY(ndcast(z,type));
+  }
+
+  return z;
+Error:
+  return 0;
 }

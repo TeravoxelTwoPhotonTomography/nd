@@ -73,7 +73,8 @@ void          ndResetLog(nd_t a);                         ///< clears the error 
 
 nd_t          ndcast(nd_t a, nd_type_id_t desc);          ///< Changes the pixel data type
 nd_type_id_t  ndtype(const nd_t a);                       ///< \returns the pixel data type
-nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);  ///< Binds the buffer to \a and reshapes \a as a 1d container.
+nd_t          ndref (nd_t a, void *buf, nd_kind_t kind);  ///< Binds the buffer to \a and reshapes \a as a 0d container.
+void          ndswap(nd_t a, nd_t b);                     ///< exchanges the contents of \a a and \a b.
 
 nd_t          ndsetkind(nd_t a, nd_kind_t kind);
 nd_kind_t     ndkind(const nd_t a);
@@ -97,6 +98,7 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o); ///< increments data p
 // === CONSTRUCTORS ====
 //
 
+nd_t         ndmake           (nd_t a);                      ///< Creates a new array with the same kind as \a a.
 nd_t         ndunknown        (nd_t a);
 nd_t         ndheap           (nd_t a);
 nd_t         ndcuda           (nd_t a, cudaStream_t stream);

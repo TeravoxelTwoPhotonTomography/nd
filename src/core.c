@@ -379,6 +379,18 @@ Error:
   return NULL;
 }
 
+/**
+ * Swaps the contents of two arrays.  Simply copies the contents of the 
+ * nd_t struct back and forth.
+ */
+void ndswap(nd_t a, nd_t b)
+{ if(a&&b)
+  { struct _nd_t t=*a;
+    *a=*b;
+    *b=t;
+  }
+}
+
 //
 // === CUDA ===
 //
@@ -406,6 +418,29 @@ Error:
 #undef LOG
 #define LOG(...) ndLogError((nd_t)a,__VA_ARGS__)
 /// @endcond
+
+/**
+ * Constructor.  Creates a new array and allocates space according to the kind 
+ * and shape specified by \a a.
+ *
+ * Note that not all kinds are supported.
+ * 
+ * Note that data isn't copied.  To allocate and generate a copy do:
+ * \code{c}
+ * nd_t b=ndcopy(ndheap(a),a,0,0);
+ * \endcode
+ */
+nd_t ndmake(nd_t a)
+{ switch(ndkind(a))
+  { case nd_id_unknown:return ndunknown(a);
+    case nd_heap:      return ndheap(a);
+    case nd_gpu_cuda:  return ndcuda(a,0);
+    default:
+      FAIL("No constructor found for the requested array kind.");
+  }
+Error:
+  return 0;
+}
 
 /**
  * Constructor.  Creates a RAM based array according to the shape specified by \a a.
