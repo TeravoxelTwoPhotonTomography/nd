@@ -276,7 +276,8 @@ static unsigned test_writable(const char *path)
   const char *ext;
   ext=(ext=strrchr(path,'.'))?(ext+1):""; // yields something like "mp4" or, if no extension found, "".
   while( fmt=av_oformat_next(fmt) )
-  { if(in(ext,fmt->name))
+  { //LOG("%s\n",fmt->name);
+    if(in(ext,fmt->name))
       return fmt->video_codec!=CODEC_ID_NONE;
   }
   return 0;
@@ -379,6 +380,7 @@ static int push(ndio_t file, AVPacket *p, AVFrame *frame, int *got_packet)
     if (p->dts != AV_NOPTS_VALUE)
       p->dts = av_rescale_q(p->dts, cctx->time_base, stream->time_base);
     AVTRY(av_write_frame(fmt,p),"Failed to write packet.");
+    self->nframes++; // at the moment, mostly just use this to record that we did write something.
     av_destruct_packet(p);
   }
   return 1;
@@ -391,14 +393,16 @@ static int close_writer(ndio_t file)
 { ndio_ffmpeg_t self;
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   TRY(CCTX(self)->codec); // codec might not have been opened
-  if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY)
-  { AVPacket p={0};
-    int got_packet=1;
-    av_init_packet(&p);
-    while(got_packet)
-      TRY(push(file,&p,NULL,&got_packet));
+  if(self->nframes)
+  { if(CCTX(self)->codec->capabilities & CODEC_CAP_DELAY)
+    { AVPacket p={0};
+      int got_packet=1;
+      av_init_packet(&p);
+      while(got_packet)
+        TRY(push(file,&p,NULL,&got_packet));
+    }
+    AVTRY(av_write_trailer(self->fmt),"Failed to write trailer.");
   }
-  AVTRY(av_write_trailer(self->fmt),"Failed to write trailer.");
   return 1;
 Error:
   if(self->fmt->pb) avio_close(self->fmt->pb);
@@ -689,16 +693,24 @@ Error:
   return 0;
 }
 
+static void argmin_sz(size_t n, const size_t *v, size_t *argmin, size_t *min)
+{ size_t i,am=0,m=v[0];
+  for(i=1;i<n;++i) if(v[i]<m) m=v[am=i];
+  if(argmin) *argmin=am;
+  if(min)    *min=m;
+}
+
 /**
   Writes the data in \a to the file \a file.
 
-  Assumes:
-    1. Input ordering is c,w,h,d
-    2. Appends d planes of a to the stream
+  Appends d planes of a to the stream
+
+  Note: May want special handling for 3d data.  Should the 3d be treated as x,y,color or x,y,depth?
  */
 static unsigned write_ffmpeg(ndio_t file, nd_t a)
 { ndio_ffmpeg_t self;
-  int c,w,h,d,i;
+  nd_t arg=a;
+  int c,w,h,d,i,isok=1;
   const size_t *s;
   size_t planestride,colorstride;
   int linestride;
@@ -706,23 +718,13 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
   AVPacket p={0};
   int got_packet;
   nd_type_id_t oldtype=nd_id_unknown;
+  nd_t tmp=0; ///< A temporary copy of a may be needed if a transpose is required for channel ordering
   AVCodecContext *cctx;
 
   TRY(self=(ndio_ffmpeg_t)ndioContext(file));
   cctx=CCTX(self);
   s=ndshape(a);
-  switch(ndndim(a))
-  { case 2:      c=1;         w=(int)s[0]; h=(int)s[1]; d=1;         break;// w,h
-    case 3:      c=1;         w=(int)s[0]; h=(int)s[1]; d=(int)s[2]; break;// w,h,d
-    case 4:      c=(int)s[0]; w=(int)s[1]; h=(int)s[2]; d=(int)s[3]; break;// c,w,h,d
-    default:
-      FAIL("Unsupported number of dimensions.");
-  }
-  planestride=ndstrides(a)[ndndim(a)-1];
-  linestride=(int)ndstrides(a)[ndndim(a)-2];
-  colorstride=ndstrides(a)[0];
-  TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt((int)colorstride,c)));
-  TRY(maybe_init_codec_ctx(self,w,h,24,pixfmt));
+  
   { // maybe flip signed ints to unsigned
     static const nd_type_id_t tmap[] = {
       nd_id_unknown,nd_id_unknown,nd_id_unknown,nd_id_unknown,
@@ -734,6 +736,38 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
       TRY(ndconvert_ip(a,t));
     }
   }
+ 
+  switch(ndndim(a)) // Map dimensions to space, time and color
+  { case 2:      c=1;         w=(int)s[0]; h=(int)s[1]; d=1;         break;// w,h
+    case 3:      c=1;         w=(int)s[0]; h=(int)s[1]; d=(int)s[2]; break;// w,h,d
+    case 4:
+      // Try to guess which dimension is the color dimension (hint: it's the smallest one of size 1,2,3 or 4)
+      { size_t cdim,nc;
+        argmin_sz(ndndim(a),s,&cdim,&nc);
+        if(nc>4)
+          FAIL("Unsupported number of color components");TRY(ndcast(ndreshape(tmp=ndinit(),ndndim(a),ndshape(a)),ndtype(a)));
+        if(nc==2 || cdim!=0)
+        { ndShapeSet(tmp,cdim,3); // need to pad to add the third color for RGB
+          TRY(ndfill(ndref(tmp,malloc(ndnbytes(tmp)),nd_heap),0));
+        }
+        // Then, if necessary, transpose to put color on dim 0 and go from there.
+        if(cdim!=0)
+          TRY(ndshiftdim(tmp,a,-cdim));
+        if(tmp)
+        { a=tmp;            // !!! ALIAS ARRAY TO TMP
+          s=ndshape(tmp);   // !!! This is by design, but it is confusing.
+        }        
+        c=(int)s[0]; w=(int)s[1]; h=(int)s[2]; d=(int)s[3];// c,w,h,d
+      }
+      break;
+    default:
+      FAIL("Unsupported number of dimensions.");
+  }
+  planestride=ndstrides(a)[ndndim(a)-1];
+  linestride=(int)ndstrides(a)[ndndim(a)-2];
+  colorstride=ndstrides(a)[0];
+  TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt((int)colorstride,c)));
+  TRY(maybe_init_codec_ctx(self,w,h,24,pixfmt));
   for(i=0;i<d;++i)
   { AVFrame *in;
     av_init_packet(&p); // FIXME: for efficiency, probably want to preallocate packet
@@ -749,20 +783,16 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
     }
     TRY(push(file,&p,self->raw,&got_packet));
   }
-#if 0
-  if(cctx->codec->capabilities & CODEC_CAP_DELAY) // FIXME: might want to move the close function to properly append data
-  { do // keep popping those packets yo
-    { TRY(push(file,self->fmt,cctx,STREAM(self),&p,NULL,&got_packet));
-    } while(got_packet);
-  }
-#endif
 
   // maybe flip back to signed ints
   if(oldtype>nd_id_unknown)
-    TRY(ndconvert_ip(a,oldtype));
-  return 1;
+    TRY(ndconvert_ip(arg,oldtype));
+Finalize:
+  ndfree(tmp);
+  return isok;
 Error:
-  return 0;
+  isok=0;
+  goto Finalize;
 }
 
 //

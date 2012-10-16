@@ -47,6 +47,11 @@
 #define _NAME1(ROOT,a)  ROOT##_##a           ///< Macro for c-style "templated" functions
 #endif
 
+#undef max
+#undef min
+#define max(a,b) (((a)<(b))?(b):(a))
+#define min(a,b) (((a)<(b))?(a):(b))
+
 /**
  * Saturation
  *
@@ -54,11 +59,9 @@
  * type.
  */
 static TDST NAME(saturate,TSRC,TDST)(TSRC v)
-{ return min(max((TDST)v,NAME1(min,TDST)),NAME1(max,TDST));
+{ return min(max(v,NAME1(min,TDST)),NAME1(max,TDST));
 }
 
-
-  
   // static unsigned inc(const size_t ndims,
   //                     const size_t idim, ///< exclude this dimension from iteration
   //                     const size_t *restrict const shape,

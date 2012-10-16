@@ -32,7 +32,14 @@
 #include "macros.h" // TRY, LOG, NEW, etc...
 
 #ifdef _MSC_VER
+#include <io.h>
 #define alloca _alloca
+#define access _access
+#define X_OK (0)
+#define W_OK (2)
+#define R_OK (4)
+#else
+#include <unistd.h> // for access
 #endif
 
 /// Recognized file extensions (A NULL terminated list).
@@ -68,7 +75,7 @@ static void init(ndio_hdf5_t self)
   self->name=0;
 }
 
-static void close(ndio_hdf5_t self)
+static void ctxclose(ndio_hdf5_t self)
 { if(!self) return;
 #define RELEASE(f,e) if(self->e>=0) {f(self->e); self->e=-1;}
   RELEASE(H5Fclose,file);
@@ -305,8 +312,10 @@ static unsigned hdf5_is_fmt(const char* path, const char* mode)
   char **exts;
   parse_mode_string(mode,&isr,&isw);
   if(isr) 
-    return H5Fis_hdf5(path);
-  e=strrchr(path,'.');
+  { if(access(path,R_OK)==-1) return 0;
+    return H5Fis_hdf5(path)>0; // prints a bunch of error text -.-
+  }
+  e=(char*)strrchr(path,'.');
   exts=(isw)?(char**)g_writeable_exts:(char**)g_readable_exts;
   for(ext=exts;*ext;++ext)
     if(strcmp(e,*ext)==0) return 1;
@@ -331,7 +340,7 @@ static void* hdf5_open(const char* path, const char* mode)
     HTRY(self->file=H5Fopen(path,modeflags,H5P_DEFAULT)); // uses file access property list
   return self;
 Error:
-  close(self);
+  ctxclose(self);
   return 0;
 }
 
@@ -340,7 +349,7 @@ Error:
  */
 static void hdf5_close(ndio_t file)
 { if(!file) return;
-  close((ndio_hdf5_t)ndioContext(file));
+  ctxclose((ndio_hdf5_t)ndioContext(file));
 }
 
 static nd_t hdf5_shape(ndio_t file)

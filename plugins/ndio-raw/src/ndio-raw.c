@@ -129,6 +129,4 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
     NULL
   };
   return &api;
-Error:
-  return 0;
 }

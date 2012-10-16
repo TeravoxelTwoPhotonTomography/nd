@@ -15,6 +15,7 @@
 
     - Be explicit about copies.
 
+
     \author Nathan Clack
     \date   June 2012
 */

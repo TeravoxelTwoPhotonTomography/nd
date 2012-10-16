@@ -50,11 +50,6 @@ typedef double   f64;
 #define max_f32  FLT_MAX
 #define max_f64  FLT_MAX
 
-#undef max
-#undef min
-#define max(a,b) (((a)<(b))?(b):(a))
-#define min(a,b) (((a)<(b))?(a):(b))
-
 #ifndef restrict
 #define restrict __restrict__
 #endif

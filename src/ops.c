@@ -31,6 +31,7 @@
 /// @cond PRIVATE
 // Forward declarations
 unsigned xor_ip_cuda(nd_t dst,uint64_t v);
+unsigned bitshift_ip_cuda(nd_t dst,int b,int n);
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -84,6 +85,14 @@ static int get_sign_change_bit(nd_type_id_t dst, nd_type_id_t src)
   return (isFloating[src]||isFloating[dst])?0
         :(  isSigned[src]==  isSigned[dst])?0
         :bit[src];
+}
+
+/** The type of the array after a sign change. */
+static nd_type_id_t sign_changed_type(nd_type_id_t tid)
+{ nd_type_id_t map[]={nd_i8,nd_i16,nd_i32,nd_i64,nd_u8,nd_u16,nd_u32,nd_u64,nd_f32,nd_f64};
+  if(tid>nd_id_unknown && tid<nd_id_count) 
+    return map[tid];
+  return nd_id_unknown;
 }
 
 /**
@@ -429,6 +438,65 @@ nd_t ndtranspose(nd_t dst, const nd_t src, unsigned i, unsigned j, size_t ndim, 
 
 /// @cond DEFINES
 #undef LOG
+#define LOG(...) do{ ndLogError(dst,__VA_ARGS__); } while(0)
+/// @endcond
+
+/**
+ *  Circularly shift the dimensions of \a src by \a n and place the result in \a dst. 
+ *
+ *  The caller must set up \a dst by allocating memory and make sure it has the
+ *  correct type and shape.  This operation acts as if the data was first copied
+ *  from \a src to \a dst (as in ndcopy()), and then the \a dst array is operated on
+ *  in place.
+ *
+ *  In reality, this is accomplished during the copy by manipulating the shape and 
+ *  strides of \a dst.
+ *
+ *  Example:
+ *  \code{c}
+ *  { nd_t dst=ndheap(vol);
+ *    EXPECT_EQ(dst,ndshiftdim(dst,vol,3));
+ *    ndfree(vol); // replace original volume with transposed version
+ *    vol=dst; 
+ *  }
+ *  \endcode
+ *
+ *  \param[in,out]  dst   The output array.
+ *  \param[in]      src   The input array.
+ *  \param[in]        n   The number of places to shift the dimension.  Positive n shifts dimensions
+ *                        to the right (e.g. n=1 will move dimension 0 to 1, 1 to 2, and so on).
+ *  
+ *  \returns \a dst on success, or NULL otherwise.
+ *  \ingroup ndops
+ * 
+ *  \todo handle when \a src and \a dst arrays with different numbers of dimensions? 
+ *        Have different shape?
+ *        At the moment, \a dst is treated as a bag of bits and that's about it.
+ */
+nd_t ndshiftdim(nd_t dst,const nd_t src,int n)
+{ size_t i,imap[32]={0},map[32]={0},s[32]={0};
+  const unsigned d=ndndim(src);
+  TRY(d<countof(map));
+  //TRY(ndndim(dst)==ndndim(src));  // Don't need to check because we'll add needed dimensions, and we don't care about extras
+  for(i=0;i<d;++i)  map[(i+n)%d]=i; // compute the permutation
+  for(i=0;i<d;++i) imap[(i-n)%d]=i; // compute the inverse permutation
+  
+  for(i=0;i<d;++i) s[i]=ndshape(dst)[i];        // hold the shape temporarily
+  for(i=0;i<d;++i) ndShapeSet(dst,i,s[map[i]]); // permute dst shape
+  
+  // Copy with permuted pitches
+  for(i=0;i<d;++i) s[i]=ndstrides(dst)[i];      // hold the strides temporarily
+  for(i=0;i<d;++i) ndstrides(dst)[i]=s[imap[i]];// permute strides
+  ndcopy(dst,src,d,ndshape(src));
+  for(i=0;i<d;++i) ndstrides(dst)[i]=s[i];      // restore strides
+
+  return dst;
+Error:
+  return 0;
+}
+
+/// @cond DEFINES
+#undef LOG
 #define LOG(...) do{ ndLogError(z,__VA_ARGS__); ndLogError(x,__VA_ARGS__); ndLogError(y,__VA_ARGS__);} while(0)
 /// @endcond
 /** Add two arrays.
@@ -658,12 +726,12 @@ Error:
  *  \ingroup ndops
  */
 nd_t ndbitshift_ip(nd_t z,int bits,unsigned overflow_bit)
-{ int param[] = {bits,(int)overflow_bit};
-  REQUIRE(z,PTR_ARITHMETIC);
+{ REQUIRE(z,PTR_ARITHMETIC);
   if(ndkind(z)==nd_gpu_cuda)
-  { FAIL;//("Implement: TRY(bitshift_ip_cuda(z,c))");
+  { TRY(bitshift_ip_cuda(z,bits,overflow_bit));
   } else
-  { REQUIRE(z,CAN_MEMCPY);
+  { int param[] = {bits,(int)overflow_bit};
+    REQUIRE(z,CAN_MEMCPY);
     /// @cond DEFINES
     #define CASE(T) TRY(inplace_op(ndndim(z),ndshape(z), \
                                    nddata(z),ndstrides(z), \
@@ -725,16 +793,16 @@ static size_t ndtype_bpp(nd_type_id_t type)
 
 nd_t ndconvert_ip (nd_t z, nd_type_id_t type)
 { int b;
-  if((b=get_sign_change_bit(ndtype(z),type)))
-    ndxor_ip(z,1ULL<<b,0,NULL);
+  if((b=get_sign_change_bit(type,ndtype(z))))
+    ndcast(ndxor_ip(z,1ULL<<b,0,NULL),sign_changed_type(ndtype(z)));
   
   if((b=ndtype_bpp(type)-ndbpp(z))!=0)
   { nd_t t;
     nd_type_id_t zt=ndtype(z);
     TRY(t=ndmake(ndcast(z,type)));
     ndcast(z,zt);
-    if(b>0 && !_isfloating(type) && !_isfloating(ndtype(z)) )
-      TRY(ndbitshift_ip(z,b,ndtype_bpp(type))); // [ ] TODO ndbitshift(a,b,n).  b is number of bits (signed), bits higher than bit n should be dropped 
+    if(b<0 && !_isfloating(type) && !_isfloating(ndtype(z)) )
+      TRY(ndbitshift_ip(z,8*b,8*ndtype_bpp(type)));
     TRY(ndcopy(t,z,0,0));
     ndswap(t,z);
     ndfree(t);

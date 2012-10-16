@@ -262,6 +262,9 @@ TYPED_TEST(Convolve_1DTypeTest,CPU)
   EXPECT_EQ(s,ndShapeSet(s,0,countof(signal)));
 
   EXPECT_EQ(s,ndconv1_ip(s,f,0,&params));
+  /*  Convolve implementations should clamp saturated values rather than
+      roll over.
+  */
   EXPECT_EQ(-1,firstdiff_clamped(countof(signal),signal,expect,0.1));
 
   ndfree(f);
@@ -300,6 +303,9 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
     ndfree(ss1);
   }
 
+  /*  Convolve implementations should clamp saturated values rather than
+      roll over.
+  */
   EXPECT_EQ(-1,firstdiff_clamped(countof(signal),signal,expect,0.1));
 
   ndfree(f);

@@ -41,6 +41,8 @@
 #include <iostream>
 #include "nd.h"
 
+#define AUTODETECT // turn on filename based detection of file series
+
 #ifdef _MSC_VER
 #include "dirent.win.h"
 #pragma warning(disable:4996) // security warning
@@ -421,8 +423,19 @@ static const char* series_fmt_name(void) { return "series"; }
 static unsigned series_is_fmt(const char* path, const char *mode)
 {
 #ifdef AUTODETECT
-  series_t s(path,mode);
-  return s.isok();
+  // Detect filenames with % placeholders.
+  // This doesn't cover all valid series names, but it does cover the ones
+  // expected to be unique to this format.
+  char t[1024];
+  std::string p(path);  
+#ifdef _MSC_VER
+  GetFullPathName(path,1024,t,NULL); // normalizes slashes for windows
+  p.assign(t);
+#endif
+  size_t n=p.rfind(PATHSEP[0]);
+  n=(n>=p.size())?0:n; // if not found set to 0
+  std::string name((n==0)?p:p.substr(n+1));
+  return name.find('%')<p.size();
 #else
   return 0;
 #endif
