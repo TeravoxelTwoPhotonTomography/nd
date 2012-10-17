@@ -745,9 +745,10 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
       { size_t cdim,nc;
         argmin_sz(ndndim(a),s,&cdim,&nc);
         if(nc>4)
-          FAIL("Unsupported number of color components");TRY(ndcast(ndreshape(tmp=ndinit(),ndndim(a),ndshape(a)),ndtype(a)));
+          FAIL("Unsupported number of color components");
+        TRY(ndcast(ndreshape(tmp=ndinit(),ndndim(a),ndshape(a)),ndtype(a)));
         if(nc==2 || cdim!=0)
-        { ndShapeSet(tmp,cdim,3); // need to pad to add the third color for RGB
+        { if(nc==2) ndShapeSet(tmp,cdim,3); // need to pad to add the third color for RGB
           TRY(ndfill(ndref(tmp,malloc(ndnbytes(tmp)),nd_heap),0));
         }
         // Then, if necessary, transpose to put color on dim 0 and go from there.
