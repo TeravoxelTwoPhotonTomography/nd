@@ -263,7 +263,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     // MAX ncols  =      BX *MAX_BLOCKS=2^5*2^16=2M -- prod(src->shape[0:i])
     // MAX nrows  =(WORK*BY)*MAX_BLOCKS=2^6*2^16=4M -- src->shape[i]
     // MAX nplanes=          MAX_BLOCKS=2^6*2^16=4M -- prod(src->shape[i:end])
-    const unsigned BX=32,BY=8,WORK=8,HALO=1;
+    const unsigned BX=32,BY=8,WORK=8,HALO=4;
     dim3 blocks((unsigned)ceil(src.ncols/(float)BX), (unsigned)ceil(src.nrows/(float)(WORK*BY)), src.nplanes);
     dim3 threads(BX,BY);
     TRY(BY*HALO>=radius);                  // radius can't be too big
