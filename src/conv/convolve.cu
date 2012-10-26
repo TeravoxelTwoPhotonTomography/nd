@@ -251,10 +251,11 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     while(rem) //Process as many rows as possible per launch
     { blocks.y=min(maxGridY,rem);
     #define CASE(T) conv1_rows<T,BX,BY,HALO,WORK><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
-      {TYPECASE(ndtype(src_));} // scope just in case the compiler needs help with big switch statements.
+      {TYPECASE(ndtype(src_));}
     #undef CASE
       rem-=blocks.y;
-      dst.data+=blocks.y*dst.rstride;
+      src.data+=blocks.y*src.rstride*ndstrides(src_)[0];
+      dst.data+=blocks.y*dst.rstride*ndstrides(dst_)[0];
     }
   } else
   { //
@@ -267,9 +268,17 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     dim3 blocks((unsigned)ceil(src.ncols/(float)BX), (unsigned)ceil(src.nrows/(float)(WORK*BY)), src.nplanes);
     dim3 threads(BX,BY);
     TRY(BY*HALO>=radius);                  // radius can't be too big
-    #define CASE(T) conv1_cols<T,BX,BY,HALO,WORK><<<blocks,threads>>>(dst,src,radius,*param); break
-    TYPECASE(ndtype(dst_));
-    #undef CASE
+    int maxGridX, rem=blocks.x;
+    CUTRY(cudaDeviceGetAttribute(&maxGridX,cudaDevAttrMaxGridDimX,0/*device id*/));    
+    while(rem) // Process as many columns as possible per launch
+    { blocks.x=min(maxGridX,rem);
+      #define CASE(T) conv1_cols<T,BX,BY,HALO,WORK><<<blocks,threads>>>(dst,src,radius,*param); break
+      TYPECASE(ndtype(dst_));
+      #undef CASE
+      rem-=blocks.x;
+      src.data+=blocks.x*ndstrides(src_)[0];
+      dst.data+=blocks.x*ndstrides(dst_)[0];
+    }
   }
   /// @endcond
   CUTRY(cudaGetLastError());
