@@ -478,7 +478,8 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
 { // need to know minimum seekable dimension
   // maximum non-seekable dimensions
   size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
-  unsigned use_cache=0;  
+  unsigned use_cache=0;
+  void *ref=nddata(dst); // remember the original pointer so nddata(dst) doesn't change even when this call fails  
   
   // Check for direct format support
   if(file->fmt->subarray)
@@ -603,6 +604,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
 
   return file;
 Error:
+  ndref(dst,ref,ndkind(dst)); // restore original nddata(dst) in case it was modified
   if(ndioError(file)) // copy file error log to the array's log
     ndLogError(dst,"[nD IO Error]"ENDL "%s"ENDL,ndioError(file));
   return 0;
