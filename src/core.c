@@ -554,9 +554,9 @@ void* ndCudaStrides  (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((n
 #undef LOG
 #define LOG(...) ndLogError(self_,__VA_ARGS__)
 
-cudaStream_t ndCudaStream(nd_t self_)
+void* ndCudaStream(nd_t self_)
 { CUTRY(cudaGetLastError());
-  return ((nd_cuda_t)self_)->stream;
+  return (void*)(((nd_cuda_t)self_)->stream);
 Error:
   return 0;
 }

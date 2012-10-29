@@ -112,7 +112,7 @@ nd_t         ndcuda           (nd_t a, void* stream);
 nd_t         ndCudaMemset     (nd_t a, unsigned char v);
 void*        ndCudaShape      (nd_t self);
 void*        ndCudaStrides    (nd_t self);
-cudaStream_t ndCudaStream     (nd_t self);
+void*        ndCudaStream     (nd_t self);
 nd_t         ndCudaBindStream (nd_t self, void* stream);
 nd_t         ndCudaWait       (nd_t self);
 
