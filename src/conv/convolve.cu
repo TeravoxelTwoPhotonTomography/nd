@@ -250,7 +250,7 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
     CUTRY(cudaDeviceGetAttribute(&maxGridY,cudaDevAttrMaxGridDimY,0/*device id*/));    
     while(rem) //Process as many rows as possible per launch
     { blocks.y=min(maxGridY,rem);
-    #define CASE(T) conv1_rows<T,BX,BY,HALO,WORK><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
+    #define CASE(T) conv1_rows<T,BX,BY,HALO,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(src_)>>>(dst,src,radius,*param); break
       {TYPECASE(ndtype(src_));}
     #undef CASE
       rem-=blocks.y;

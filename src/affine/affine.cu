@@ -227,7 +227,7 @@ extern "C" unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *trans
   DBG("    GRID: %7d %7d %7d"ENDL,grid.x,grid.y,grid.z);
   /// @cond DEFINES
   #define CASE2(TSRC,TDST)  DBG("blocks:%u threads/block:%u\n",b,tpb);\
-                            affine_kernel<TSRC,TDST><<<grid,threads,0,ndCudaStream(dst_)>>>(dst,src,transform,*param);\
+                            affine_kernel<TSRC,TDST><<<grid,threads,0,(cudaStream_t)ndCudaStream(dst_)>>>(dst,src,transform,*param);\
                             break  
   #define CASE(T) TYPECASE2(ndtype(dst_),T); break
   /// @endcond

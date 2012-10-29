@@ -9,7 +9,7 @@
  * \todo load reference data only once.
  * @cond TEST
  */
-
+#include "cuda_runtime_api.h"
 #include "nd.h"
 #include "config.h"
 #include "helpers.h"

@@ -81,7 +81,7 @@ static unsigned prod(size_t n, size_t *v)
   while(n-->0) o*=v[n];
   return o;
 }
-
+#define STREAM(e) ((cudaStream_t)ndCudaStream(e))
 extern "C" unsigned xor_ip_cuda(nd_t dst,uint64_t v)
 { unsigned w=ndshape(dst)[0],
            h=prod(ndndim(dst)-1,ndshape(dst)+1);
@@ -89,13 +89,13 @@ extern "C" unsigned xor_ip_cuda(nd_t dst,uint64_t v)
   dim3 blocks((unsigned)ceil(w/(float)(WORK*BX)), (unsigned)ceil(h/(float)BY)),
        threads(BX,BY); // run max threads per block (1024).  Set BX to be 1 warp (32).
   if(ndtype(dst)==nd_f32)
-  { xor_ip_float_kernel<BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((float*)nddata(dst),w,h,(uint32_t)v);
+  { xor_ip_float_kernel<BX,BY,WORK><<<blocks,threads,0,STREAM(dst)>>>((float*)nddata(dst),w,h,(uint32_t)v);
   } else if(ndtype(dst)==nd_f64)
-  { xor_ip_double_kernel<BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((double*)nddata(dst),w,h,v);
+  { xor_ip_double_kernel<BX,BY,WORK><<<blocks,threads,0,STREAM(dst)>>>((double*)nddata(dst),w,h,v);
   } else
   {
     /// @cond DEFINES
-    #define CASE(T) xor_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((T*)nddata(dst),w,h,*(T*)&v); break
+    #define CASE(T) xor_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,STREAM(dst)>>>((T*)nddata(dst),w,h,*(T*)&v); break
          {TYPECASE_INTEGERS(ndtype(dst));}
     #undef CASE       
     /// @endcond
