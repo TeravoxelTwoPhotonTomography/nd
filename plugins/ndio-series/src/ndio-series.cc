@@ -621,6 +621,7 @@ Error:
   if(ndioError(t))
   { LOG("\t[Sub file error]"ENDL "\t\tFile: %s"ENDL "\t\t%s"ENDL,
         outname.c_str(),ndioError(t));
+    ndioResetLog(t);
     ndioClose(t);
   }
   return 0;
