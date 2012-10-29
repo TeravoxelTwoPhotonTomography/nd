@@ -22,7 +22,6 @@
 #pragma once
 #include <stdlib.h> // for size_t
 #include <stdint.h> // fixed width types
-#include "cuda_runtime_api.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,7 +101,7 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o); ///< increments data p
 nd_t         ndmake           (nd_t a);                      ///< Creates a new array with the same kind as \a a.
 nd_t         ndunknown        (nd_t a);
 nd_t         ndheap           (nd_t a);
-nd_t         ndcuda           (nd_t a, cudaStream_t stream);
+nd_t         ndcuda           (nd_t a, void* stream);
 
 //
 // === CUDA ===
@@ -114,7 +113,7 @@ nd_t         ndCudaMemset     (nd_t a, unsigned char v);
 void*        ndCudaShape      (nd_t self);
 void*        ndCudaStrides    (nd_t self);
 cudaStream_t ndCudaStream     (nd_t self);
-nd_t         ndCudaBindStream (nd_t self, cudaStream_t stream);
+nd_t         ndCudaBindStream (nd_t self, void* stream);
 nd_t         ndCudaWait       (nd_t self);
 
 nd_t         ndCudaSyncShape  (nd_t self); // internalize
