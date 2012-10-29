@@ -479,7 +479,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   // maximum non-seekable dimensions
   size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
   unsigned use_cache=0;
-  void *ref=ndndata(dst); // remember the original pointer so nddata(dst) doesn't change even when this call fails  
+  void *ref=nddata(dst); // remember the original pointer so nddata(dst) doesn't change even when this call fails  
   
   // Check for direct format support
   if(file->fmt->subarray)
