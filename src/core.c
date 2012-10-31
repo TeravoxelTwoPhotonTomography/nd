@@ -482,10 +482,10 @@ Error:
  * The caller is responsible for deallocating the returned array using ndfree().
  * If stream is not NULL, will use the async api for copying memeory to the GPU.
  */
-nd_t ndcuda(nd_t a,cudaStream_t stream)
+nd_t ndcuda(nd_t a,void* stream)
 { nd_cuda_t out;
   TRY(out=ndcuda_init());  
-  out->stream=stream;
+  out->stream=(cudaStream_t)stream;
   TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
   CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
@@ -554,9 +554,9 @@ void* ndCudaStrides  (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((n
 #undef LOG
 #define LOG(...) ndLogError(self_,__VA_ARGS__)
 
-cudaStream_t ndCudaStream(nd_t self_)
+void* ndCudaStream(nd_t self_)
 { CUTRY(cudaGetLastError());
-  return ((nd_cuda_t)self_)->stream;
+  return (void*)(((nd_cuda_t)self_)->stream);
 Error:
   return 0;
 }
@@ -567,9 +567,9 @@ Error:
  * \param[in]   stream  May be 0. A Cuda stream identifier.
  * \returns \a self (always succeeeds).
  */
-nd_t ndCudaBindStream(nd_t self_, cudaStream_t stream)
+nd_t ndCudaBindStream(nd_t self_, void* stream)
 { nd_cuda_t self=(nd_cuda_t)self_;
-  self->stream=stream;
+  self->stream=(cudaStream_t)stream;
   return self_;
 }
 

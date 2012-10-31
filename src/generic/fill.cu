@@ -51,7 +51,7 @@ extern "C" unsigned fill_cuda(nd_t dst,uint64_t v)
   dim3 blocks((unsigned)ceil(w/(float)(WORK*BX)), (unsigned)ceil(h/(float)BY)),
        threads(BX,BY); // run max threads per block (1024).  Set BX to be 1 warp (32).
   /// @cond DEFINES
-  #define CASE(T) fill_kernel<T,BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((T*)nddata(dst),w,h,*(T*)&v); break
+  #define CASE(T) fill_kernel<T,BX,BY,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(dst)>>>((T*)nddata(dst),w,h,*(T*)&v); break
        {TYPECASE(ndtype(dst));}
   #undef CASE
   /// @endcond

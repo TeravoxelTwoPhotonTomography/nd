@@ -74,11 +74,11 @@ extern "C" unsigned bitshift_ip_cuda(nd_t dst,int b,int n)
   } else
   { if(b<0)
       /// @cond DEFINES
-      #define CASE(T) {T mask=((1ULL<<n)-1); rightshift_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((T*)nddata(dst),w,h,b,mask); } break
+      #define CASE(T) {T mask=((1ULL<<n)-1); rightshift_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(dst)>>>((T*)nddata(dst),w,h,b,mask); } break
            {TYPECASE_INTEGERS(ndtype(dst));}
       #undef CASE 
     else
-      #define CASE(T) {T mask=((1ULL<<n)-1); leftshift_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,ndCudaStream(dst)>>>((T*)nddata(dst),w,h,b,mask); } break
+      #define CASE(T) {T mask=((1ULL<<n)-1); leftshift_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(dst)>>>((T*)nddata(dst),w,h,b,mask); } break
            {TYPECASE_INTEGERS(ndtype(dst));}
       #undef CASE 
     /// @endcond

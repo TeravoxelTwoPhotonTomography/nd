@@ -5,6 +5,7 @@
 
 #include "nd.h"
 #include <stdint.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>

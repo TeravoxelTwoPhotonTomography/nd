@@ -10,7 +10,7 @@
  * \todo Test weird shapes.  Especially rows/planes >65k.
  * @cond TEST
  */
-
+#include "cuda_runtime_api.h"
 #include "nd.h"
 #include "config.h"
 #include "helpers.h"

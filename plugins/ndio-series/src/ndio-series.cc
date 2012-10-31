@@ -61,12 +61,15 @@
 
 #define ENDL                  "\n"
 #define LOG(...)              printf(__VA_ARGS__)
-#define TRY(e)                do{if(!(e)) { LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error;}} while(0)
+#define TRY(e)                do{if(!(e)) { LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); breakme();goto Error;}} while(0)
 #define TRYMSG(e,msg)         do{if(!(e)) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL(msg)             do{ LOG("%s(%d): %s()"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,msg); goto Error;} while(0)
 #define RESIZE(type,e,nelem)  TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)     TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
+#define ALLOCA(type,e,nelem)  TRY((e)=(type*)alloca(sizeof(type)*(nelem)))
 #define SAFEFREE(e)           if(e){free(e); (e)=NULL;}
+#define HERE                  LOG("HERE -- %s(%d): %s()"ENDL,__FILE__,__LINE__,__FUNCTION__)
+void breakme() {HERE;}
 /// @endcond 
 
 //
@@ -602,8 +605,14 @@ static unsigned series_seek(ndio_t file, nd_t dst, size_t *pos)
   std::string outname;
   TPos mn,mx;
   ndio_t t=0;
+  size_t *shape;
   size_t odim=ndndim(dst);
-  TRY(self->minmax(mn,mx));    // OPTIMIZE: recomputing each call is wasteful
+  ALLOCA(size_t,shape,ndndim(dst));
+  memcpy(shape,ndshape(dst),ndndim(dst)*sizeof(size_t)); // save dst shape
+  for(size_t i=0;i<ndndim(dst);++i)
+    if(self->canseek(i))
+      ndshape(dst)[i]=1;       // reduce dst shape to 1 on seekable dims...don't change strides
+  TRY(self->minmax(mn,mx));    // OPTIMIZE: recomputing minmax each call is wasteful
   TRY(self->fdim_>0);
   ipos.insert(ipos.begin(),
               pos+self->fdim_,
@@ -616,8 +625,10 @@ static unsigned series_seek(ndio_t file, nd_t dst, size_t *pos)
     ndioClose(t);t=0;
     TRY(ndreshape(dst,(unsigned)odim,ndshape(dst))); // restore dimensionality
   }
+  memcpy(ndshape(dst),shape,ndndim(dst)*sizeof(size_t)); // restore dst shape
   return 1;
 Error:
+  memcpy(ndshape(dst),shape,ndndim(dst)*sizeof(size_t)); // restore dst shape
   if(ndioError(t))
   { LOG("\t[Sub file error]"ENDL "\t\tFile: %s"ENDL "\t\t%s"ENDL,
         outname.c_str(),ndioError(t));

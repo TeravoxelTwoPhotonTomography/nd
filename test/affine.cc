@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include "helpers.h"
 #include "nd.h"
+#include "cuda_runtime_api.h"
 #include "config.h"
 #include "cuda.h"
 

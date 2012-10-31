@@ -29,9 +29,10 @@ TYPEDEFS;
 
 #define ENDL "\n"
 #define LOG(...) ndLogError(dst_,__VA_ARGS__)
-#define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
-#define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
-#define FAIL     LOG("%s(%d) %s()"ENDL "\tExecution should not have reached here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error
+#define REPORT(e,msg) LOG("%s(%d): %s()"ENDL "\t%s."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,msg,#e)
+#define TRY(e)   do{if(!(e)) {REPORT(e,"Expression evaluated as failure."); goto Error; }}while(0)
+#define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {REPORT(e,cudaGetErrorString(ecode)); goto Error; }}while(0)
+#define FAIL     do{REPORT(FAIL,"Execution should not have reached here."); goto Error; }while(0)
 
 #ifndef restrict
 #define restrict __restrict__

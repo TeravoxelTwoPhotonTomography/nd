@@ -25,7 +25,8 @@ ndio_fmt_t**  ndioPlugins(size_t *count);
 
 int       ndioIsFile(const char *filename);
 
-ndio_t    ndioOpen  (const char *filename, const char *format, const char *mode);
+ndio_t    ndioOpen  (const char *filename    , const char *format, const char *mode);
+ndio_t    ndioOpenv (const char *filename_fmt, const char *format, const char *mode, ...);
 void      ndioClose (ndio_t file);
 
 nd_t      ndioShape (ndio_t file);  // caller must free the returned object
