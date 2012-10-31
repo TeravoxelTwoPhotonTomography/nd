@@ -116,6 +116,9 @@ typedef struct _ndio_ffmpeg_t
 //  === HELPERS ===
 //
 
+/** returns x if x is even, otherwise x+1 */
+int even(int x) { if (x%2) return x+1; return x; }
+
 /** One-time initialization for ffmpeg library.
 
     This gets called by ndio_get_format_api(), so it's guaranteed to be called
@@ -130,7 +133,7 @@ static void maybe_init()
   is_one_time_inited = 1;
 
   av_log_set_level(0
-#if 0
+#if 1
     |AV_LOG_DEBUG
     |AV_LOG_VERBOSE
     |AV_LOG_INFO
@@ -345,7 +348,7 @@ static ndio_ffmpeg_t open_writer(const char* path)
   TRY(0==(self->fmt->flags&AVFMT_NOFILE));                              //if the flag is set, don't need to open the file (I think).  Assert here so I get notified of when this happens.  Expected to be rare/never.
   AVTRY(avio_open(&self->fmt->pb,path,AVIO_FLAG_WRITE),"Failed to open output file.");
   CCTX(self)->codec=codec;
-  AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");
+  AVTRY(CCTX(self)->pix_fmt=codec->pix_fmts[0],"Codec indicates that no pixel formats are supported.");  
   return self;
 Error:
   if(self->fmt->pb) avio_close(self->fmt->pb);
@@ -414,8 +417,8 @@ static int maybe_init_codec_ctx(ndio_ffmpeg_t self, int width, int height, int f
 { AVCodecContext *cctx=CCTX(self);
   AVCodec *codec=cctx->codec;
   if(!cctx->width)
-  { cctx->width=width;
-    cctx->height=height;
+  { cctx->width =even(width);
+    cctx->height=even(height);
     cctx->time_base.num=1;
     cctx->time_base.den=fps;
     cctx->gop_size=12;
@@ -423,10 +426,10 @@ static int maybe_init_codec_ctx(ndio_ffmpeg_t self, int width, int height, int f
 
     TRY(self->sws=sws_getContext(
       width,height,src_pixfmt,
-      width,height,cctx->pix_fmt,
+      even(width),even(height),cctx->pix_fmt,
       SWS_BICUBIC,NULL,NULL,NULL));
 
-    TRY(av_image_alloc(self->raw->data,self->raw->linesize,width,height,cctx->pix_fmt,1));
+    TRY(av_image_alloc(self->raw->data,self->raw->linesize,even(width),even(height),cctx->pix_fmt,1));
     AVTRY(avformat_write_header(self->fmt,&self->opts),"Failed to write header.");
   }
   return 1;
@@ -769,7 +772,9 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
   colorstride=ndstrides(a)[0];
   TRY(PIX_FMT_NONE!=(pixfmt=to_pixfmt((int)colorstride,c)));
   TRY(maybe_init_codec_ctx(self,w,h,24,pixfmt));
-  for(i=0;i<d;++i)
+  if(self->raw->pts==AV_NOPTS_VALUE)
+    self->raw->pts=0;
+  for(i=0;i<d;++i,++self->raw->pts)
   { AVFrame *in;
     av_init_packet(&p); // FIXME: for efficiency, probably want to preallocate packet
     { const uint8_t* plane=((uint8_t*)nddata(a))+planestride*i;
@@ -780,7 +785,6 @@ static unsigned write_ffmpeg(ndio_t file, nd_t a)
       const int stride[4]={linestride,linestride,linestride,linestride};
       in=self->raw;
       sws_scale(self->sws,slice,stride,0,h,self->raw->data,self->raw->linesize);
-      self->raw->pts=self->fmt->duration+i;
     }
     TRY(push(file,&p,self->raw,&got_packet));
   }

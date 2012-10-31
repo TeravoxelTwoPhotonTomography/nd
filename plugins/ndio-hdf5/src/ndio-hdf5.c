@@ -190,7 +190,10 @@ static hid_t space(ndio_hdf5_t self)
 
 static hid_t make_space(ndio_hdf5_t self,unsigned ndims,size_t *shape)
 { hsize_t *maxdims=0,*dims=0;
-  TRY(self->space==-1); // how to handle when space is already created?
+  if(self->space!=-1) // may alread exist (eg. for an append).  In this case reset the object.
+    { HTRY(H5Sclose(self->space));
+      self->space=-1;
+    }
   TRY(self->isw);
   STACK_ALLOC(hsize_t,maxdims,ndims);
   STACK_ALLOC(hsize_t,dims,ndims);
@@ -221,7 +224,7 @@ Error:
 
 static ndio_hdf5_t set_deflate(ndio_hdf5_t self)
 { hid_t out;
-  HTRY(H5Pset_deflate(out=dataset_creation_properties(self),9));
+  HTRY(H5Pset_deflate(out=dataset_creation_properties(self),0)); // use lowest level
   return self;
 Error:
   return 0;
@@ -232,6 +235,10 @@ static ndio_hdf5_t set_chunk(ndio_hdf5_t self, unsigned ndim, size_t *shape)
   hid_t out;
   STACK_ALLOC(hsize_t,sh,ndim);
   reverse_hsz_sz(ndim,sh,shape);
+  { int i; 
+    for(i=0;i<((int)ndim)-2;++i)
+      sh[i]=1;
+  }
   //sh[ndim-1]=1; // not sure what's best for chunking...this is one guess
   HTRY(H5Pset_chunk(out=dataset_creation_properties(self),ndim,sh));
   return self;
@@ -242,14 +249,21 @@ Error:
 /**
  * Appends along the last dimensions.
  */
-static hid_t make_dataset(ndio_hdf5_t self,nd_type_id_t typeid,unsigned ndim,size_t *shape)
-{ hsize_t *sh=0;
-  TRY(self->dataset==-1); // how to handle when dataset is already created?
+static hid_t make_dataset(ndio_hdf5_t self,nd_type_id_t typeid,unsigned ndim,size_t *shape, hid_t* filespace)
+{ hsize_t *sh=0,*ori=0,*ext=0;
   TRY(self->isw);
-  STACK_ALLOC(hsize_t,sh,ndim);
-  if(self->dataset>=0) // data set already exists...needs extending
+  STACK_ALLOC(hsize_t,sh ,ndim);
+  STACK_ALLOC(hsize_t,ori,ndim);
+  STACK_ALLOC(hsize_t,ext,ndim);
+  if(self->dataset>=0) // data set already exists...needs extending, append on slowest dim
   { HTRY(H5Sget_simple_extent_dims(space(self),sh,NULL));
-    sh[ndim-1]+=shape[ndim-1]; /// FIXME! - our dimension ordering and hdf5's are opposite
+    ZERO(hsize_t,ori,ndim);
+    ori[0]=sh[0];
+    sh[0]+=shape[ndim-1];
+    reverse_hsz_sz(ndim,ext,shape);
+    HTRY(H5Dextend(self->dataset,sh));
+    HTRY(*filespace=H5Dget_space(self->dataset));
+    HTRY(H5Sselect_hyperslab(*filespace,H5S_SELECT_SET,ori,NULL,ext,NULL));
   } else
   { HTRY(self->dataset=H5Dcreate(
                        self->file,name(self),
@@ -257,11 +271,12 @@ static hid_t make_dataset(ndio_hdf5_t self,nd_type_id_t typeid,unsigned ndim,siz
                        make_space(self,ndim,shape),
                        H5P_DEFAULT,/*(rare) link creation props*/
                        dataset_creation_properties(
-                          set_deflate(
+                          /*set_deflate*/(
                           set_chunk(self,ndim,shape))),
                        H5P_DEFAULT /*(rare) dataset access props*/
                        ));
     reverse_hsz_sz(ndim,sh,shape);
+    *filespace=H5S_ALL;
   }
   HTRY(H5Dset_extent(self->dataset,sh));
   return self->dataset;
@@ -388,13 +403,17 @@ Error:
  */
 static unsigned hdf5_write(ndio_t file, nd_t src)
 { ndio_hdf5_t self=(ndio_hdf5_t)ndioContext(file);
-  HTRY(H5Dwrite(make_dataset(self,ndtype(src),ndndim(src),ndshape(src)),
+  hid_t filespace=-1,dset;
+  dset=make_dataset(self,ndtype(src),ndndim(src),ndshape(src),&filespace);
+  HTRY(H5Dwrite(dset,
                 nd_to_hdf5_type(ndtype(src)),
-                H5S_ALL,    /*mem-space  selector*/
-                H5S_ALL,    /*file-space selector*/
+                make_space(self,ndndim(src),ndshape(src)), /*mem-space  selector*/
+                filespace,                                 /*file-space selector ... set up by make_dataset()*/
                 H5P_DEFAULT,/*xfer props*/
                 nddata(src)
                 ));
+  if(filespace>0)
+    HTRY(H5Sclose(filespace));
   return 1;
 Error:
   return 0;

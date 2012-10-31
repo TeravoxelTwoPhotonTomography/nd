@@ -17,6 +17,7 @@
 #define FAIL(msg)             do{ LOG("%s(%d): %s()"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,msg); goto Error;} while(0)
 #define RESIZE(type,e,nelem)  TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)     TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
+#define ZERO(type,e,nelem)    memset((e),0,sizeof(type)*(nelem))
 #define SAFEFREE(e)           if(e){free(e); (e)=NULL;}
 #define STACK_ALLOC(T,e,N)    TRY(((e)=(T*)alloca((N)*sizeof(T))))
 /// @endcond

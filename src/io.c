@@ -205,6 +205,30 @@ Error:
   return NULL;
 }
 
+/** Opens a file according to the mode.
+
+    \param[in] filename_fmt The path to the file. printf()-style formating is used
+                            to format the filename.
+    \param[in] format   The name of the desired format, or NULL.  If NULL,
+                        an attempt will be made to infer the file format
+                        from the file itself (if present) or the filename.
+                        If no matching format is found, a default format
+                        will be used to write the file(mode w), but a read
+                        (mode r) will fail.
+    \param[in] mode     May be "r" to open the file for reading or "w" to
+                        open the file for writing.
+
+    \returns NULL on failure, otherwise an ndio_t object.
+ */
+ndio_t ndioOpenv (const char *filename_fmt, const char *format, const char *mode, ...)
+{ char buf[1024]={0};
+  va_list args;
+  va_start(args,mode);
+  vsnprintf(buf,sizeof(buf),filename_fmt,args);
+  va_end(args);
+  return ndioOpen(buf,format,mode);
+}
+
 /** Closes the file and releases resources.  Always succeeds. */
 void ndioClose(ndio_t file)
 { if(!file) return;
@@ -528,6 +552,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   MAYBE_REALLOC(char,file->seekable,ndndim(dst));
 
   // Check for out-of-bounds request
+  // Reading a box of shape dst starting at the origin.  The origin specified in units specified by the step size.
   { size_t i;
     for(i=0;i<ndim;++i)
       TRY((ndshape(dst)[i]+ori_(i)*step_(i))<=ndshape(file->shape)[i]); // spell it out for the error message
@@ -584,6 +609,15 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
       getsrcpos(ndim,ndndim(file->shape),file->srcpos,file->dstpos,origin,step); // srcpos=origin+dstpos*step
       TRY(seek_(file,dst,file->srcpos)); // read directly to dst
       unsetpos(dst,file->dstpos,0);
+#if 0
+      printf("ndim: %2d\t",(int)ndim);
+      { int i;
+        for(i=0;i<ndim;++i) printf(" %5d",(int)file->dstpos[i]);
+      }
+      printf("\n"); fflush(stdout);
+      //if(ndim==3) ndioClose(ndioWrite(ndioOpenv("%d.tif",NULL,"w",(int)file->srcpos[2]),dst));
+      if(ndim==5)   ndioClose(ndioWrite(ndioOpenv("%d.%d.h5",NULL,"w",(int)file->srcpos[2],(int)file->srcpos[4]),dst));
+#endif
     } while(inc(dst,file->dstpos,file->seekable));
   } else
   { do
