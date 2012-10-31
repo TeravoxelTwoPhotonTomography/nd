@@ -19,7 +19,7 @@
    * Dimensions greater than \a idim may also be collapased together.
    */
 struct arg_t
-{ void *restrict data;
+{ unsigned char *restrict data;
   int   nrows,  // It's important these are signed
         ncols,
         nplanes,
@@ -32,7 +32,7 @@ struct arg_t
     data(0),nrows(0),ncols(0),nplanes(0),rstride(0),cstride(0)
   { 
     TRY(ndstrides(a)[0]==ndbpp(a)); // only support unit element strides
-    TRY(data=nddata(a));
+    TRY(data=(unsigned char*)nddata(a));
     cstride=1;
     if(idim==0)
     { rstride=(int)(ndstrides(a)[1]/ndstrides(a)[0]);
@@ -86,8 +86,8 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
 
   if(oy<dst_.nrows)
   { // LOAD
-    src+=ox+oy*(int)src_.rstride; /*+blockIdx.z*src_.pstride;*/ // never launch more than one plane
-    dst+=ox+oy*(int)dst_.rstride;
+    src+=ox+oy*(int)src_.rstride+(int)(blockIdx.z*src_.pstride);
+    dst+=ox+oy*(int)dst_.rstride+(int)(blockIdx.z*dst_.pstride);
     #pragma unroll
     for(int i=0        ;i<HALO       ;++i) buf[threadIdx.y][threadIdx.x+i*BX]=(ox>=-i*(int)BX)?src[i*BX]:src[-ox];                 // clamp to edge boundary condition
     switch(gridDim.x-blockIdx.x)
@@ -226,7 +226,7 @@ __launch_bounds__(BX*BY,1) /*max threads,min blocks*/
 extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const unsigned idim, const nd_conv_params_t *param)
 { arg_t dst(dst_,idim),
         src(src_,idim);
-  unsigned radius;
+  unsigned radius;  
   CUTRY(cudaGetLastError());
   // check args
   TRY(param->boundary_condition==nd_boundary_replicate); // only support this boundary condition for now
@@ -242,12 +242,21 @@ extern "C" unsigned ndconv1_cuda(nd_t dst_,nd_t src_,const nd_t filter_, const u
   { //
     // ROW-WISE
     //
+    // Max ncols=(WORK*BX)*MAX_BLOCK=2^8*2^16=2^24 -- max src->shape[0]
+    //     nrows=      BY *MAX_BLOCK=2^3*2^16=2^19 -- max prod(src->shape[1:end]) ~ 524k
     const unsigned BX=32,BY=8,HALO=1,WORK=8;
     dim3 blocks((unsigned)ceil(src.ncols/(float)(WORK*BX)), (unsigned)ceil(src.nrows/(float)BY), src.nplanes);
     dim3 threads(BX,BY);
+    int maxGridY, rem=blocks.y;
+    CUTRY(cudaDeviceGetAttribute(&maxGridY,cudaDevAttrMaxGridDimY,0/*device id*/));    
+    while(rem)
+    { blocks.y=min(maxGridY,rem);
     #define CASE(T) conv1_rows<T,BX,BY,HALO,WORK><<<blocks,threads,0,ndCudaStream(src_)>>>(dst,src,radius,*param); break
       {TYPECASE(ndtype(src_));} // scope just in case the compiler needs help with big switch statements.
-    #undef CASE     
+    #undef CASE
+      rem-=blocks.y;
+      dst.data+=blocks.y*dst.rstride;
+    }
   } else
   { //
     // COLUMN-WISE
