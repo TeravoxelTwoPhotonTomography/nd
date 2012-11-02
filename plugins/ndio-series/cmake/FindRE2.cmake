@@ -7,7 +7,6 @@ include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 if(NOT TARGET re2)
   ExternalProject_Add(re2
-    #    DOWNLOAD_COMMAND hg clone https://re2.googlecode.com/hg re2
     URL     http://dl.dropbox.com/u/782372/Software/re2.zip
     URL_MD5 02ef3dc07e72033ca14fc3d59259182b
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
