@@ -4,45 +4,34 @@
  *  @cond TEST
  */
 #pragma once
-#include <cmath>
+
 #include "nd.h"
 
-///// helpers
+#define TOL_F32 1e-5
+#include <cmath>
 
-/**
- * Templated ndcast() operations.
- */
-template<class T> void cast(nd_t a);
+#define countof(e) (sizeof(e)/sizeof(*e))
 
-/**
- * Root mean squared error
- */
+template<class T> nd_t cast(nd_t a);
+
 template<class T>
-double RMSE(size_t n, T* a, T* b)
-{ double ssq=0.0;
+T RMSE(size_t n, T* a, T* b)
+{ T ssq=0.0,t;
   for(size_t i=0;i<n;++i)
-  { double t = (double)b[i]-(double)a[i];
-    //if(a[i]!=b[i])
+  { t = b[i]-a[i];
     ssq+=t*t;
   }
   return sqrt(ssq/n);
 }
 
-/**
- * Find first difference. 
- * \returns the index of the first difference, or -1 if none found
- */
 template<class T>
 int firstdiff(size_t n, const T* a, const T* b)
 { for(size_t i=0;i<n;++i)
     if(a[i]!=b[i])
-      return (int)i;
+      return i;
   return -1;
 }
 
-/**
- * Allocates an array with shape \a shape and fills it with zeros.
- */
 template<class T>
 T* zeros(size_t ndim, size_t* shape)
 { size_t i,nelem;

@@ -270,8 +270,8 @@ nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
   for(i=0;i<ndim;++i)
     a->strides[i+1]*=a->strides[i];
   return a;
-Error:
-  return NULL;
+//Error:
+//  return NULL;
 }
 
 /** Sets the shape for dimension \a idim to \a val.
@@ -389,7 +389,7 @@ Error:
 nd_t ndcuda(nd_t a,cudaStream_t stream)
 { nd_cuda_t out;
   TRY(out=ndcuda_init());
-  TRY(ndreshape((nd_t)out,(unsigned)ndndim(a),ndshape(a)));
+  TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
   CUTRY(cudaMalloc((void**)&out->dev_shape  ,sizeof(size_t)* ndndim(a)   )); // the extra void** cast is to satisfy compilers that complain about discarding __restrict__
   CUTRY(cudaMalloc((void**)&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
@@ -409,8 +409,8 @@ Error:
 nd_t ndCudaSyncShape(nd_t a,cudaStream_t stream)
 { nd_cuda_t self=(nd_cuda_t)a;
   REQUIRE(a,CAN_CUDA);
-  CUTRY(cudaMemcpyAsync(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice,stream));
-  CUTRY(cudaMemcpyAsync(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice,stream));
+  CUTRY(cudaMemcpy(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice));
+  CUTRY(cudaMemcpy(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice));
   return a;
 Error:
   return 0;
@@ -439,10 +439,12 @@ nd_t ndCudaCopy(nd_t dst, nd_t src,cudaStream_t stream)
     { REQUIRE(dst,CAN_MEMCPY);
       direction=cudaMemcpyDeviceToHost;
       sz=ndnbytes(dst);
+      //CUTRY(cudaStreamSynchronize(stream)); // sync before read
     }
   else
     FAIL("Only Host-to-Device or Device-to-Host copies are supported");
-  CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  //CUTRY(cudaMemcpyAsync(nddata(dst),nddata(src),sz,direction,stream));
+  CUTRY(cudaMemcpy(nddata(dst),nddata(src),sz,direction));
   return dst;
 Error:
   return 0;

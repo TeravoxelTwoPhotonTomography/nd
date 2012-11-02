@@ -6,10 +6,12 @@
 #include <gtest/gtest.h>
 #include "helpers.h"
 #include "nd.h"
+#include "config.h"
 #include "cuda.h"
 
 #define TOL_F32 (1e-5)
 #define NDIM    (4)
+#define DIM     (64) //make big for timing, small for testing
 
 ///// types
 typedef ::testing::Types<
@@ -22,9 +24,9 @@ typedef ::testing::Types<
 #endif
   > BasicTypes;
 
-static void identity(double *t)
+static void identity(float *t)
 { const int s=(NDIM+1)+1; // for addressing diagonals
-  memset(t,0,sizeof(double)*(NDIM+1)*(NDIM+1));
+  memset(t,0,sizeof(float)*(NDIM+1)*(NDIM+1));
   for(int i=0;i<(NDIM+1);++i)
     t[i*s]=1.0;
 }
@@ -32,12 +34,14 @@ static void identity(double *t)
 template<class T>
 struct Affine:public testing::Test
 { nd_t src,dst;
-  double *transform;
+  float *transform;
   nd_affine_params_t params;
   Affine():src(0),dst(0),transform(0) {}
 
   void SetUp()
-  { ASSERT_NE((void*)NULL,transform=(double*)malloc(sizeof(double)*(NDIM+1)*(NDIM+1)));
+  { ndioAddPluginPath(NDIO_BUILD_ROOT); // in case I want to dump any files
+
+    ASSERT_NE((void*)NULL,transform=(float*)malloc(sizeof(float)*(NDIM+1)*(NDIM+1)));
     identity(transform);
 
     ASSERT_NE((void*)NULL,src=ndinit());
@@ -85,6 +89,12 @@ TYPED_TEST(Affine,Identity_CPU)
 }
 
 
+static void write(const char *name,nd_t a)
+{ ndio_t file=ndioOpen(name,NULL,"w");
+  ndioWrite(file,a);
+  ndioClose(file);
+}
+
 #if 1
 TYPED_TEST(Affine,Identity_GPU)
 { nd_t src_,dst_;
@@ -101,15 +111,21 @@ TYPED_TEST(Affine,Identity_GPU)
   }
 
   void *xform_=0;
-  { const size_t nbytes=sizeof(double)*(NDIM+1)*(NDIM+1);
+  { const size_t nbytes=sizeof(float)*(NDIM+1)*(NDIM+1);
     ASSERT_EQ(cudaSuccess,cudaMalloc(&xform_,nbytes));
     ASSERT_EQ(cudaSuccess,cudaMemcpy(xform_,this->transform,nbytes,cudaMemcpyHostToDevice));
   }
+  //write("src-in.h5",this->src);
+  //write("dst-in.h5",this->dst);
   ASSERT_NE((void*)NULL,src_=ndcuda(this->src,NULL));
   ASSERT_NE((void*)NULL,dst_=ndcuda(this->dst,NULL));
+  EXPECT_EQ(dst_,ndCudaCopy(dst_,this->dst,NULL));
   EXPECT_EQ(src_,ndCudaCopy(src_,this->src,NULL));
-  EXPECT_EQ(dst_,ndaffine(dst_,src_,(double*)xform_,&this->params));
-  EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL));  
+  EXPECT_EQ(dst_,ndaffine(dst_,src_,(float*)xform_,&this->params));
+  //EXPECT_EQ(cudaSuccess,cudaStreamSynchronize(NULL))<<cudaGetErrorString(cudaGetLastError());
+  EXPECT_EQ(this->dst,ndCudaCopy(this->dst,dst_,NULL))<<nderror(this->dst);  
+  //write("src-out.h5",this->src);
+  //write("dst-out.h5",this->dst);
   EXPECT_NEAR(0.0, RMSE(ndnelem(this->dst),(TypeParam*)nddata(this->dst),(TypeParam*)nddata(this->src)), TOL_F32);
   cudaFree(xform_);
   ndfree(src_);

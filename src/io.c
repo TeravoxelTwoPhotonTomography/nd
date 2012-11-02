@@ -24,6 +24,7 @@
 #include <stdarg.h>
 #ifdef _MSC_VER
 #define va_copy(a,b) (a=b)
+#define alloca _alloca
 #endif
 
 /// @cond DEFINES
@@ -48,13 +49,13 @@ struct _ndio_t
   nd_t        shape;     ///< (subarrays) 
   nd_t        cache;     ///< (subarrays) Cache used to store temporary data.
   char       *seekable;  ///< (subarrays) Seekable dimension mask
-  size_t      seekable_n;///< count of elements allocated for \a seekable
+  size_t      seekable_n;///< (subarrays) count of elements allocated for \a seekable
   size_t     *dstpos;    ///< (subarrays) Destination position index
-  size_t      dstpos_n;  ///< count of elements allocated for \a dstpos
+  size_t      dstpos_n;  ///< (subarrays) count of elements allocated for \a dstpos
   size_t     *srcpos;    ///< (subarrays) File positions index
-  size_t      srcpos_n;  ///< count of elements allocated for \a srcpos
+  size_t      srcpos_n;  ///< (subarrays) count of elements allocated for \a srcpos
   size_t     *cachepos;  ///< (subarrays) Cache origin in file space
-  size_t      cachepos_n;///< coutn of elements allocated for cachepos
+  size_t      cachepos_n;///< (subarrays) count of elements allocated for \a cachepos
 
   char       *log;       ///< Used to store the error log.  NULL if no errors, otherwise a NULL terminated string.
 };
@@ -66,7 +67,9 @@ struct _ndio_t
 /** \todo make thread safe, needs a mutex */
 static int maybe_load_plugins()
 { if(!g_formats)
-    TRY(g_formats=ndioLoadPlugins(NDIO_PLUGIN_PATH,&g_countof_formats));
+  { TRY(ndioAddPluginPath(NDIO_PLUGIN_PATH));
+    TRY(g_formats=ndioLoadPlugins(NULL,&g_countof_formats));
+  }
   return 1;
 Error:
   return 0;
@@ -135,7 +138,7 @@ int ndioPreloadPlugins()
  *                    set to 0 if the interface did not come from a shared
  *                    library load.
  */
-int ndioAddPlugin(ndio_fmt_t* plugin)
+unsigned ndioAddPlugin(ndio_fmt_t* plugin)
 { TRY(g_formats=realloc(g_formats,sizeof(*g_formats)*(g_countof_formats+1)));
   g_formats[g_countof_formats++]=plugin;
   return 1;
@@ -366,10 +369,10 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
  * Each call is ~O(ndndim(domain)).
  */
 static unsigned inc(nd_t domain,size_t *pos, char *mask)
-{ int kdim=(int)ndndim(domain)-1;
+{ unsigned kdim=0;//=ndndim(domain)-1;
   while(kdim>=0 && (!mask[kdim] || pos[kdim]==ndshape(domain)[kdim]-1))
-    pos[kdim--]=0;
-  if(kdim<0) return 0;
+    pos[kdim++]=0;
+  if(kdim>=ndndim(domain)) return 0;
   pos[kdim]++;
 #if 0
   { size_t i;
@@ -465,8 +468,48 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   // maximum non-seekable dimensions
   size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
   unsigned use_cache=0;  
-  //TRY(file->fmt->canseek); // Check format support
-  //TRY(file->fmt->seek);    /// \todo Use cache to add support for formats that don't support seek interface
+  
+  // Check for direct format support
+  if(file->fmt->subarray)
+  { size_t *ori_=origin,*step_=step;
+    if(!ori_) // Handle origin is NULL
+    { size_t i;
+      ori_ =(size_t*)alloca(ndndim(dst)*sizeof(size_t));
+      for(i=0;i<ndndim(dst);++i)
+        ori_[i]=0;
+    }
+    if(!step_) // Handle step is NULL
+    { size_t i;
+      step_ =(size_t*)alloca(ndndim(dst)*sizeof(size_t));
+      for(i=0;i<ndndim(dst);++i)
+        step_[i]=1;
+    }
+    if(file->fmt->subarray(file,dst,ori_,step_))
+      return file;
+    else
+      return 0;
+  }
+  /*
+    File format doesn't directly support subarray() interface.
+    There are two other options: 
+      (A) Format supports seek()/canseek() or 
+      (B) Format only permits reading the whole volume.
+    In the case of (B) the entire volume is read into an internal cache on the
+    first ndioReadSubarray() call.  Subsequent calls use the cache.
+
+    In the case of (A) the subvolume is pieced together from certain subvolumes.
+    It's assumed that a seekable dimension supports reading a hyperplane
+    (shape 1 on that dimension) from a given location.  For non-seekable
+    dimensions, the entire dimension must be read.
+
+    For example, video formats might support seeking of images.  Any time point
+    can be addressed at (amortized) constant time, but an entire 2d image must
+    be read at that time point.
+
+    Selecting a subvolume from a "seekable" format might also incorporate use of
+    an in-memory cache, but will use information about which dimensions are
+    seekable to minimize file access.
+   */
 
   if(!file->shape) TRY(file->shape=ndioShape(file));
   ndim=min_(ndndim(file->shape),ndndim(dst));

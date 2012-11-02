@@ -9,10 +9,18 @@
 
 #include <gtest/gtest.h>
 #include "nd.h"
-
+#include "config.h"
+    
 #define countof(e) (sizeof(e)/sizeof(*e))
 
-TEST(OpenClose,Raw)
+struct Raw: public testing::Test
+{ void SetUp(void)
+  { ndioAddPluginPath(NDIO_BUILD_ROOT);
+  }
+};
+
+
+TEST_F(Raw,OpenClose)
 { // Examples that should fail to open
 #if 1
   EXPECT_EQ(NULL,ndioOpen("does_not_exist.im.super.serious","raw","r"));  
@@ -28,7 +36,7 @@ TEST(OpenClose,Raw)
   }
 }
 
-TEST(Write,Raw)
+TEST_F(Raw,Write)
 { uint8_t data[128*128*128];
   nd_t vol=0;
   ndio_t file=0;

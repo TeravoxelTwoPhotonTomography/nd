@@ -90,9 +90,7 @@ static void* open_tiff(const char* path, const char *mode)
 /// @endcond
 
 static void close_tiff(ndio_t file)
-{ Tiff *ctx;
-  if(!file) return;
-  ctx=(Tiff*)ndioContext(file);
+{ Tiff *ctx=(Tiff*)ndioContext(file);
   if(ctx) Close_Tiff(ctx);
 }
 
@@ -319,6 +317,6 @@ shared const ndio_fmt_t* ndio_get_format_api(void)
   api.read   = read_tiff;
   api.write  = write_tiff;
   api.canseek= canseek_tiff;
-  api.seek   = seek_tiff;
+  api.seek   = seek_tiff;  
   return &api;
 }

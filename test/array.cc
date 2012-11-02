@@ -6,8 +6,8 @@
  *  @cond TEST
  */
 #include <gtest/gtest.h>
-#include "helpers.h"
 #include "nd.h"
+#include "helpers.h"
 
 #define countof(e) (sizeof(e)/sizeof(*e))
 

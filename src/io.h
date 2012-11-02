@@ -20,7 +20,7 @@ typedef struct _ndio_fmt_t ndio_fmt_t;
 //typedef struct _nd_t*   nd_t;
 
 int       ndioPreloadPlugins();
-int       ndioAddPlugin(ndio_fmt_t *api);
+unsigned  ndioAddPlugin(ndio_fmt_t *api);
 
 int       ndioIsFile(const char *filename);
 
@@ -45,6 +45,10 @@ ndio_t    ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step);
 /// \todo ndslice_t ndioSlice(ndio_t file, int idim);           Request slice along dim i
 
 unsigned  ndioCanSeek(ndio_t file, size_t idim);
+
+unsigned    ndioAddPluginPath(const char *path);          // These path's get searched if a NULL \a path is used for ndioLoadPlugins().
+  //void        ndioResetPluginPaths();
+  //void        ndioPrintPluginPaths(FILE* fp,const char *prefix);
 
 #ifdef __cplusplus
 } //extern "C" {

@@ -8,6 +8,9 @@ endmacro()
 ################################################################################
 # CONFIG
 ################################################################################
+configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
+include_directories(${PROJECT_BINARY_DIR})
+
 get_directory_property(ND_SOURCE_DIR PARENT_DIRECTORY)
 include_directories(${ND_SOURCE_DIR})
 
@@ -30,7 +33,7 @@ target_link_libraries(ndio-raw nd)
 #  Testing
 ##############################################################################
 
-include(GenerateGoogleTest)
+find_package(GTEST CONFIG PATHS cmake NAMES GTest)
 file(GLOB TEST_SOURCES test/*.cc)
 if(GTEST_FOUND)
   find_package(Threads)
@@ -44,6 +47,7 @@ if(GTEST_FOUND)
     nd
     )
   add_dependencies(ndio-raw-tests gtest)
+  gtest_copy_shared_libraries(ndio-raw-tests)
   add_test(TestNDIOSeries ndio-raw-tests)
   install(TARGETS ndio-raw-tests RUNTIME DESTINATION bin)
 endif()
