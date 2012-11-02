@@ -66,7 +66,7 @@ endmacro(_ffmpeg_maybe_add)
 # Modifies
 #   FFMPEG_LIBRARIES
 macro(FFMPEG_FIND name)
-  find_library(FFMPEG_${name}_LIBRARY ${name})
+  #find_library(FFMPEG_${name}_LIBRARY ${name}) # -- uncomment to enable use of installed system libraries
   if(NOT FFMPEG_${name}_LIBRARY)
     if(CMAKE_SYSTEM_NAME MATCHES Linux) #use shared (can't get fPIC to work)
       SET(FFMPEG_${name}_LIBRARY

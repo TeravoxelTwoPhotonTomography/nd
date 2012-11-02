@@ -11,6 +11,7 @@ if(NOT TARGET libszip)
     URL_MD5    902f831bcefb69c6b635374424acbead
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+               -DCMAKE_C_FLAGS=-fPIC
     )
 endif()
 get_target_property(SZIP_SRC_DIR      libszip _EP_SOURCE_DIR)

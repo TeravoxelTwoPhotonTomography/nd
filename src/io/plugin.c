@@ -33,7 +33,7 @@
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)),"Memory allocation failed.")
 #define REALLOC(type,e,nelem) TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)),"Memory allocation failed.")
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
-#if 0
+#if 1
 #define DBG(...) LOG(__VA_ARGS__)
 #else
 #define DBG(...)
@@ -147,15 +147,19 @@ static ndio_fmt_t *load(const char *path, const char *fname)
     TRY(lib=LoadLibrary(buf),"There was a problem loading the specified library.");
   }  
 #endif
-  DBG("[PLUGIN] %-20s fname: %s"ENDL,path,fname);
+  DBG("[ ---- ] %-20s fname: %s"ENDL,path,fname);
   SILENTTRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
+  DBG("[ ndio ] NDIO PLUGIN"ENDL);
   TRY(api=(ndio_fmt_t*)get(),fname);
+  DBG("[ ndio ] LOADED"ENDL);
 
   api->lib=lib;
 Finalize:
   return api;
 Error:
-  if(lib) { FreeLibrary((HMODULE)lib); lib=NULL; }
+  if(lib) { FreeLibrary((HMODULE)lib); lib=NULL;
+            DBG("[ xxxx ] UNLOADED"ENDL);
+  }
   goto Finalize;
 }
 
@@ -259,12 +263,14 @@ static char* rpath(void)
 #elif defined(__linux)
 #warning "TODO: implement and test"
   { struct stat sb;
-    ssize_t r;
+    ssize_t r,sz;
     static const char path[]="/proc/self/exe"; // might have to change this for different unix flavors
-    TRY(-1!=lstat(path,&sb),strerror(errno));
-    NEW(char,out,sb.st_size+1);
-    TRY((r=readlink(path,out,sb.st_size+1))>=0 && (r<=sb.st_size),strerror(errno)); // size ~could~ change between calls.
+    TRY(-1!=lstat(path,&sb),strerror(errno)); // sb.st_size is supposed to be the number of characters in the link, but it seems that sometimes this isn't true
+    sz=(sb.st_size==0)?1023:sb.st_size;
+    NEW(char,out,sz+1);
+    TRY((r=readlink(path,out,sz+1))>=0 && (r<=sz),strerror(errno)); // size ~could~ change between calls.
     out[r]='\0';
+    return out;
   }
 #else
 #error "Unsupported operating system/environment."

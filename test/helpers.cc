@@ -1,6 +1,7 @@
+#define __STDC_LIMIT_MACROS
 #include "helpers.h"
-#include <limits.h>
 #include <stdint.h>
+#include <limits.h>
 #include <float.h>
 
 template<> nd_t cast<uint8_t >(nd_t a) {return ndcast(a,nd_u8 );}
