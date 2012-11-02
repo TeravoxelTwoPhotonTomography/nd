@@ -391,9 +391,9 @@ nd_t ndcuda(nd_t a,cudaStream_t stream)
   TRY(out=ndcuda_init());
   TRY(ndreshape((nd_t)out,(unsigned)ndndim(a),ndshape(a)));
   
-  CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
-  CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
-  CUTRY(cudaMalloc(&out->vol.data   ,ndnbytes(a)));
+  CUTRY(cudaMalloc((void**)&out->dev_shape  ,sizeof(size_t)* ndndim(a)   )); // the extra void** cast is to satisfy compilers that complain about discarding __restrict__
+  CUTRY(cudaMalloc((void**)&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
+  CUTRY(cudaMalloc((void**)&out->vol.data   ,ndnbytes(a)));
 
   TRY(ndCudaSyncShape((nd_t)out,stream));
   return (nd_t)out;

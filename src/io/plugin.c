@@ -157,7 +157,10 @@ Error:
 #elif defined(__MACH__)
 #include <mach-o/dyld.h>
 #elif defined(__linux)
-#error "TODO: implement and test"
+#warning "TODO: implement and test"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #else
 #error "Unsupported operating system/environment."
 #endif
@@ -199,7 +202,15 @@ static char* rpath(void)
     return tmp;
   }
 #elif defined(__linux)
-#error "TODO: implement and test"
+#warning "TODO: implement and test"
+  { struct stat sb;
+    ssize_t r;
+    static const char path[]="/proc/self/exe"; // might have to change this for different unix flavors
+    TRY(-1!=lstat(path,&sb),strerror(errno));
+    NEW(char,out,sb.st_size+1);
+    TRY((r=readlink(path,out,sb.st_size+1))>=0 && (r<=sb.st_size),strerror(errno)); // size ~could~ change between calls.
+    out[r]='\0';
+  }
 #else
 #error "Unsupported operating system/environment."
 #endif
