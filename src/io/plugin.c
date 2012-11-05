@@ -33,7 +33,7 @@
 #define NEW(type,e,nelem) TRY((e)=(type*)malloc(sizeof(type)*(nelem)),"Memory allocation failed.")
 #define REALLOC(type,e,nelem) TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)),"Memory allocation failed.")
 #define SILENTTRY(e,msg) do{ if(!(e)) { goto Error; }} while(0)
-#if 1
+#if 0
 #define DBG(...) LOG(__VA_ARGS__)
 #else
 #define DBG(...)
@@ -54,7 +54,11 @@ const char* estring();
 #else // POSIX
 #include <dlfcn.h>
 #include <dirent.h>
+#ifdef RTLD_DEEPBIND  // non-posix, glibc 2.3.4+.  Ensures globals of shared libraries are independant, which seems to be the default for osx and windows.
+#define LoadLibrary(name)        dlopen((name),RTLD_LAZY|RTLD_DEEPBIND)   // returns NULL on error, use dlerror()
+#else
 #define LoadLibrary(name)        dlopen((name),RTLD_LAZY)   // returns NULL on error, use dlerror()
+#endif
 #define FreeLibrary(lib)         (0==dlclose(lib))          // dlclose returns non-zero on error, use dlerror().  FreeLibrary returns 0 on error, otherwise non-zero
 #define GetProcAddress(lib,name) dlsym((lib),(name))        // returns NULL on error, use dlerror()
 #define estring                  dlerror                    // returns an error string
@@ -216,7 +220,7 @@ Error:
 #elif defined(__MACH__)
 #include <mach-o/dyld.h>
 #elif defined(__linux)
-#warning "TODO: implement and test"
+//#warning "TODO: implement and test"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -261,7 +265,7 @@ static char* rpath(void)
     return tmp;
   }
 #elif defined(__linux)
-#warning "TODO: implement and test"
+//#warning "TODO: implement and test"
   { struct stat sb;
     ssize_t r,sz;
     static const char path[]="/proc/self/exe"; // might have to change this for different unix flavors

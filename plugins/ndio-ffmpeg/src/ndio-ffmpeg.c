@@ -133,7 +133,7 @@ static void maybe_init()
   is_one_time_inited = 1;
 
   av_log_set_level(0
-#if 1
+#if 0
     |AV_LOG_DEBUG
     |AV_LOG_VERBOSE
     |AV_LOG_INFO
