@@ -45,7 +45,10 @@ if(NOT TARGET libhdf5)
                -DH5_ZLIB_HEADER:STRING=zlib.h
                -DZLIB_INCLUDE_DIRS:STRING=${ZLIB_INCLUDE_DIRS}
                -DZLIB_LIBRARIES:STRING=${ZLIB_LIBRARIES}
+               -DBUILD_STATIC_PIC:BOOL=TRUE
+               -DCMAKE_C_FLAGS:STRING=-fPIC
     )
+  add_dependencies(libhdf5 libszip libz)
 endif()
 
 get_target_property(_HDF5_INCLUDE_DIR libhdf5 _EP_SOURCE_DIR)

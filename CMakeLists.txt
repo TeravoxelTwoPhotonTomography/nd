@@ -43,7 +43,7 @@ include_directories(${CUDA_INCLUDE_DIRS})
 cuda_build_clean_target()
 set(cuda_build_cubin on)
 set(CUOPTS
-  --generate-code ${CUDA_GENERATE_CODE}
+  -Xcompiler -fPIC --generate-code ${CUDA_GENERATE_CODE}
   DEBUG -g -G
   RELEASE --use_fast_math
   RELWITHDEBINFO --use_fast_math;-g
@@ -82,6 +82,7 @@ target_link_libraries(nd
   ${CMAKE_DL_LIBS}
   ${SHLWAPI}
 )
+set_target_properties(nd PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 # ndio plugins
 file(GLOB PLUGINS plugins/ndio*)

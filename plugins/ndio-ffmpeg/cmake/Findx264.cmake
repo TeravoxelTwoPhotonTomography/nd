@@ -5,8 +5,11 @@
 # X264_INCLUDE_DIR, where to find header
 #
 
-find_path(X264_INCLUDE_DIR x264.h)
-find_library(X264_LIBRARY NAMES x264)
+# TODO "requires" yasm - should install an assembler if one isn't found
+
+
+#find_path(X264_INCLUDE_DIR x264.h)
+#find_library(X264_LIBRARY NAMES x264)
 if(NOT X264_LIBRARY OR NOT EXISTS ${X264_LIBRARY})
   include(ExternalProject)
   ExternalProject_Add(libx264
@@ -15,7 +18,7 @@ if(NOT X264_LIBRARY OR NOT EXISTS ${X264_LIBRARY})
     CONFIGURE_COMMAND <SOURCE_DIR>/configure
           --prefix=<INSTALL_DIR>
           --enable-static
-          --enable-shared
+          --enable-pic
   )
   get_target_property(X264_ROOT_DIR libx264 _EP_INSTALL_DIR)
   set(X264_INCLUDE_DIR ${X264_ROOT_DIR}/include CACHE PATH "Path to x264.h" FORCE)

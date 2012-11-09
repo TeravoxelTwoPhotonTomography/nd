@@ -54,7 +54,11 @@ const char* estring();
 #else // POSIX
 #include <dlfcn.h>
 #include <dirent.h>
+#ifdef RTLD_DEEPBIND  // non-posix, glibc 2.3.4+.  Ensures globals of shared libraries are independant, which seems to be the default for osx and windows.
+#define LoadLibrary(name)        dlopen((name),RTLD_LAZY|RTLD_DEEPBIND)   // returns NULL on error, use dlerror()
+#else
 #define LoadLibrary(name)        dlopen((name),RTLD_LAZY)   // returns NULL on error, use dlerror()
+#endif
 #define FreeLibrary(lib)         (0==dlclose(lib))          // dlclose returns non-zero on error, use dlerror().  FreeLibrary returns 0 on error, otherwise non-zero
 #define GetProcAddress(lib,name) dlsym((lib),(name))        // returns NULL on error, use dlerror()
 #define estring                  dlerror                    // returns an error string
@@ -97,21 +101,25 @@ Error:
   return 0;
 }
 
-/** Detects loadable libraries based on filename */
-static int is_shared_lib(const char *fname,size_t n)
-{ const char *dot;
+static int has_extension(const char* fname,size_t sizeof_fname, const char* ext, size_t sizeof_ext)
+{const char *dot;
   int len;
   SILENTTRY(dot=strrchr(fname,'.'),"No extension found in file name.");
-  len = (int)(n-(dot-fname+1));
+  len = (int)(sizeof_fname-(dot-fname+1));
 #if 0
   DBG("Searching for [%10s] Got extension [%15s]. Length %2d. File: %s"ENDL,
-      EXTENSION,dot+1,len,fname);
-#endif
-  return len==(sizeof(EXTENSION)-1) //"sizeof" includes the terminating NULL
-      && (0==strncmp(dot+1,EXTENSION,len));
+      ext,dot+1,len,fname);
+#endif  
+  return len==(sizeof_ext-1) //"sizeof" includes the terminating NULL
+      && (0==strncmp(dot+1,ext,len));
 Error:
   //LOG("\tFile: %s"ENDL,fname);
   return 0;
+}
+
+/** Detects loadable libraries based on filename */
+static int is_shared_lib(const char *fname,size_t n)
+{ return has_extension(fname,n,EXTENSION,sizeof(EXTENSION));
 }
 
 /** 
@@ -147,15 +155,19 @@ static ndio_fmt_t *load(const char *path, const char *fname)
     TRY(lib=LoadLibrary(buf),"There was a problem loading the specified library.");
   }  
 #endif
-  DBG("[PLUGIN] %-20s fname: %s"ENDL,path,fname);
+  DBG("[ ---- ] %-20s fname: %s"ENDL,path,fname);
   SILENTTRY(get=(ndio_get_format_api_t)GetProcAddress((HMODULE)lib,"ndio_get_format_api"),estring());
+  DBG("[ ndio ] NDIO PLUGIN"ENDL);
   TRY(api=(ndio_fmt_t*)get(),fname);
+  DBG("[ ndio ] LOADED"ENDL);
 
   api->lib=lib;
 Finalize:
   return api;
 Error:
-  if(lib) { FreeLibrary((HMODULE)lib); lib=NULL; }
+  if(lib) { FreeLibrary((HMODULE)lib); lib=NULL;
+            DBG("[ xxxx ] UNLOADED"ENDL);
+  }
   goto Finalize;
 }
 
@@ -212,7 +224,10 @@ Error:
 #elif defined(__MACH__)
 #include <mach-o/dyld.h>
 #elif defined(__linux)
-#error "TODO: implement and test"
+//#warning "TODO: implement and test"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #else
 #error "Unsupported operating system/environment."
 #endif
@@ -254,7 +269,17 @@ static char* rpath(void)
     return tmp;
   }
 #elif defined(__linux)
-#error "TODO: implement and test"
+//#warning "TODO: implement and test"
+  { struct stat sb;
+    ssize_t r,sz;
+    static const char path[]="/proc/self/exe"; // might have to change this for different unix flavors
+    TRY(-1!=lstat(path,&sb),strerror(errno)); // sb.st_size is supposed to be the number of characters in the link, but it seems that sometimes this isn't true
+    sz=(sb.st_size==0)?1023:sb.st_size;
+    NEW(char,out,sz+1);
+    TRY((r=readlink(path,out,sz+1))>=0 && (r<=sz),strerror(errno)); // size ~could~ change between calls.
+    out[r]='\0';
+    return out;
+  }
 #else
 #error "Unsupported operating system/environment."
 #endif
@@ -284,7 +309,10 @@ static int recursive_load(apis_t *apis,DIR* dir,const char *path)
     { char *buf;
       size_t n=strlen(path)+strlen(ent->d_name)+2;
       const char *p[]={path,"/",ent->d_name};
-      if( 0==strcmp(ent->d_name,".")*strcmp(ent->d_name,".."))
+      if( (ent->d_name[0]=='.')// respect hidden files/paths
+#ifdef __APPLE__
+        ||(has_extension(ent->d_name,ent->d_namlen,"dSYM",sizeof("dSYM"))))
+#endif
         continue;
       TRY(buf=(char*)alloca(n),"Out of stack space.");
       cat(buf,n,3,p);
