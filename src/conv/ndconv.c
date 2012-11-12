@@ -52,7 +52,7 @@ typedef double   f64;
 #define max_f64  FLT_MAX
 
 #ifndef restrict
-#define restrict __restrict__
+#define restrict __restrict
 #endif
 
 extern unsigned ndconv1_cuda(nd_t dst,nd_t src,const nd_t filter,const unsigned idim,const nd_conv_params_t *param);

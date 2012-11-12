@@ -32,7 +32,7 @@ typedef float    f32;
 typedef double   f64;
 
 #ifndef restrict
-#define restrict __restrict__
+#define restrict __restrict
 #endif
 
 extern unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param);

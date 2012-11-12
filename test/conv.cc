@@ -7,6 +7,7 @@
  * \todo add unrolling for common small kernel sizes
  * \todo ensure loaded test data has expected shape
  * \todo load reference data only once.
+ * \todo Test weird shapes.  Especially rows/planes >65k.
  * @cond TEST
  */
 #include "cuda_runtime_api.h"
@@ -312,4 +313,5 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
   ndfree(s);
   EXPECT_EQ(cudaSuccess,cudaDeviceReset());
 }
+
 /// @endcond TEST
