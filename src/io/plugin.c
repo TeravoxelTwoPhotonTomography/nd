@@ -268,12 +268,20 @@ static char* rpath(void)
 //#warning "TODO: implement and test"
   { struct stat sb;
     ssize_t r,sz;
+    char *c=0;
     static const char path[]="/proc/self/exe"; // might have to change this for different unix flavors
     TRY(-1!=lstat(path,&sb),strerror(errno)); // sb.st_size is supposed to be the number of characters in the link, but it seems that sometimes this isn't true
     sz=(sb.st_size==0)?1023:sb.st_size;
     NEW(char,out,sz+1);
     TRY((r=readlink(path,out,sz+1))>=0 && (r<=sz),strerror(errno)); // size ~could~ change between calls.
     out[r]='\0';
+    // trim off the executable name
+    TRY((c=strrchr(out,'/'))!=NULL,out);
+    if(c==out)
+    { memcpy(out,"/",2);
+    } else
+    { *c='\0';
+    }
     return out;
   }
 #else
