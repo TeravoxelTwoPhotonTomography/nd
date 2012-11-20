@@ -69,7 +69,7 @@
 #define ALLOCA(type,e,nelem)  TRY((e)=(type*)alloca(sizeof(type)*(nelem)))
 #define SAFEFREE(e)           if(e){free(e); (e)=NULL;}
 #define HERE                  LOG("HERE -- %s(%d): %s()"ENDL,__FILE__,__LINE__,__FUNCTION__)
-void breakme() {HERE;}
+void breakme() {}
 /// @endcond 
 
 //
@@ -306,6 +306,7 @@ Error:
     closedir(dir);
     return true;
   Error:
+    LOG("\t%s"ENDL,path_.c_str());
     return false;
   }
 
