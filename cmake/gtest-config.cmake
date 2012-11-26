@@ -4,12 +4,8 @@ include(FindPackageHandleStandardArgs)
 macro(gtest_copy_shared_libraries _target)  
   foreach(_lib libgtest libgtest-main)
     get_target_property(_name ${_lib}    IMPORTED_LOCATION)
-    #show(_name)
     add_custom_command(TARGET ${_target} POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy
-          ${_name}
-          $<TARGET_FILE_DIR:${_target}>
-          )  
+      COMMAND ${CMAKE_COMMAND};-Er;copy;${_name};$<TARGET_FILE_DIR:${_target}>)  
   endforeach()
 endmacro()
 
