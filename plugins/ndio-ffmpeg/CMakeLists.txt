@@ -10,6 +10,10 @@ macro(showeach v)
     message("   ${e}")
   endforeach()
 endmacro()
+macro(show_target_prop t p)
+  get_target_property(pp ${t} ${p})
+  message("The ${p} of ${t} is ${pp}")
+endmacro()
 
 ################################################################################
 # CONFIG
@@ -17,7 +21,7 @@ endmacro()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 set(ROOT_3RDPARTY_DIR ${PROJECT_SOURCE_DIR})
 
-find_package(FFMPEG)
+find_package(FFMPEG CONFIG PATHS cmake)
 if(FFMPEG_FOUND)
   include_directories(${FFMPEG_INCLUDE_DIR})
 
@@ -50,7 +54,17 @@ if(FFMPEG_FOUND)
       file(COPY ${FFMPEG_SHARED_LIBS} DESTINATION "${PROJECT_BINARY_DIR}/${cfg}") 
     endforeach(cfg)
   else()
-    file(COPY ${FFMPEG_SHARED_LIBS} DESTINATION ${PROJECT_BINARY_DIR})
+    showeach(FFMPEG_SHARED_LIBS)
+    foreach(e ${FFMPEG_SHARED_LIBS})
+      show_target_prop(${e} LOCATION)
+      #get_target_property(pp ${e} LOCATION)
+      #add_library(lib${e} SHARED IMPORTED)
+      #set_target_properties(lib${e} PROPERTIES IMPORTED_LOCATION ${pp})
+      #install(TARGETS lib${e} DESTINATION bin/${NDIO_PLUGIN_PATH}) 
+    endforeach ()
+    #install(TARGETS ${FFMPEG_SHARED_LIBS} DESTINATION bin/${NDIO_PLUGIN_PATH})
+    #install(EXPORT ffmpeg_shared_lib_targets DESTINATION bin/plugins)
+    #file(COPY ${FFMPEG_SHARED_LIBS} DESTINATION ${PROJECT_BINARY_DIR})
   endif()
 
 endif(FFMPEG_FOUND)
@@ -81,5 +95,5 @@ install(TARGETS ndio-ffmpeg
   RUNTIME DESTINATION bin/${NDIO_PLUGIN_PATH}
   LIBRARY DESTINATION bin/${NDIO_PLUGIN_PATH}
 )
-export(TARGETS ndio-ffmpeg FILE ndio-ffmpeg-targets.cmake)
-install(EXPORT ndio-ffmpeg-targets DESTINATION cmake)
+#export(TARGETS ndio-ffmpeg FILE ndio-ffmpeg-targets.cmake)
+#install(EXPORT ndio-ffmpeg-targets DESTINATION cmake)

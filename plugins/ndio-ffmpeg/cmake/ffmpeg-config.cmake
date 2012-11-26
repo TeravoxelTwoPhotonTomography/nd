@@ -41,7 +41,6 @@ if(MSVC)
   endforeach()
   ### INSTALL
   install(FILES ${FFMPEG_DLLS} DESTINATION bin/plugins)
-  
 else()
   GenerateFFMPEG(https://github.com/FFmpeg/FFmpeg.git n0.11.1)
 endif()

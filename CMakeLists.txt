@@ -17,14 +17,14 @@ endmacro()
 set(CMAKE_INSTALL_RPATH $ORIGIN) ## Probably need to change this to @rpath or @loaderpath on os x
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(CMAKE_INSTALL_NAME_DIR ${CMAKE_INSTALL_PREFIX}) ## OSX specific(untested)
-show(CMAKE_INSTALL_PREFIX)
-show(CMAKE_INSTALL_RPATH)
-show(CMAKE_INSTALL_RPATH_USE_LINK_PATH)
-show(CMAKE_BUILD_WITH_INSTALL_RPATH)
-show(CMAKE_INSTALL_NAME_DIR)
-show(CMAKE_SKIP_RPATH)
-show(CMAKE_SKIP_BUILD_RPATH)
-show(CMAKE_SKIP_INSTALL_RPATH)
+#show(CMAKE_INSTALL_PREFIX)
+#show(CMAKE_INSTALL_RPATH)
+#show(CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+#show(CMAKE_BUILD_WITH_INSTALL_RPATH)
+#show(CMAKE_INSTALL_NAME_DIR)
+#show(CMAKE_SKIP_RPATH)
+#show(CMAKE_SKIP_BUILD_RPATH)
+#show(CMAKE_SKIP_INSTALL_RPATH)
 
 ################################################################################
 # CONFIG
@@ -101,6 +101,7 @@ file(GLOB PLUGINS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/ndio*)
 foreach(PLUGIN ${PLUGINS})
   add_subdirectory(${PLUGIN})
 endforeach(PLUGIN)
+#install(EXPORT ffmpeg-exports DESTINATION bin/plugins)
 
 ### APPS
 

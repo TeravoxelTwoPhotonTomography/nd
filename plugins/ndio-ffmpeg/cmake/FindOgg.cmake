@@ -9,7 +9,7 @@ if(NOT OGG_LIBRARY OR NOT EXISTS ${OGG_LIBRARY})
   ExternalProject_Add(libogg
     URL      http://downloads.xiph.org/releases/ogg/libogg-1.3.0.tar.gz
     URL_MD5  0a7eb40b86ac050db3a789ab65fe21c2
-    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR>
+    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --with-pic
   )
   get_target_property(OGG_ROOT_DIR libogg _EP_INSTALL_DIR)
   set(OGG_INCLUDE_DIR ${OGG_ROOT_DIR}/include CACHE PATH "Path to ogg/ogg.h" FORCE)
