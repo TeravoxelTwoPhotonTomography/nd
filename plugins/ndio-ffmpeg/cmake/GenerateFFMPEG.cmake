@@ -65,18 +65,26 @@ endmacro(_ffmpeg_maybe_add)
 #   FFMPEG_ROOT_DIR
 # Modifies
 #   FFMPEG_LIBRARIES
+
 macro(FFMPEG_FIND name)
   #find_library(FFMPEG_${name}_LIBRARY ${name}) # -- uncomment to enable use of installed system libraries
-  if(NOT FFMPEG_${name}_LIBRARY)
-    if(CMAKE_SYSTEM_NAME MATCHES Linux) #use shared (can't get fPIC to work)
-      SET(FFMPEG_${name}_LIBRARY
-        ${FFMPEG_ROOT_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}
-        CACHE PATH "location of lib${name} library." FORCE)
-    else() #use static
-      SET(FFMPEG_${name}_LIBRARY
-        ${FFMPEG_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}
-        CACHE PATH "location of lib${name} library." FORCE)
-    endif()
+  if(CMAKE_SYSTEM_NAME MATCHES Linux) #use shared (can't get fPIC to work)
+    #get_filename_component(_loc
+    #  "${FFMPEG_ROOT_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}" REALPATH)
+    set(_loc
+      "${FFMPEG_ROOT_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${name}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    add_library(lib${name} SHARED IMPORTED GLOBAL)
+    set_target_properties(lib${name} PROPERTIES IMPORTED_LOCATION ${_loc})
+    add_dependencies(lib${name} ffmpeg)
+    set(FFMPEG_${name}_LIBRARY lib${name})
+    list(APPEND FFMPEG_SHARED_LIBS lib${name})
+
+    file(GLOB _files ${_loc}*)
+    show(_files)
+    install(FILES ${_files} DESTINATION bin/plugins)
+  else() #use static
+    SET(FFMPEG_${name}_LIBRARY
+      ${FFMPEG_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX})
   endif()
   set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${FFMPEG_${name}_LIBRARY})
 endmacro()
@@ -139,10 +147,10 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
           <SOURCE_DIR>/configure
             --prefix=<INSTALL_DIR>
             --yasmexe=${YASM_ROOT_DIR}/bin/yasm
-            --enable-shared
             --enable-gpl
             --enable-pic
             --disable-symver
+            --enable-shared
             --enable-hardcoded-tables
             --enable-runtime-cpudetect
             --enable-version3
@@ -158,6 +166,9 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
   FFMPEG_FIND(avcodec)
   FFMPEG_FIND(avutil)
   FFMPEG_FIND(swscale)
+  FFMPEG_FIND(avfilter)
+  FFMPEG_FIND(postproc)
+  FFMPEG_FIND(swresample)
 
   ##
   ## OUTPUT
@@ -166,6 +177,7 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
   PRINT_DISABLED_FEATURES()
   set(FFMPEG_ROOT_DIR    ${FFMPEG_ROOT_DIR} CACHE PATH "Path to root of ffmpeg installation.")
   set(FFMPEG_LIBRARIES   ${FFMPEG_LIBRARIES} ${FFMPEG_DEP_LIBRARIES} PARENT_SCOPE)
+  set(FFMPEG_SHARED_LIBS ${FFMPEG_SHARED_LIBS} PARENT_SCOPE)
   set(FFMPEG_INCLUDE_DIR ${FFMPEG_INCLUDE_DIR} PARENT_SCOPE)
 endfunction(GenerateFFMPEG)
 
