@@ -282,7 +282,6 @@ Error:
     ndLogError(a,"[nD IO Error]"ENDL "%s"ENDL,ndioError(file));
   goto Finalize;
 }
-#undef LOG
 
 /// @cond DEFINES
 #undef LOG
@@ -394,7 +393,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
                             }\
                           } while(0)
 #define ZERO(T,ptr,n)     memset(ptr,0,sizeof(T)*(ptr##_n))
-/// @endcondw
+/// @endcond
 
 /**
  * Vector increment of \a pos in \a domain with carry.
@@ -459,10 +458,9 @@ static unsigned cachemiss(ndio_t file)
   return 0;
 }
 
-/**
- *  Read a sub-volume from a file.
+/** Read a sub-volume from a file.
  *  Usage:
- *  \code{C}
+ *  \code
  *  { ndiot_t file=ndioOpen("blah",0,"r"); // write mode supports append...doesn't need to support slicing
  *    nd_t vol=ndioShape(file);
  *    size_t n;
@@ -473,11 +471,10 @@ static unsigned cachemiss(ndio_t file)
  *    { int64_t pos[]={0,0,0,0}; // 4d data
  *      size_t i;
  *      for(i=0;i<n;++i,++pos[2])
- *      { ndioReadSubarray(file,vol,pos); // seek to pos and read, shape limited by vol
- *        f(vol);                         // do something with the result
+ *      { ndioReadSubarray(file,vol,pos,0); // seek to pos and read, shape limited by vol
+ *        f(vol);                           // do something with the result
  *      }
  *    }
- *    free(nddata(vol));
  *    ndfree(vol);
  *    ndioClose(file);
  *  }
@@ -492,11 +489,14 @@ static unsigned cachemiss(ndio_t file)
  *                          elements.  This point in the file will correspond to
  *                          (0,...) in the \a dst array.  If NULL, the origin 
  *                          will be set to (0,...).
- *  \param[in]      step    An array of \code{C}ndndim(ndioShape(file))\endcode
+ *  \param[in]      step    An array of <tt>ndndim(ndioShape(file))</tt>
  *                          elements that specifies the step size to be taken
  *                          along each dimension as it is read into \a dst.
  *                          If NULL, a step size of 1 on each dimension will be 
  *                          used.
+ *  \see _ndio_fmt_t.subarray
+ *  \see _ndio_fmt_t.seek
+ *  \see _ndio_fmt_t.canseek
  */
 ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
 { // need to know minimum seekable dimension
