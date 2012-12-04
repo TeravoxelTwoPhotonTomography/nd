@@ -924,7 +924,7 @@ Error:
  *  \ingroup ndops
  */
 nd_t ndLinearConstrastAdjust_ip(nd_t z,nd_type_id_t dtype,.../*min,max*/)
-{ float mn,mx,m;
+{ float mn,mx,m,b;
   #define TMIN(T) min_##T
   #define TMAX(T) max_##T
   const float mns[]=
@@ -955,10 +955,9 @@ nd_t ndLinearConstrastAdjust_ip(nd_t z,nd_type_id_t dtype,.../*min,max*/)
     }
     va_end(ap);
   }
-  return ndfmad_scalar_ip(z,
-                          m=(mxs[dtype]-mns[dtype])/(mx-mn), // m
-                          -m*mn,                             // b
-                          ndndim(z),ndshape(z));
+  m=(mxs[dtype]-mns[dtype])/(mx-mn);
+  b=-m*mn;
+  return ndfmad_scalar_ip(z,m,b,ndndim(z),ndshape(z));
 Error:
   return 0;
 }
