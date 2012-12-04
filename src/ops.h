@@ -40,36 +40,40 @@ typedef struct nd_conv_params_t_
 // typedef struct _nd_t* nd_t;
 
 // === SUPPORT ===
-// ndcopy       [x] impl cpu    [x] impl gpu    [x] test - gpu impl uses cuda memcpy which will be super slow for non-trivial strides
-// ndtranspose  [x] impl cpu    [ ] impl gpu    [x] test - uses ndcopy(); ndcopy needs specialized gpu support to make this reasonable
-// ndshiftdim   [x] impl cpu    [ ] impl gpu    [~] test - used to move color dimension in ndio-ffmpeg, but no standard tests
-// ndcat        [x] impl cpu    [ ] impl gpu    [x] test
-// ndcat_ip     [x] impl cpu    [ ] impl gpu    [~] test - needs valgrind debugging.  crash in release mode on win7
-// ndadd        [x] impl cpu    [ ] impl gpu    [x] test
-// ndfmad       [x] impl cpu    [ ] impl gpu    [ ] test
-// ndfill       [x] impl cpu    [x] impl gpu    [ ] test
-// ndxor_ip     [x] impl cpu    [x] impl gpu    [x] test
-// ndbitshift_ip[x] impl cpu    [x] impl gpu    [ ] test - only tested incidentally on cpu (no gpu testing)
-// ndconvert_ip [x] impl cpu    [x] impl gpu    [ ] test - only tested incidentally on cpu (no gpu testing)
-// ndaffine     [x] impl cpu    [x] impl gpu    [x] test
-// ndconv1      [x] impl cpu    [x] impl gpu    [x] test
-// ndconv1_ip   [x] impl cpu    [ ] impl gpu    [~] test
+// ndcopy           [x] impl cpu    [x] impl gpu    [x] test - gpu impl uses cuda memcpy which will be super slow for non-trivial strides
+// ndtranspose      [x] impl cpu    [ ] impl gpu    [x] test - uses ndcopy(); ndcopy needs specialized gpu support to make this reasonable
+// ndshiftdim       [x] impl cpu    [ ] impl gpu    [~] test - used to move color dimension in ndio-ffmpeg, but no standard tests
+// ndcat            [x] impl cpu    [ ] impl gpu    [x] test
+// ndcat_ip         [x] impl cpu    [ ] impl gpu    [~] test - needs valgrind debugging.  crash in release mode on win7
+// ndadd            [x] impl cpu    [ ] impl gpu    [x] test
+// ndfmad           [x] impl cpu    [ ] impl gpu    [ ] test
+// ndfmad_scalar_ip [x] impl cpu    [x] impl gpu    [ ] test - check saturation behavior
+// ndfill           [x] impl cpu    [x] impl gpu    [ ] test
+// ndxor_ip         [x] impl cpu    [x] impl gpu    [x] test
+// ndbitshift_ip    [x] impl cpu    [x] impl gpu    [ ] test - only tested incidentally on cpu (no gpu testing)
+// ndconvert_ip     [x] impl cpu    [x] impl gpu    [ ] test - only tested incidentally on cpu (no gpu testing)
+// ndaffine         [x] impl cpu    [x] impl gpu    [x] test
+// ndconv1          [x] impl cpu    [x] impl gpu    [x] test
+// ndconv1_ip       [x] impl cpu    [ ] impl gpu    [~] test
 
-nd_t ndcopy       (nd_t dst,const nd_t src,size_t ndim,size_t* shape);
-nd_t ndtranspose  (nd_t dst,const nd_t src,unsigned i,unsigned j,size_t ndim,size_t *shape);
-nd_t ndshiftdim   (nd_t dst,const nd_t src,int n);
-nd_t ndcat        (nd_t x,nd_t y, size_t idim);
-nd_t ndcat_ip     (nd_t dst,nd_t src);
-nd_t ndadd        (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
-nd_t ndfmad       (nd_t z,float a,const nd_t x,float b,const nd_t y,size_t ndim,size_t* shape);
-nd_t ndfill       (nd_t z,uint64_t c);
-nd_t ndxor_ip     (nd_t z,uint64_t c,size_t ndim, size_t* shape);
-nd_t ndbitshift_ip(nd_t z,int bits,unsigned overflow_bit);
-nd_t ndconvert_ip (nd_t z,nd_type_id_t type);
+nd_t ndcopy          (nd_t dst,const nd_t src,size_t ndim,size_t* shape);
+nd_t ndtranspose     (nd_t dst,const nd_t src,unsigned i,unsigned j,size_t ndim,size_t *shape);
+nd_t ndshiftdim      (nd_t dst,const nd_t src,int n);
+nd_t ndcat           (nd_t x,nd_t y, size_t idim);
+nd_t ndcat_ip        (nd_t dst,nd_t src);
+nd_t ndadd           (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
+nd_t ndfmad          (nd_t z,float a,const nd_t x,float b,const nd_t y,size_t ndim,size_t* shape);
+nd_t ndfmad_scalar_ip(nd_t z,float m,float b,size_t ndim,size_t *shape);
+nd_t ndfill          (nd_t z,uint64_t c);
+nd_t ndxor_ip        (nd_t z,uint64_t c,size_t ndim, size_t* shape);
+nd_t ndbitshift_ip   (nd_t z,int bits,unsigned overflow_bit);
+nd_t ndconvert_ip    (nd_t z,nd_type_id_t type);
 
-nd_t ndaffine     (nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t *params);
-nd_t ndconv1      (nd_t dst, nd_t src, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
-nd_t ndconv1_ip   (nd_t dst, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
+nd_t ndaffine        (nd_t dst, const nd_t src, const float *transform, const nd_affine_params_t *params);
+nd_t ndconv1         (nd_t dst, nd_t src, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
+nd_t ndconv1_ip      (nd_t dst, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
+
+nd_t ndLinearConstrastAdjust_ip(nd_t dst,nd_type_id_t dtype,.../*min,max*/); //type of min and max determined from dst. vararg's used to generical pass values
 
 #ifdef __cplusplus
 } //extern "C" {

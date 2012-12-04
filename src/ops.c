@@ -16,6 +16,8 @@
 #include <malloc.h>
 #endif
 #include <stdio.h>
+#include <float.h>
+#include <stdarg.h>
 #include "nd.h"
 #include "ops.h"
 
@@ -50,6 +52,27 @@ typedef size_t  stride_t;
 typedef void (inplace_vec_op_t)(stride_t N, void *z, stride_t zst, void *param, size_t nbytes);                                                   ///< \verbatim 1D f:z=f(z) \endverbatim
 typedef void (unary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes);                             ///< \verbatim 1D f:z=f(x)   \endverbatim
 typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,const void* y,stride_t yst,void *param, size_t nbytes); ///< \verbatim 1D f:z=f(x,y) \endverbatim
+
+#define min_u8   0
+#define min_u16  0
+#define min_u32  0
+#define min_u64  0
+#define min_i8   CHAR_MIN
+#define min_i16  SHRT_MIN
+#define min_i32  LONG_MIN
+#define min_i64  LLONG_MIN
+#define min_f32 (-FLT_MAX)
+#define min_f64 (-DBL_MAX)
+#define max_u8   UCHAR_MAX
+#define max_u16  USHRT_MAX
+#define max_u32  ULONG_MAX
+#define max_u64  ULLONG_MAX
+#define max_i8   CHAR_MAX
+#define max_i16  SHRT_MAX
+#define max_i32  LONG_MAX
+#define max_i64  LLONG_MAX
+#define max_f32  FLT_MAX
+#define max_f64  DBL_MAX
 
 //-// Import generics
 #include "generic/all.c"
@@ -625,6 +648,57 @@ nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, si
 Error:
   return NULL;
 }
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndLogError(z,__VA_ARGS__)
+/// @endcond
+
+/** Scalar floating multiply and add (in place, with saturation). 
+ *  \code
+ *    z = m*z+b
+ *  \endcode
+ *  Operations are performed in floating-point and then cast to the destination type.
+ *
+ *  \param[out]    z   The output array.
+ *  \param[in]     m   The slope.
+ *  \param[in]     b   The intercept.
+ *  \param[in]  ndim   The number of dimensions in the sub-volume described by \a shape.
+ *                     If 0, this is set to the largest dimension that still fits \a x,
+ *                     \a y, and \a z.
+ *  \param[in] shape   Computation is restricted to a sub-volume with this shape.
+ *                     If NULL, the smallest shape common to \a x, \a y, and \a z will
+ *                     be used.
+ *  \returns \a z on success, or NULL otherwise.
+ *  \ingroup ndops
+ */
+nd_t ndfmad_scalar_ip(nd_t z,float m,float b,size_t ndim,size_t *shape)
+{ f32 param[] = {m,b};
+  REQUIRE(z,PTR_ARITHMETIC);
+  // set shape and dim if necessary
+  if(!ndim)
+  { ndim=ndndim(z);
+  }
+  if(!shape)
+  { TRY(shape=(size_t*)alloca(sizeof(size_t)*ndim));
+    memcpy(shape,ndshape(z),sizeof(size_t)*ndim);
+  }
+  if(ndkind(z)==nd_gpu_cuda)
+  { TRY(fmad_scalar_ip_cuda(z,m,b));
+  } else
+  { REQUIRE(z,CAN_MEMCPY);
+    /// @cond DEFINES
+    #define CASE(T) TRY(inplace_op(ndim,shape, \
+                                   nddata(z),ndstrides(z), \
+                                   (void*)param,sizeof(param), \
+                                   fmad_scalar_ip_##T)); break
+    /// @endcond
+    TYPECASE(ndtype(z));
+    #undef CASE
+  }
+  return z;
+Error:
+  return NULL;
+}
 
 /// @cond DEFINES
 #undef LOG
@@ -812,6 +886,77 @@ nd_t ndconvert_ip (nd_t z, nd_type_id_t type)
   }
 
   return z;
+Error:
+  return 0;
+}
+
+/** In-place linear contrast adjustment with satuation.
+ *
+ *  Determines the linear transform needed to map \a min and \a max to interval 
+ *  representable by ndtype(z).
+ *
+ *  For example to map part of an \c int16 range to 0-255 in a \c uint8 array:
+ *  \code
+ *  ndLinearConstrastAdjust_ip(z,nd_u8,-10000,4000); // maps -10000 to 0 and 4000 to 255.
+ *  ndconvert_ip(z,nd_u8);
+ *  \endcode
+ *  
+ *  The linear scaling exhibits type saturation.  In the example, everything 
+ *  with an intensity less than -10000 in the original also gets mapped to 0.
+ *  Everything brighter than 4000 gets mapped to 255.
+ *
+ *  The va_arg() mechanism is used to pass the \a min and \a max arguments in a
+ *  generic fashion.  The type of min and max are infered from ndtype(z).  
+ *  This is somewhat dangerous if you try passing mismatched types.
+ *
+ *  For floating point types, the maximum and minimum of the output range are
+ *  0 and 1.
+ * 
+ *  \see ndfmad_scalar_ip()
+ *
+ *  \param[out]  z   The array on which to operate.
+ *  \param[in]  type   The type from which to infer the output range.
+ *  \param[in]   min   The minimum of the input intensity range.
+ *  \param[in]   max   The maximum of the input intensity range.
+ *  \returns \a z on success, or NULL otherwise.
+ *  \ingroup ndops
+ */
+nd_t ndLinearConstrastAdjust_ip(nd_t z,nd_type_id_t dtype,.../*min,max*/)
+{ float mn,mx,m;
+  #define TMIN(T) min_##T
+  #define TMAX(T) max_##T
+  const float mns[]=
+  { 0.0,0.0,0.0,0.0, //nd_u8,  nd_u16,  nd_u32,  nd_u64,
+    (f32)TMIN(i8),(f32)TMIN(i16),(f32)TMIN(i32),(f32)TMIN(i64),
+    0.0,0.0 //f32,f64
+  };
+  const float mxs[]=
+  { 0.0,0.0,0.0,0.0, //nd_u8,  nd_u16,  nd_u32,  nd_u64,
+    (f32)TMAX(i8),(f32)TMAX(i16),(f32)TMAX(i32),(f32)TMAX(i64),
+    0.0,0.0 //f32,f64
+  };
+  #undef TMIN
+  #undef TMAX
+
+  { va_list ap;
+    va_start(ap,dtype);
+    switch(ndtype(z))
+    { case nd_u8:
+      case nd_u16:
+      case nd_i8:
+      case nd_i16:
+      case nd_i32: {mn=(f32)va_arg(ap,int); mx=(f32)va_arg(ap,int);} break;
+      case nd_u32: {mn=(f32)va_arg(ap,unsigned); mx=(f32)va_arg(ap,unsigned);} break;
+      case nd_f32:
+      case nd_f64: {mn=(f32)va_arg(ap,double); mx=(f32)va_arg(ap,double);} break;
+      default:FAIL; /// \todo handle i64 and u64
+    }
+    va_end(ap);
+  }
+  return ndfmad_scalar_ip(z,
+                          m=(mxs[dtype]-mns[dtype])/(mx-mn), // m
+                          -m*mn,                             // b
+                          ndndim(z),ndshape(z));
 Error:
   return 0;
 }

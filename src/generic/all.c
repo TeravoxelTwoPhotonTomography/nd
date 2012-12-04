@@ -51,6 +51,28 @@
 #define TDST i64
 #include "ops.bitshift_ip.c"
 
+///// FMAD SCALAR IN-PLACE
+#define TDST u8
+#include "ops.fmad_scalar_ip.c"
+#define TDST u16
+#include "ops.fmad_scalar_ip.c"
+#define TDST u32
+#include "ops.fmad_scalar_ip.c"
+#define TDST u64
+#include "ops.fmad_scalar_ip.c"
+#define TDST i8
+#include "ops.fmad_scalar_ip.c"
+#define TDST i16
+#include "ops.fmad_scalar_ip.c"
+#define TDST i32
+#include "ops.fmad_scalar_ip.c"
+#define TDST i64
+#include "ops.fmad_scalar_ip.c"
+#define TDST f32
+#include "ops.fmad_scalar_ip.c"
+#define TDST f64
+#include "ops.fmad_scalar_ip.c"
+
 ///// FILL IN-PLACE
 #define TDST u8
 #include "ops.fill.c"
