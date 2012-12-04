@@ -43,3 +43,15 @@ TEST_F(fmad_scalar,CPU_Saturate_Low)  { CPU(41204,-2.0,10000.0,0);}
 TEST_F(fmad_scalar,GPU)               { GPU(41204, 0.5,10000.0,30602);}
 TEST_F(fmad_scalar,GPU_Saturate_High) { GPU(41204, 2.0,10000.0,65535);}
 TEST_F(fmad_scalar,GPU_Saturate_Low)  { GPU(41204,-2.0,10000.0,0);}
+
+
+TEST(LinearContrastAdjust,Test)
+{ nd_t a;
+  EXPECT_NE((void*)NULL,a=ndinit());
+  EXPECT_EQ(a,ndreshapev(ndcast(a,nd_u16),3,127,63,37));
+  EXPECT_EQ(a,ndref(a,malloc(ndnbytes(a)),nd_heap));
+  EXPECT_EQ(a,ndfill(a,41204));
+  EXPECT_EQ(a,ndLinearConstrastAdjust_ip(a,nd_u8,40000,50000));
+  EXPECT_EQ(-1,all<uint16_t>(ndnelem(a),(uint16_t*)nddata(a),30));
+  ndfree(a);
+}

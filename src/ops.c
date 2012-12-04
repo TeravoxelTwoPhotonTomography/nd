@@ -853,6 +853,7 @@ Error:
  *  would give <tt>112(0x70),128(0x80)</tt>.  I don't
  *  know which answer is best, so I just picked one.
  *
+ *  \todo This is a terrible function.  It does not behave intuitively.  FIX. 
  *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
@@ -932,9 +933,9 @@ nd_t ndLinearConstrastAdjust_ip(nd_t z,nd_type_id_t dtype,.../*min,max*/)
     0.0,0.0 //f32,f64
   };
   const float mxs[]=
-  { 0.0,0.0,0.0,0.0, //nd_u8,  nd_u16,  nd_u32,  nd_u64,
+  { (f32)TMAX(u8),(f32)TMAX(u16),(f32)TMAX(u32),(f32)TMAX(u64),
     (f32)TMAX(i8),(f32)TMAX(i16),(f32)TMAX(i32),(f32)TMAX(i64),
-    0.0,0.0 //f32,f64
+    1.0,1.0 //f32,f64
   };
   #undef TMIN
   #undef TMAX
