@@ -671,6 +671,7 @@ Error:
  *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
+extern unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b);
 nd_t ndfmad_scalar_ip(nd_t z,float m,float b,size_t ndim,size_t *shape)
 { f32 param[] = {m,b};
   REQUIRE(z,PTR_ARITHMETIC);
