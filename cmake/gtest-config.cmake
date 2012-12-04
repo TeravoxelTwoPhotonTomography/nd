@@ -5,7 +5,7 @@ macro(gtest_copy_shared_libraries _target)
   foreach(_lib libgtest libgtest-main)
     get_target_property(_name ${_lib}    IMPORTED_LOCATION)
     add_custom_command(TARGET ${_target} POST_BUILD
-      COMMAND ${CMAKE_COMMAND};-Er;copy;${_name};$<TARGET_FILE_DIR:${_target}>)  
+      COMMAND ${CMAKE_COMMAND};-E;copy;${_name};$<TARGET_FILE_DIR:${_target}>)  
   endforeach()
 endmacro()
 
@@ -51,7 +51,7 @@ find_package_handle_standard_args(GTEST DEFAULT_MSG
 if(NOT TARGET install-gtest)
   add_custom_target(install-gtest DEPENDS ${GTEST_BOTH_LIBRARIES})
 endif()
-install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" --build --target install-gtest)")
+#install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" --build --target install-gtest)")
 foreach(lib ${GTEST_BOTH_LIBRARIES})
   get_target_property(loc ${lib} IMPORTED_LOCATION)  
   if(MSVC)

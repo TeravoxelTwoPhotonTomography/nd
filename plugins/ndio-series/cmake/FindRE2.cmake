@@ -5,13 +5,19 @@
 # see: https://bitbucket.org/root_op/re2-msvc
 include(ExternalProject)
 include(FindPackageHandleStandardArgs)
+
+set(FLAGS -fPIC)
+if(WIN32)
+set(FLAGS -DWIN32)
+endif()
+
 if(NOT TARGET re2)
   ExternalProject_Add(re2
     URL     http://dl.dropbox.com/u/782372/Software/re2.zip
     URL_MD5 02ef3dc07e72033ca14fc3d59259182b
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-               -DCMAKE_CXX_FLAGS:STRING=-fPIC
+               -DCMAKE_CXX_FLAGS:STRING=${FLAGS}
     )
 endif()
 get_target_property(RE2_SRC_DIR re2 _EP_SOURCE_DIR)
