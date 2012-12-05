@@ -73,6 +73,28 @@
 #define TDST f64
 #include "ops.fmad_scalar_ip.c"
 
+///// SATURATE IN-PLACE
+#define TDST u8
+#include "ops.saturate_ip.c"
+#define TDST u16
+#include "ops.saturate_ip.c"
+#define TDST u32
+#include "ops.saturate_ip.c"
+#define TDST u64
+#include "ops.saturate_ip.c"
+#define TDST i8
+#include "ops.saturate_ip.c"
+#define TDST i16
+#include "ops.saturate_ip.c"
+#define TDST i32
+#include "ops.saturate_ip.c"
+#define TDST i64
+#include "ops.saturate_ip.c"
+#define TDST f32
+#include "ops.saturate_ip.c"
+#define TDST f64
+#include "ops.saturate_ip.c"
+
 ///// FILL IN-PLACE
 #define TDST u8
 #include "ops.fill.c"

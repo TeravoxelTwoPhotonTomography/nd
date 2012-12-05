@@ -49,6 +49,20 @@ typedef double   f64;
 
 typedef size_t  stride_t;
 
+typedef union val_t_ { int d; unsigned u; unsigned long long llu; long long lld; double f;} val_t; ///< Generic value type for passing parameters.
+#define VAL_u8(v)  (v.u)
+#define VAL_u16(v) (v.u)
+#define VAL_u32(v) (v.u)
+#define VAL_u64(v) (v.llu)
+#define VAL_i8(v)  (v.d)
+#define VAL_i16(v) (v.d)
+#define VAL_i32(v) (v.d)
+#define VAL_i64(v) (v.lld)
+#define VAL_f32(v) (v.f)
+#define VAL_f64(v) (v.f)
+#define VAL_(type) VAL_##type
+#define VAL(v,type) VAL_(type)(v)
+
 typedef void (inplace_vec_op_t)(stride_t N, void *z, stride_t zst, void *param, size_t nbytes);                                                   ///< \verbatim 1D f:z=f(z) \endverbatim
 typedef void (unary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes);                             ///< \verbatim 1D f:z=f(x)   \endverbatim
 typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,const void* y,stride_t yst,void *param, size_t nbytes); ///< \verbatim 1D f:z=f(x,y) \endverbatim
@@ -917,9 +931,9 @@ Error:
  *  \see ndfmad_scalar_ip()
  *
  *  \param[out]  z   The array on which to operate.
- *  \param[in]  type   The type from which to infer the output range.
- *  \param[in]   min   The minimum of the input intensity range.
- *  \param[in]   max   The maximum of the input intensity range.
+ *  \param[in]  type The type from which to infer the output range.
+ *  \param[in]   min The minimum of the input intensity range. The type should match the value type of \a z.
+ *  \param[in]   max The maximum of the input intensity range. The type should match the value type of \a z.
  *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
@@ -958,6 +972,63 @@ nd_t ndLinearConstrastAdjust_ip(nd_t z,nd_type_id_t dtype,.../*min,max*/)
   m=(mxs[dtype]-mns[dtype])/(mx-mn);
   b=-m*mn;
   return ndfmad_scalar_ip(z,m,b,ndndim(z),ndshape(z));
+Error:
+  return 0;
+}
+
+extern unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx);
+/** In-place satuation.
+ *
+ *  Intensities are inclusively clamped to the interval from \a min to \a max:
+ *  Values less than \a min are set to \a min, while values more than \a max are
+ *  set to \a max.
+ *
+ *  The va_arg() mechanism is used to pass the \a min and \a max arguments in a
+ *  generic fashion.  The type of min and max are infered from ndtype(z).  
+ *  This is somewhat dangerous if you try passing mismatched types.
+ *
+ *  \param[out]  z   The array on which to operate.
+ *  \param[in]   min The minimum of the input intensity range. Type should match the pixel type of \a z.
+ *  \param[in]   max The maximum of the input intensity range. Type should match the pixel type of \a z.
+ *  \returns \a z on success, or NULL otherwise.
+ *  \ingroup ndops
+ */
+nd_t ndsaturate_ip   (nd_t z,.../*min,max*/)
+{ val_t mn,mx;
+  { va_list ap;
+    va_start(ap,z);
+    switch(ndtype(z))
+    { case nd_u8:
+      case nd_u16:
+      case nd_i8:
+      case nd_i16:
+      case nd_i32: {mn.d  =va_arg(ap,int);      mx.d  =va_arg(ap,int);}      break;
+      case nd_u32: {mn.u  =va_arg(ap,unsigned); mx.u  =va_arg(ap,unsigned);} break;
+      case nd_i64: {mn.lld=va_arg(ap,int);      mx.lld=va_arg(ap,int);}      break;
+      case nd_u64: {mn.llu=va_arg(ap,unsigned); mx.llu=va_arg(ap,unsigned);} break;
+      case nd_f32:
+      case nd_f64: {mn.f  =va_arg(ap,double);   mx.f  =va_arg(ap,double);}   break;
+      default:FAIL; // could not understand type
+    }
+    va_end(ap);
+  }
+  { val_t param[] = {mn,mx};
+    REQUIRE(z,PTR_ARITHMETIC);
+    if(ndkind(z)==nd_gpu_cuda)
+    { TRY(saturate_ip_cuda(z,mn,mx));
+    } else
+    { REQUIRE(z,CAN_MEMCPY);
+      /// @cond DEFINES
+      #define CASE(T) TRY(inplace_op(ndndim(z),ndshape(z), \
+                                     nddata(z),ndstrides(z), \
+                                     (void*)param,sizeof(param), \
+                                     saturate_ip_##T)); break
+      /// @endcond
+      TYPECASE(ndtype(z));
+      #undef CASE
+    }
+  }
+  return z;
 Error:
   return 0;
 }
