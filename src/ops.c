@@ -994,7 +994,7 @@ extern unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx);
  *  \ingroup ndops
  */
 nd_t ndsaturate_ip   (nd_t z,.../*min,max*/)
-{ val_t mn,mx;
+{ val_t mn={0},mx={0}; // It's important to init these for some compilers (msvc)
   { va_list ap;
     va_start(ap,z);
     switch(ndtype(z))
@@ -1002,17 +1002,19 @@ nd_t ndsaturate_ip   (nd_t z,.../*min,max*/)
       case nd_u16:
       case nd_i8:
       case nd_i16:
-      case nd_i32: {mn.d  =va_arg(ap,int);      mx.d  =va_arg(ap,int);}      break;
-      case nd_u32: {mn.u  =va_arg(ap,unsigned); mx.u  =va_arg(ap,unsigned);} break;
-      case nd_i64: {mn.lld=va_arg(ap,int);      mx.lld=va_arg(ap,int);}      break;
-      case nd_u64: {mn.llu=va_arg(ap,unsigned); mx.llu=va_arg(ap,unsigned);} break;
+      case nd_i32: {mn.d  =va_arg(ap,int);                mx.d  =va_arg(ap,int);}                break;
+      case nd_u32: {mn.u  =va_arg(ap,unsigned);           mx.u  =va_arg(ap,unsigned);}           break;
+      case nd_i64: {mn.lld=va_arg(ap,long long);          mx.lld=va_arg(ap,long long);}          break;
+      case nd_u64: {mn.llu=va_arg(ap,unsigned long long); mx.llu=va_arg(ap,unsigned long long);} break;
       case nd_f32:
       case nd_f64: {mn.f  =va_arg(ap,double);   mx.f  =va_arg(ap,double);}   break;
       default:FAIL; // could not understand type
     }
     va_end(ap);
   }
-  { val_t param[] = {mn,mx};
+  { val_t param[2]; // = {mn,mx}; -- for some reason this doesn't work on msvc...may be missing something, but I think msvc doesn't treat these as plain old data
+    param[0]=mn;
+    param[1]=mx;
     REQUIRE(z,PTR_ARITHMETIC);
     if(ndkind(z)==nd_gpu_cuda)
     { TRY(saturate_ip_cuda(z,mn,mx));

@@ -29,7 +29,7 @@ struct Saturate:public ::testing::Test
     EXPECT_NE((void*)NULL,b=ndcuda(a,0));
     EXPECT_EQ(b,ndcopy(b,a,0,0))<<nderror(a);
     EXPECT_EQ(b,ndfill(b,init))<<nderror(b);
-    EXPECT_EQ(a,ndsaturate_ip(b,mn,mx))<<nderror(b);
+    EXPECT_EQ(b,ndsaturate_ip(b,mn,mx))<<nderror(b);
     EXPECT_EQ(a,ndcopy(a,b,0,0))<<nderror(b);
     ndfree(b);
     EXPECT_EQ(-1,all<uint16_t>(ndnelem(a),(uint16_t*)nddata(a),expect));
