@@ -9,8 +9,7 @@ endmacro()
 # CONFIG
 ################################################################################
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
-find_package(Mylib)
+find_package(mylib CONFIG PATHS cmake)
 if(MYLIB_FOUND)
   include_directories(${MYLIB_INCLUDE_DIR})
 
@@ -58,5 +57,3 @@ install(TARGETS ndio-tiff
   EXPORT ndio-tiff-targets
   LIBRARY DESTINATION bin/${NDIO_PLUGIN_PATH}
 )
-export(TARGETS ndio-tiff FILE ndio-tiff-targets.cmake)
-install(EXPORT ndio-tiff-targets DESTINATION cmake)

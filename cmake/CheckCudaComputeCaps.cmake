@@ -17,6 +17,7 @@ if(CUDA_FOUND)
     mark_as_advanced(CUDA_COMPUTE_CAPABILITY CUDA_GENERATE_CODE)
   else()
     ### TRY_RUN didn't work...guess?...I have library loading problems on osx...
+    message(STATUS "Guessing CUDA compute capability.")
     set(CUDA_COMPUTE_CAPABILITY "30" CACHE STRING "Compute capability of CUDA-capable GPU present")
     set(CUDA_GENERATE_CODE "arch=compute_${CUDA_COMPUTE_CAPABILITY},code=sm_${CUDA_COMPUTE_CAPABILITY}" CACHE STRING "Which GPU architectures to generate code for (each arch/code pair will be passed as --generate-code option to nvcc, separate multiple pairs by ;)")
     #set(CUDA_HAVE_GPU FALSE CACHE BOOL "Whether CUDA-capable GPU is present")

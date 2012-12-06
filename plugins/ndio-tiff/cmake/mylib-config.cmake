@@ -1,0 +1,33 @@
+include(FindPackageHandleStandardArgs)
+
+set(_MYLIB_HINTS ${CMAKE_INSTALL_PREFIX})
+
+find_path(MYLIB_INCLUDE_DIR array.h 
+         HINTS ${_MYLIB_HINTS} 
+         PATH_SUFFIXES include/mylib)
+find_library(MYLIB_CORE_LIBRARY
+             NAME ${CMAKE_STATIC_LIBRARY_PREFIX}mylib${CMAKE_STATIC_LIBRARY_SUFFIX} 
+             HINTS ${_MYLIB_HINTS}
+             PATH_SUFFIXES lib/mylib/${CMAKE_CFG_INTDIR}
+)
+find_library(MYLIB_TIFF_LIBRARY
+             NAME ${CMAKE_STATIC_LIBRARY_PREFIX}mytiff${CMAKE_STATIC_LIBRARY_SUFFIX} 
+             HINTS ${_MYLIB_HINTS}
+             PATH_SUFFIXES lib/mylib/${CMAKE_CFG_INTDIR}
+)
+find_library(MYLIB_FFT_LIBRARY
+             NAME ${CMAKE_STATIC_LIBRARY_PREFIX}myfft${CMAKE_STATIC_LIBRARY_SUFFIX} 
+             HINTS ${_MYLIB_HINTS}
+             PATH_SUFFIXES lib/mylib/${CMAKE_CFG_INTDIR}
+)
+
+set(MYLIB_LIBRARY ${MYLIB_CORE_LIBRARY})
+set(MYLIB_LIBRARIES ${MYLIB_CORE_LIBRARY} ${MYLIB_FFT_LIBRARY} ${MYLIB_FFT_LIBRARY})
+
+find_package_handle_standard_args(MYLIB DEFAULT_MSG
+  MYLIB_LIBRARIES
+  MYLIB_INCLUDE_DIR
+)
+
+
+

@@ -80,7 +80,6 @@ macro(FFMPEG_FIND name)
     list(APPEND FFMPEG_SHARED_LIBS lib${name})
 
     file(GLOB _files ${_loc}*)
-    show(_files)
     install(FILES ${_files} DESTINATION bin/plugins)
   else() #use static
     SET(FFMPEG_${name}_LIBRARY
