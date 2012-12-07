@@ -31,14 +31,14 @@ endif()
 
 
 add_library(szip STATIC IMPORTED)
+# I do not understand how szip determines the name of it's library.  I don't know why sometimes it's liblib
 set_target_properties(szip PROPERTIES
   IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+  IMPORTED_LOCATION         "${SZIP_ROOT_DIR}/lib/${LIBRARY_PREFIX}szip${CMAKE_STATIC_LIBRARY_SUFFIX}"
   IMPORTED_LOCATION_RELEASE "${SZIP_ROOT_DIR}/lib/${LIBRARY_PREFIX}${DEBUG_PREFIX}szip${CMAKE_STATIC_LIBRARY_SUFFIX}"
   IMPORTED_LOCATION_DEBUG   "${SZIP_ROOT_DIR}/lib/${LIBRARY_PREFIX}${DEBUG_PREFIX}szip${DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 add_dependencies(szip libszip)
-get_target_property(sziploc szip LOCATION)
-show(sziploc)
 
 set(SZIP_LIBRARY szip)
 #plural forms

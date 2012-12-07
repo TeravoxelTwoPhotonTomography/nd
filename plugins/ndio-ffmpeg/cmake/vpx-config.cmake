@@ -9,10 +9,9 @@
 # VPX_FOUND, if false, do not try to link
 # VPX_INCLUDE_DIR, where to find header
 #
-find_path(VPX_INCLUDE_DIR vpx/vp8.h)
-find_library(VPX_LIBRARY NAME vpx)
-if(NOT VPX_LIBRARY OR NOT EXISTS ${VPX_LIBRARY})
-  include(ExternalProject)
+include(ExternalProject)
+include(FindPackageHandleStandardArgs)
+if(NOT TARGET libvpx)
   ExternalProject_Add(libvpx
     DEPENDS yasm
     GIT_REPOSITORY http://git.chromium.org/webm/libvpx.git
@@ -26,11 +25,23 @@ if(NOT VPX_LIBRARY OR NOT EXISTS ${VPX_LIBRARY})
           --disable-examples
           --disable-unit-tests
   )
-  get_target_property(VPX_ROOT_DIR libvpx _EP_INSTALL_DIR)
-  set(VPX_LIBRARY ${VPX_ROOT_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}vpx${CMAKE_STATIC_LIBRARY_SUFFIX} CACHE FILEPATH "Path to library." FORCE)
-  set(VPX_INCLUDE_DIR ${VPX_ROOT_DIR}/include CACHE PATH "Path to vpx/vp8.h" FORCE)
 endif()
-include(FindPackageHandleStandardArgs)
+
+ExternalProject_Get_Property(libvpx INSTALL_DIR)
+set(VPX_INCLUDE_DIR ${INSTALL_DIR}/include)
+set(VPX_LIBRARY vpx)
+set(VPX_LIBRARIES vpx)
+  
+foreach(tgt ${VPX_LIBRARIES})
+  add_library(${tgt} IMPORTED STATIC)
+  add_dependencies(${tgt} libvpx)
+  set_target_properties(${tgt} PROPERTIES
+    IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+    IMPORTED_LOCATION  ${INSTALL_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${tgt}${CMAKE_STATIC_LIBRARY_SUFFIX}
+  )
+endforeach()
+
+set(VPX_INCLUDE_DIRS ${VPX_INCLUDE_DIR})
 find_package_handle_standard_args(VPX DEFAULT_MSG
   VPX_LIBRARY
   VPX_INCLUDE_DIR

@@ -54,6 +54,6 @@ endif()
 #  Install
 ###############################################################################
 install(TARGETS ndio-tiff
-  EXPORT ndio-tiff-targets
+#  EXPORT ndio-tiff-targets
   LIBRARY DESTINATION bin/${NDIO_PLUGIN_PATH}
 )

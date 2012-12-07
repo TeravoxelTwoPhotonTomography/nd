@@ -197,4 +197,5 @@ WriteTestInstance(m4v);
 WriteTestInstance(ogg);
 WriteTestInstance(webm);
 WriteTestInstance(mov);
+WriteTestInstance(h5);
 /// @endcond

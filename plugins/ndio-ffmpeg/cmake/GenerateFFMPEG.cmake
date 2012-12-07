@@ -28,7 +28,7 @@ include(ExternalProject)
 # If <confname> is false, will only add include directories and feature description.
 #   The library won't be "enabled" or "disabled" in the FFMPEG config.
 macro(_ffmpeg_maybe_add name confname description url)
-  find_package(${name})
+  find_package(${name} CONFIG PATHS cmake)
   set_package_properties(${name} PROPERTIES
     DESCRIPTION ${description}
     URL         ${url}
@@ -116,12 +116,9 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
   _ffmpeg_maybe_add(BZip2  bzlib     "A freely available, patent free, high-quality data compressor."    http://www.bzip.org)
   _ffmpeg_maybe_add(x264   libx264   "A free library for encoding videos streams into the H.264/MPEG-4 AVC format" http://www.videolab.org/developers/x264.html)
   _ffmpeg_maybe_add(theora libtheora "Video compression for the OGG format from Xiph.org" http://www.theora.org)
-  _ffmpeg_maybe_add(va     vaapi     "Enables hardware accelerated video decode/encode for prevailing standard formats." http://www.freedesktop.org/wiki/Software/vaapi)
+  _ffmpeg_maybe_add(vaapi  vaapi     "Enables hardware accelerated video decode/encode for prevailing standard formats." http://www.freedesktop.org/wiki/Software/vaapi)
   _ffmpeg_maybe_add(VPX    libvpx    "An open, royalty-free, media file format for the web." http://www.webmproject.org/code)
-
-  ## I haven't quite figured out xvid's build yet...It's hard to change the install prefix
-  ## using their build system.
-  #_ffmpeg_maybe_add(xvid   libxvid   "The XVID video codec." http://www.xvid.org)
+  _ffmpeg_maybe_add(xvid   libxvid   "The XVID video codec." http://www.xvid.org)
 
   #if(X264_FOUND) #X264 requires gpl
   #  set(_ffmpeg_conf ${_ffmpeg_conf} --enable-gpl)
@@ -130,9 +127,11 @@ function(GenerateFFMPEG GIT_URL GIT_TAG)
   ## Finish up - must be after _ffmpeg_maybe_add section
   #  Add library paths for each library to config's cflags
   foreach(lib ${FFMPEG_DEP_LIBRARIES})
-      get_filename_component(dir ${lib} PATH)
-      set(_ffmpeg_paths ${_ffmpeg_paths} --extra-ldflags=-L${dir})
+      get_target_property(loc ${lib} LOCATION)
+      get_filename_component(dir ${loc} PATH)
+      list(APPEND _ffmpeg_paths  --extra-ldflags=-L${dir})
   endforeach()
+  list(REMOVE_DUPLICATES _ffmpeg_paths)
 
   ##
   ## EXTERNAL PROJECT CALL
