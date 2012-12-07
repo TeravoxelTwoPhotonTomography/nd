@@ -6,9 +6,11 @@
 #include <gtest/gtest.h>
 #include "helpers.h"
 #include "nd.h"
-#include "cuda_runtime_api.h"
 #include "config.h"
+#if HAVE_CUDA
+#include "cuda_runtime_api.h"
 #include "cuda.h"
+#endif
 
 #define TOL_F32 (1e-5)
 #define NDIM    (4)
@@ -90,7 +92,7 @@ static void write(const char *name,nd_t a)
   ndioClose(file);
 }
 
-#if 1
+#if HAVE_CUDA
 TYPED_TEST(Affine,Identity_GPU)
 { nd_t src_,dst_;
 

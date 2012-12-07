@@ -10,9 +10,12 @@
  * \todo Test weird shapes.  Especially rows/planes >65k.
  * @cond TEST
  */
-#include "cuda_runtime_api.h"
-#include "nd.h"
+
 #include "config.h"
+#if HAVE_CUDA
+#include "cuda_runtime_api.h"
+#endif
+#include "nd.h"
 #include "helpers.h"
 #include <gtest/gtest.h>
 #include <stdio.h>
@@ -148,6 +151,7 @@ TEST_F(Convolve3d,CPU_unaligned_shape)
 }
 
 // === GPU ===
+#if HAVE_CUDA
 TEST_F(Convolve3d,GPU_dim0)
 { nd_t src=ndcuda(orig,0),
        dst=ndcuda(orig,0);
@@ -313,5 +317,5 @@ TYPED_TEST(Convolve_1DTypeTest,GPU)
   ndfree(s);
   EXPECT_EQ(cudaSuccess,cudaDeviceReset());
 }
-
+#endif // HAVE_CUDA
 /// @endcond TEST

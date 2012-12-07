@@ -2,6 +2,7 @@
  * \file
  * Continuous nd affine transform.
  */
+#include "config.h"
 #include "nd.h"
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +36,11 @@ typedef double   f64;
 #define restrict __restrict
 #endif
 
+#if HAVE_CUDA
 extern unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *transform, const nd_affine_params_t *param);
+#else
+unsigned ndaffine_cuda(nd_t dst, const nd_t src_, const float *transform, const nd_affine_params_t *param) {FAIL; Error: return 0;}
+#endif
 /// @endcond
 
 // import kind capabilities

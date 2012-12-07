@@ -3,7 +3,7 @@
  * Tests for nd_fmap_scalar_ip and ndLinearContrastAdjust_ip operations
  * \todo Do tests over different types.
  */
-
+#include "config.h"
 #include "nd.h"
 #include <gtest/gtest.h>
 #include "helpers.h"
@@ -40,6 +40,8 @@ struct Saturate:public ::testing::Test
 TEST_F(Saturate,CPU)      { CPU(41204, 0     ,50000  ,41204);}
 TEST_F(Saturate,CPU_High) { CPU(41204, 0     ,10000  ,10000);}
 TEST_F(Saturate,CPU_Low)  { CPU(41204, 50000 ,60000  ,50000);}
+#if HAVE_CUDA
 TEST_F(Saturate,GPU)      { GPU(41204, 0     ,50000  ,41204);}
 TEST_F(Saturate,GPU_High) { GPU(41204, 0     ,10000  ,10000);}
 TEST_F(Saturate,GPU_Low)  { GPU(41204, 50000 ,60000  ,50000);}
+#endif

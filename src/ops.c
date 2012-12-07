@@ -8,8 +8,12 @@
  *
  *   \todo Refactor setting ndim and shape to it's own function.
  */
-#include "cuda_runtime_api.h"
+#include "config.h"
+#if HAVE_CUDA
+  #include "cuda_runtime_api.h"
+#endif
 #include <stdint.h>
+#include <limits.h>
 #if defined(__APPLE__) || defined(__MACH__)
 #include <malloc/malloc.h>
 #else
@@ -21,6 +25,17 @@
 #include "nd.h"
 #include "ops.h"
 
+// It looks like older versions of gcc don't define these
+# ifndef LLONG_MIN
+#  define LLONG_MIN	(-LLONG_MAX-1)
+# endif
+# ifndef LLONG_MAX
+#  define LLONG_MAX	__LONG_LONG_MAX__
+# endif
+# ifndef ULLONG_MAX
+#  define ULLONG_MAX	(LLONG_MAX * 2ULL + 1)
+# endif
+
 /// @cond DEFINES
 #define restrict   __restrict
 #define countof(e) (sizeof(e)/sizeof(*(e)))
@@ -31,10 +46,6 @@
 /// @endcond
 
 /// @cond PRIVATE
-// Forward declarations
-unsigned xor_ip_cuda(nd_t dst,uint64_t v);
-unsigned bitshift_ip_cuda(nd_t dst,int b,int n);
-
 typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -88,6 +99,7 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #define max_f32  FLT_MAX
 #define max_f64  DBL_MAX
 
+
 //-// Import generics
 #include "generic/all.c"
 #include "generic/macros.h"
@@ -102,11 +114,30 @@ typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,str
 #define ENDL     "\n"
 #define LOG(...) fprintf(stderr,__VA_ARGS__)
 #define TRY(e)   do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e); goto Error; }}while(0)
-#define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
+#if HAVE_CUDA
+  #define CUTRY(e) do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
+#else
+  #define CUTRY TRY
+#endif
 #define TRYMSG(e,msg) do{if(!(e)) {LOG("%s(%d): %s"ENDL "\tExpression evaluated as false."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,msg); goto Error; }}while(0)
 #define FAIL     do{          LOG("%s(%d): %s"ENDL "\tExecution should not reach here."ENDL,__FILE__,__LINE__,__FUNCTION__); goto Error; }while(0)
 #define TODO     do{          LOG("%s(%d): %s"ENDL "TODO: \tNot implemented yet."ENDL,__FILE__,__LINE__,__FUNCTION__); exit(-1); }while(0)
 /// @endcond
+
+#if HAVE_CUDA
+extern unsigned xor_ip_cuda(nd_t dst,uint64_t v);
+extern unsigned bitshift_ip_cuda(nd_t dst,int b,int n);
+extern unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx);
+extern unsigned fill_cuda(nd_t dst,uint64_t v);
+extern unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b);
+#else
+#define NO_CUDA_SUPPORT {FAIL; Error: return 0;}
+unsigned xor_ip_cuda(nd_t dst,uint64_t v)               NO_CUDA_SUPPORT
+unsigned bitshift_ip_cuda(nd_t dst,int b,int n)         NO_CUDA_SUPPORT
+unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx)  NO_CUDA_SUPPORT
+unsigned fill_cuda(nd_t dst,uint64_t v)                 NO_CUDA_SUPPORT
+unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b) NO_CUDA_SUPPORT
+#endif
 
 //-//
 //-// Basic Element-wise operations
@@ -313,33 +344,46 @@ static size_t min_sz_t(size_t a, size_t b)
 /// @endcond
 
 struct _cuda_copy_param_t
-{ enum cudaMemcpyKind direction;
+{ 
+#if HAVE_CUDA
+  enum cudaMemcpyKind direction;
   cudaStream_t stream;
   cudaError_t  ecode; ///< out
+#endif
+  int ecode;
 };
 
-struct _cuda_copy_param_t make_cuda_copy_params(nd_t dst,nd_t src)
-{ struct _cuda_copy_param_t out={cudaMemcpyDeviceToDevice,0,cudaSuccess};
-  out.stream=(ndkind(src)==nd_gpu_cuda)?ndCudaStream(src):ndCudaStream(dst);
-  if(ndkind(src)==nd_gpu_cuda  && ndkind(dst)!=nd_gpu_cuda)
-    out.direction=cudaMemcpyDeviceToHost;
-  if(ndkind(src)!=nd_gpu_cuda  && ndkind(dst)==nd_gpu_cuda)
-    out.direction=cudaMemcpyHostToDevice;
-  return out;
-}
 
-void cuda_copy_op(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes)
-{ struct _cuda_copy_param_t* p=(struct _cuda_copy_param_t*)param;
-  cudaError_t ecode=cudaErrorInvalidValue;
-  TRY(p->ecode==cudaSuccess);
-  TRY(xst==zst);
-  CUTRY(ecode=cudaMemcpy(z,x,N*xst,p->direction));
-  p->ecode=cudaSuccess;
-  return;
-Error:
-  if(p->ecode!=cudaSuccess) return;
-  p->ecode=ecode;
-}
+#if HAVE_CUDA
+  struct _cuda_copy_param_t make_cuda_copy_params(nd_t dst,nd_t src)
+  { struct _cuda_copy_param_t out={cudaMemcpyDeviceToDevice,0,cudaSuccess};
+    out.stream=(ndkind(src)==nd_gpu_cuda)?ndCudaStream(src):ndCudaStream(dst);
+    if(ndkind(src)==nd_gpu_cuda  && ndkind(dst)!=nd_gpu_cuda)
+      out.direction=cudaMemcpyDeviceToHost;
+    if(ndkind(src)!=nd_gpu_cuda  && ndkind(dst)==nd_gpu_cuda)
+      out.direction=cudaMemcpyHostToDevice;
+    return out;
+  }
+
+  void cuda_copy_op(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes)
+  { struct _cuda_copy_param_t* p=(struct _cuda_copy_param_t*)param;
+    cudaError_t ecode=cudaErrorInvalidValue;
+    TRY(p->ecode==cudaSuccess);
+    TRY(xst==zst);
+    CUTRY(ecode=cudaMemcpy(z,x,N*xst,p->direction));
+    p->ecode=cudaSuccess;
+    return;
+  Error:
+    if(p->ecode!=cudaSuccess) return;
+    p->ecode=ecode;
+  }
+#else
+  struct _cuda_copy_param_t make_cuda_copy_params(nd_t dst,nd_t src)
+  { struct _cuda_copy_param_t out={0};
+    return out;
+  }
+  void cuda_copy_op(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes)  {return;}
+#endif
 
 /// @cond DEFINES
 #undef LOG
@@ -685,7 +729,6 @@ Error:
  *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
-extern unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b);
 nd_t ndfmad_scalar_ip(nd_t z,float m,float b,size_t ndim,size_t *shape)
 { f32 param[] = {m,b};
   REQUIRE(z,PTR_ARITHMETIC);
@@ -720,7 +763,6 @@ Error:
 #define LOG(...) ndLogError(z,__VA_ARGS__)
 /// @endcond
 
-extern unsigned fill_cuda(nd_t dst,uint64_t v);
 /** Set each voxel in \a z to \a c (reinterpreted as ndtype(z))
  *  \code
  *  ndcast(z,nd_f64);          // z is an array of doubles.
@@ -976,7 +1018,6 @@ Error:
   return 0;
 }
 
-extern unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx);
 /** In-place satuation.
  *
  *  Intensities are inclusively clamped to the interval from \a min to \a max:

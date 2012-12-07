@@ -48,19 +48,23 @@ set(SHLWAPI)
 endif()
 
 ### CUDA
+set(HAVE_CUDA 0)
 find_package(CUDA 4.0)
-include(cmake/CheckCudaComputeCaps.cmake)
-show(CUDA_GENERATE_CODE)
-include_directories(${CUDA_INCLUDE_DIRS})
-cuda_build_clean_target()
-set(cuda_build_cubin on)
-set(CUOPTS
-  -Xcompiler -fPIC --generate-code ${CUDA_GENERATE_CODE}
-  DEBUG -g -G
-  RELEASE --use_fast_math
-  RELWITHDEBINFO --use_fast_math;-g
-  MINSIZEREL --use_fast_math
-  )
+if(CUDA_FOUND)
+  set(HAVE_CUDA 1)
+  include(cmake/CheckCudaComputeCaps.cmake)
+  show(CUDA_GENERATE_CODE)
+  include_directories(${CUDA_INCLUDE_DIRS})
+  cuda_build_clean_target()
+  set(cuda_build_cubin on)
+  set(CUOPTS
+    -Xcompiler -fPIC --generate-code ${CUDA_GENERATE_CODE}
+    DEBUG -g -G
+    RELEASE --use_fast_math
+    RELWITHDEBINFO --use_fast_math;-g
+    MINSIZEREL --use_fast_math
+    )
+endif()
 
 ################################################################################
 # SOURCE
@@ -70,14 +74,16 @@ file(GLOB SRCS  src/*.c src/io/*.c src/affine/*.c src/conv/*.c)
 file(GLOB HDRS  src/*.h src/io/*. src/conv/*.h)
 file(GLOB CUSRC src/affine/*.cu src/conv/*.cu src/generic/*.cu)
 
-cuda_compile(CUFILES STATIC ${CUSRC} OPTIONS ${CUOPTS})
+if(CUDA_FOUND)
+  #add_executable(cuda_compute_capability cmake/cuda_compute_capability.c)
+  #target_link_libraries(cuda_compute_capability ${CUDA_LIBRARIES})
+  cuda_compile(CUFILES STATIC ${CUSRC} OPTIONS ${CUOPTS})
+endif()
 
 ################################################################################
 # TARGETS
 ################################################################################
 
-add_executable(cuda_compute_capability cmake/cuda_compute_capability.c)
-target_link_libraries(cuda_compute_capability ${CUDA_LIBRARIES})
 
 add_definitions(-fPIC)
 

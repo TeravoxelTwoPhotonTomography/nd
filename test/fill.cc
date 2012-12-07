@@ -7,6 +7,7 @@
 #include "nd.h"
 #include <gtest/gtest.h>
 #include "helpers.h"
+#include "config.h"
 
 TEST(Fill,CPU)
  { nd_t a;
@@ -18,6 +19,7 @@ TEST(Fill,CPU)
    ndfree(a);
  }
 
+#if HAVE_CUDA
 TEST(Fill,GPU)
  { nd_t a,b;
    EXPECT_NE((void*)NULL,a=ndinit());
@@ -33,3 +35,4 @@ TEST(Fill,GPU)
    EXPECT_EQ(-1,all<int16_t>(ndnelem(a),(int16_t*)nddata(a),0x8000));
    ndfree(a);
  }
+#endif

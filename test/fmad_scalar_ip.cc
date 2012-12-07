@@ -4,6 +4,8 @@
  * \todo Do tests over different types.
  */
 
+
+#include "config.h"
 #include "nd.h"
 #include <gtest/gtest.h>
 #include "helpers.h"
@@ -40,9 +42,11 @@ struct fmad_scalar:public ::testing::Test
 TEST_F(fmad_scalar,CPU)               { CPU(41204, 0.5,10000.0,30602);}
 TEST_F(fmad_scalar,CPU_Saturate_High) { CPU(41204, 2.0,10000.0,65535);}
 TEST_F(fmad_scalar,CPU_Saturate_Low)  { CPU(41204,-2.0,10000.0,0);}
+#if HAVE_CUDA
 TEST_F(fmad_scalar,GPU)               { GPU(41204, 0.5,10000.0,30602);}
 TEST_F(fmad_scalar,GPU_Saturate_High) { GPU(41204, 2.0,10000.0,65535);}
 TEST_F(fmad_scalar,GPU_Saturate_Low)  { GPU(41204,-2.0,10000.0,0);}
+#endif
 
 
 TEST(LinearContrastAdjust,Test)
@@ -55,3 +59,4 @@ TEST(LinearContrastAdjust,Test)
   EXPECT_EQ(-1,all<uint16_t>(ndnelem(a),(uint16_t*)nddata(a),30));
   ndfree(a);
 }
+

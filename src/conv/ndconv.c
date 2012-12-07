@@ -2,13 +2,24 @@
  * \file
  * nD direct (not fft-based) convolutions.
  */
-
+#include "config.h"
 #include "nd.h"
 #include <stdint.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
+
+// old GCC fails to define these
+# ifndef LLONG_MIN
+#  define LLONG_MIN	(-LLONG_MAX-1)
+# endif
+# ifndef LLONG_MAX
+#  define LLONG_MAX	__LONG_LONG_MAX__
+# endif
+# ifndef ULLONG_MAX
+#  define ULLONG_MAX	(LLONG_MAX * 2ULL + 1)
+# endif
 
 /// @cond PRIVATE
 #define ENDL      "\n"
@@ -55,7 +66,11 @@ typedef double   f64;
 #define restrict __restrict
 #endif
 
-extern unsigned ndconv1_cuda(nd_t dst,nd_t src,const nd_t filter,const unsigned idim,const nd_conv_params_t *param);
+#if HAVE_CUDA
+  extern unsigned ndconv1_cuda(nd_t dst,nd_t src,const nd_t filter,const unsigned idim,const nd_conv_params_t *param);
+#else
+  unsigned ndconv1_cuda(nd_t dst,nd_t src,const nd_t filter,const unsigned idim,const nd_conv_params_t *param) {FAIL; Error: return 0;}
+#endif
 /// \todo extern unsigned ndconv1_ip_cuda(nd_t dst, const nd_t filter, const unsigned idim, const nd_conv_params_t *param);
 
 /// @endcond

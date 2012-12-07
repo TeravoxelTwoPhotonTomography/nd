@@ -4,8 +4,10 @@
     \author Nathan Clack
     \date   June 2012
  */
-
-#include "cuda_runtime_api.h"
+#include "config.h"
+#if HAVE_CUDA
+  #include "cuda_runtime_api.h"
+#endif
 #include "nd.h"
 #include <stdlib.h>
 #include <stdarg.h>
@@ -32,8 +34,13 @@
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
 #define SAFEFREE(e)                  if((e)){free(e); (e)=NULL;}
-#define CUTRY(e)                     do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
-#define CUWARN(e)                    do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode));             }}while(0)
+#if HAVE_CUDA
+  #define CUTRY(e)                     do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
+  #define CUWARN(e)                    do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode));             }}while(0)
+#else
+  #define CUTRY(e)  TRY(e)
+  #define CUWARN(e) TRY(e)
+#endif
 /// @endcond
 
 #if 0
@@ -60,8 +67,11 @@ typedef struct _nd_cuda_t* nd_cuda_t;
 /// Castable to nd_t.
 struct _nd_cuda_t
 { struct _nd_t vol;             ///< host bound shape,strides. device bound data.  Must be the first element in the struct.
-                                
+#if HAVE_CUDA                                
   cudaStream_t stream;          ///< currently bound stream
+#else
+  int          stream;
+#endif
   size_t         dev_ndim;      ///< dimension of device-bound shape
   size_t         dev_cap;       ///< capacity of device buffer (aids reallocation)
   void *restrict dev_shape;     ///< device bound shape array
@@ -169,9 +179,11 @@ Error:
  */
 static void ndcuda_free(nd_cuda_t a)
 { void *d=0;
+#if HAVE_CUDA
   if(d=nddata((nd_t)a))CUWARN(cudaFree(d));
   if(d=a->dev_shape)   CUWARN(cudaFree(d));
   if(d=a->dev_strides) CUWARN(cudaFree(d));
+#endif
 }
 
 void ndfree(nd_t a)
@@ -403,6 +415,7 @@ void ndswap(nd_t a, nd_t b)
 static nd_cuda_t ndcuda_init(void)
 { nd_cuda_t out=0;
   nd_t tmp=0;
+#if HAVE_CUDA
   NEW(struct _nd_cuda_t,out,1);
   memset(out,0,sizeof(struct _nd_cuda_t));
   TRY(tmp=ndinit());
@@ -410,6 +423,9 @@ static nd_cuda_t ndcuda_init(void)
   free(tmp);
   TRY(ndsetkind((nd_t)out,nd_gpu_cuda));
   return out;
+#else
+  FAIL("[libnd] CUDA support unavaible."); 
+#endif
 Error:
   return 0;
 }
@@ -485,6 +501,7 @@ Error:
 nd_t ndcuda(nd_t a,void* stream)
 { nd_cuda_t out;
   TRY(out=ndcuda_init());  
+#if HAVE_CUDA
   out->stream=(cudaStream_t)stream;
   TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
@@ -495,6 +512,7 @@ nd_t ndcuda(nd_t a,void* stream)
 
   TRY(ndCudaSyncShape((nd_t)out));
   return (nd_t)out;
+#endif
 Error:  
   if(out) free(out);  // I suppose ndfree should know how to free gpu-based shape and strides
   return 0;
@@ -505,8 +523,14 @@ Error:
  *  \returns the input array, \a a, on sucess.  Otherwise 0.
  */
 nd_t ndCudaMemset(nd_t a, unsigned char v)
-{ CUTRY(cudaMemset(nddata(a),v,ndnbytes(a)));
+{ 
+  REQUIRE(a,CAN_CUDA);
+#if HAVE_CUDA
+  CUTRY(cudaMemset(nddata(a),v,ndnbytes(a)));
   return a;
+#else
+  FAIL("[libnd] CUDA support unavailable");
+#endif
 Error:
   return 0;
 }
@@ -518,7 +542,7 @@ Error:
 nd_t ndCudaSyncShape(nd_t a)
 { nd_cuda_t self=(nd_cuda_t)a;
   REQUIRE(a,CAN_CUDA);
-
+#if HAVE_CUDA
   if(self->dev_ndim<ndndim(a)) // resize device shape and strides arrays if necessary
   { CUTRY(cudaFree(self->dev_shape));
     CUTRY(cudaFree(self->dev_strides));
@@ -530,6 +554,9 @@ nd_t ndCudaSyncShape(nd_t a)
   CUTRY(cudaMemcpy(self->dev_strides,a->strides,sizeof(size_t)*(ndndim(a)+1),cudaMemcpyHostToDevice));
   TRY(ndCudaSetCapacity(a,ndnbytes(a)));
   return a;
+#else
+  FAIL("[libnd] CUDA support unavailable");
+#endif
 Error:
   return 0;
 }
@@ -555,10 +582,7 @@ void* ndCudaStrides  (nd_t self) {return (self&&(ndkind(self)==nd_gpu_cuda))?((n
 #define LOG(...) ndLogError(self_,__VA_ARGS__)
 
 void* ndCudaStream(nd_t self_)
-{ CUTRY(cudaGetLastError());
-  return (void*)(((nd_cuda_t)self_)->stream);
-Error:
-  return 0;
+{ return (void*)(((nd_cuda_t)self_)->stream);
 }
 
 /**
@@ -569,15 +593,23 @@ Error:
  */
 nd_t ndCudaBindStream(nd_t self_, void* stream)
 { nd_cuda_t self=(nd_cuda_t)self_;
+#if HAVE_CUDA
   self->stream=(cudaStream_t)stream;
+#else
+  FAIL("[libnd] CUDA support unavailable");
+#endif
   return self_;
+Error:
+  return 0;
 }
 
 /** Synchronize on the currently bound stream. */
 nd_t ndCudaWait(nd_t self_)
 { nd_cuda_t self=(nd_cuda_t)self_;
+#if HAVE_CUDA
   if(self->stream)
     CUTRY(cudaStreamSynchronize(self->stream));
+#endif
   return self_;
 Error:
   return 0;
@@ -595,11 +627,13 @@ Error:
  */
 nd_t ndCudaSetCapacity(nd_t self_, size_t nbytes)
 { nd_cuda_t self=(nd_cuda_t)self_;
+#if HAVE_CUDA
   if(self->dev_cap<nbytes)
   { CUTRY(cudaFree(self_->data));
     CUTRY(cudaMalloc(&self_->data,nbytes));
     self->dev_cap=nbytes;
   }
+#endif
   return self_;
 Error:
   return 0;
