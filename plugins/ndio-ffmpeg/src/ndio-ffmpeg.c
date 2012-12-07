@@ -55,11 +55,11 @@
           * The process of read/writing a container file is called demuxing/muxing.
           * The process of unpacking/packing a video stream is called decoding/encoding.
 */
+#include "strsep.h"
 #include "nd.h"
 #include "src/io/interface.h"
 #include <stdint.h>
 #include <string.h>
-#include "strsep.h"
 
 // need to define inline before including av* headers on C89 compilers
 #ifdef _MSC_VER
