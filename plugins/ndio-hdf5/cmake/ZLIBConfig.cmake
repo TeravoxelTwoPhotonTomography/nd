@@ -10,9 +10,9 @@ macro(show v)
 endmacro()
 
 if(NOT TARGET libz) 
-  set( _PATCH_FILE "${PROJECT_BINARY_DIR}/cmake/Patch.cmake" )
+  set( _PATCH_FILE "${PROJECT_BINARY_DIR}/cmake/zlib-patch.cmake" )
   set( _SOURCE_DIR "${PROJECT_BINARY_DIR}/libz-prefix/src/libz" ) # Assumes default prefix path
-  configure_file(  "${PROJECT_SOURCE_DIR}/cmake/Patch.cmake.in" "${_PATCH_FILE}" @ONLY )
+  configure_file(  "${PROJECT_SOURCE_DIR}/cmake/zlib-patch.cmake.in" "${_PATCH_FILE}" @ONLY )
   ExternalProject_Add(libz
     URL        http://zlib.net/zlib-1.2.7.tar.gz
     URL_MD5    60df6a37c56e7c1366cca812414f7b85

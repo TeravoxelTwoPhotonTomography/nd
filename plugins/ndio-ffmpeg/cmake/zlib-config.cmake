@@ -9,7 +9,7 @@ macro(show v)
   message("${v} is ${${v}}")
 endmacro()
 
-if(NOT TARGET libz) 
+if(NOT TARGET libz)
   set( _PATCH_FILE "${PROJECT_BINARY_DIR}/cmake/zlib-patch.cmake" )
   set( _SOURCE_DIR "${PROJECT_BINARY_DIR}/libz-prefix/src/libz" ) # Assumes default prefix path
   configure_file(  "${PROJECT_SOURCE_DIR}/cmake/zlib-patch.cmake.in" "${_PATCH_FILE}" @ONLY )
@@ -22,7 +22,6 @@ if(NOT TARGET libz)
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DCMAKE_PREFIX_PATH:PATH=${PROJECT_SOURCE_DIR}/cmake    
                -DCMAKE_C_FLAGS=-fPIC
-    #BUILD_IN_SOURCE   TRUE
     )
 endif()
 
