@@ -1,33 +1,34 @@
+# Locate mylib library  
+
+include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
-set(_MYLIB_HINTS ${CMAKE_INSTALL_PREFIX})
+find_package(git)
+set(MYLIB_GIT_REPOSITORY git@bitbucket.org:nclack/mylib.git CACHE STRING "Location of the git repository for libnd.")
+if(NOT TARGET libmylib)
+  ExternalProject_Add(libmylib
+      GIT_REPOSITORY ${MYLIB_GIT_REPOSITORY}      
+      UPDATE_COMMAND ${GIT_EXECUTABLE} pull origin master
+      CMAKE_ARGS     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                     -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+  )
+endif()
 
-find_path(MYLIB_INCLUDE_DIR array.h 
-         HINTS ${_MYLIB_HINTS} 
-         PATH_SUFFIXES include/mylib)
-find_library(MYLIB_CORE_LIBRARY
-             NAME ${CMAKE_STATIC_LIBRARY_PREFIX}mylib${CMAKE_STATIC_LIBRARY_SUFFIX} 
-             HINTS ${_MYLIB_HINTS}
-             PATH_SUFFIXES lib/mylib/${CMAKE_CFG_INTDIR}
-)
-find_library(MYLIB_TIFF_LIBRARY
-             NAME ${CMAKE_STATIC_LIBRARY_PREFIX}mytiff${CMAKE_STATIC_LIBRARY_SUFFIX} 
-             HINTS ${_MYLIB_HINTS}
-             PATH_SUFFIXES lib/mylib/${CMAKE_CFG_INTDIR}
-)
-find_library(MYLIB_FFT_LIBRARY
-             NAME ${CMAKE_STATIC_LIBRARY_PREFIX}myfft${CMAKE_STATIC_LIBRARY_SUFFIX} 
-             HINTS ${_MYLIB_HINTS}
-             PATH_SUFFIXES lib/mylib/${CMAKE_CFG_INTDIR}
-)
+ExternalProject_Get_Property(libmylib INSTALL_DIR)
+set(MYLIB_INCLUDE_DIR ${INSTALL_DIR}/include/mylib)
+set(MYLIB_LIBRARY   mylib)
+set(MYLIB_LIBRARIES mylib mytiff myfft)
 
-set(MYLIB_LIBRARY ${MYLIB_CORE_LIBRARY})
-set(MYLIB_LIBRARIES ${MYLIB_CORE_LIBRARY} ${MYLIB_TIFF_LIBRARY} ${MYLIB_FFT_LIBRARY})
+foreach(tgt ${MYLIB_LIBRARIES})
+  add_library(${tgt} IMPORTED STATIC)
+  add_dependencies(${tgt} libmylib)
+  set_target_properties(${tgt} PROPERTIES
+    IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+    IMPORTED_LOCATION  ${INSTALL_DIR}/lib/mylib/${CMAKE_STATIC_LIBRARY_PREFIX}${tgt}${CMAKE_STATIC_LIBRARY_SUFFIX}
+  )
+endforeach()
 
 find_package_handle_standard_args(MYLIB DEFAULT_MSG
-  MYLIB_LIBRARIES
   MYLIB_INCLUDE_DIR
+  MYLIB_LIBRARIES
 )
-
-
-

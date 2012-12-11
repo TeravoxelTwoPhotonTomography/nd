@@ -9,7 +9,7 @@ endmacro()
 # CONFIG
 ################################################################################
 
-find_package(mylib CONFIG PATHS cmake)
+find_package(MYLIB CONFIG PATHS cmake)
 if(MYLIB_FOUND)
   include_directories(${MYLIB_INCLUDE_DIR})
 
