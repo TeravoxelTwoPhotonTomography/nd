@@ -3,12 +3,11 @@
 include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
-find_package(git)
 set(MYLIB_GIT_REPOSITORY git@bitbucket.org:nclack/mylib.git CACHE STRING "Location of the git repository for libnd.")
 if(NOT TARGET libmylib)
   ExternalProject_Add(libmylib
       GIT_REPOSITORY ${MYLIB_GIT_REPOSITORY}      
-      UPDATE_COMMAND ${GIT_EXECUTABLE} pull origin master
+      UPDATE_COMMAND git pull origin master
       CMAKE_ARGS     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                      -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
   )
