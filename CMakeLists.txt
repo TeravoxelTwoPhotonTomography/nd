@@ -37,8 +37,6 @@ find_package(GTEST CONFIG PATHS cmake)
 ### NDIO plugins
 set(NDIO_PLUGIN_PATH  plugins)
 set(ND_TEST_DATA_PATH ${PROJECT_SOURCE_DIR}/test/data)
-configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
-include_directories(${PROJECT_BINARY_DIR})
 
 ### Windows shell lightweight utility functions - for plugin search
 if(WIN32)
@@ -81,9 +79,14 @@ if(CUDA_FOUND)
 endif()
 
 ################################################################################
+# config.h
+################################################################################
+configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
+include_directories(${PROJECT_BINARY_DIR})
+
+################################################################################
 # TARGETS
 ################################################################################
-
 
 add_definitions(-fPIC)
 
