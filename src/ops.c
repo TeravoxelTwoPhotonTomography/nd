@@ -349,8 +349,9 @@ struct _cuda_copy_param_t
   enum cudaMemcpyKind direction;
   cudaStream_t stream;
   cudaError_t  ecode; ///< out
-#endif
+#else
   int ecode;
+#endif
 };
 
 
