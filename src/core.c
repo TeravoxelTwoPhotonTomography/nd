@@ -499,9 +499,10 @@ Error:
  * If stream is not NULL, will use the async api for copying memeory to the GPU.
  */
 nd_t ndcuda(nd_t a,void* stream)
-{ nd_cuda_t out;
-  TRY(out=ndcuda_init());  
+{ 
 #if HAVE_CUDA
+  nd_cuda_t out=0;
+  TRY(out=ndcuda_init());  
   out->stream=(cudaStream_t)stream;
   TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
@@ -511,8 +512,12 @@ nd_t ndcuda(nd_t a,void* stream)
   out->dev_ndim=ndndim(a);
 
   TRY(ndCudaSyncShape((nd_t)out));
-  return (nd_t)out;
+#else // fall back to heap
+  nd_t out=0;
+  TRY(out=ndheap(a));
+  ndLogError(out,"Warning: CUDA storage requested but not available.  Defaulting to CPU."ENDL);
 #endif
+  return (nd_t)out;
 Error:  
   if(out) free(out);  // I suppose ndfree should know how to free gpu-based shape and strides
   return 0;
