@@ -1,1 +1,0 @@
-#define NDIO_BUILD_ROOT  "@CMAKE_BINARY_DIR@"

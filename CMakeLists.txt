@@ -8,8 +8,6 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
   "N-Dimensional Scalar Volume Library"
   )
 
-#set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/install CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
-
 macro(show v)
   message("${v} is ${${v}}")
 endmacro()
@@ -110,7 +108,6 @@ file(GLOB PLUGINS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/ndio*)
 foreach(PLUGIN ${PLUGINS})
   add_subdirectory(${PLUGIN})
 endforeach(PLUGIN)
-#install(EXPORT ffmpeg-exports DESTINATION bin/plugins)
 
 ### APPS
 
@@ -174,7 +171,5 @@ install(TARGETS nd
   ARCHIVE DESTINATION lib
   PUBLIC_HEADER DESTINATION include/nd
 )
-#install(FILES nd.h DESTINATION include/nd) # public header...not relocatable/self-contained at the moment
 install(TARGETS test-libnd RUNTIME DESTINATION bin)
-#export(TARGETS nd test-libnd FILE libnd-targets.cmake)
 install(EXPORT libnd-targets DESTINATION cmake)
