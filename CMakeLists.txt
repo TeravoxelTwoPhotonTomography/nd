@@ -136,11 +136,11 @@ if(GTEST_FOUND)
     nd
     )
   add_dependencies(test-libnd
-    gtest
     ndio-tiff
     ndio-ffmpeg)
   add_test(TestLibND test-libnd)
   gtest_copy_shared_libraries(test-libnd)
+  install(FILES ${GTEST_BOTH_LIBRARIES} DESTINATION bin)
 endif()
 
 ###############################################################################
