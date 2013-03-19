@@ -33,8 +33,13 @@ if(NOT GTEST_INCLUDE_DIR) #if this is set, assume gtest location has been overri
     IMPORTED_LOCATION ${INSTALL_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}
   )
 
-  get_property(GTEST_LIBRARY      TARGET libgtest      PROPERTY LOCATION)
-  get_property(GTEST_MAIN_LIBRARY TARGET libgtest-main PROPERTY LOCATION)
+  if(WIN32)
+    get_property(GTEST_LIBRARY      TARGET libgtest      PROPERTY IMPORTED_IMPLIB)
+    get_property(GTEST_MAIN_LIBRARY TARGET libgtest-main PROPERTY IMPORTED_IMPLIB)
+  else()
+    get_property(GTEST_LIBRARY      TARGET libgtest      PROPERTY LOCATION)
+    get_property(GTEST_MAIN_LIBRARY TARGET libgtest-main PROPERTY LOCATION)
+  endif()
   set(GTEST_BOTH_LIBRARIES ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY})
   set(GTEST_INCLUDE_DIR ${SOURCE_DIR}/include)
 endif()
