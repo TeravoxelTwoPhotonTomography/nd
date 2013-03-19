@@ -1,0 +1,48 @@
+include(@CMAKE_CURRENT_BINARY_DIR@/nd-config-targets.cmake)
+set(ND_INCLUDE_DIR @CMAKE_CURRENT_SOURCE_DIR@)
+set(ND_LIBRARY nd)
+
+find_package(CUDA 4.0)
+
+message(STATUS "Configuring nd from the build tree.")
+
+set(ND_INCLUDE_DIRS   "${ND_INCLUDE_DIR}" "${CUDA_INCLUDE_DIRS}")
+set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}")
+
+### Handle components
+foreach(package ${ND_FIND_COMPONENTS})
+  find_package(${package} CONFIG PATHS .)
+  get_property(plugin TARGET ${package} PROPERTY LOCATION)
+  file(COPY ${plugin} DESTINATION @CMAKE_CURRENT_BINARY_DIR@/plugins)
+endforeach()
+
+### Check everything got found
+find_package_handle_standard_args(ND
+  REQUIRED_VARS
+    ND_LIBRARIES
+    ND_INCLUDE_DIRS
+  HANDLE_COMPONENTS
+)
+
+### Handle components (plugins)
+# Each package defines a shared library with the same name:
+#  e.g find_package(ndio-series)
+#      defines a target: ndio-series
+#      that refers to a shared library
+# I want these libraries installed to
+#   1. the build path plugins directory
+#   2. the installation path plugin directory
+# Is this taken care of by install directives in the plugin? Only if build by ep.
+# Otherwise, need to copy the targets ourselves.
+# 
+
+### macro for copying plugins to a target's build Location
+macro(nd_copy_plugins_to_target _target)
+    add_custom_command(TARGET ${_target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+          @CMAKE_CURRENT_BINARY_DIR@/plugins
+          $<TARGET_FILE_DIR:${_target}>/plugins
+          COMMENT "Copying libnd plugins to build path for ${_target}."
+          )
+    add_dependencies(${_target} libnd)
+endmacro()
