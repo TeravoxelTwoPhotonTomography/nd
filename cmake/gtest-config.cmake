@@ -12,10 +12,10 @@ if(NOT GTEST_INCLUDE_DIR) #if this is set, assume gtest location has been overri
                  -DBUILD_SHARED_LIBS:BOOL=TRUE
       )
   endif()
-  ExternalProject_Get_Property(gtest INSTALL_DIR)
+  ExternalProject_Get_Property(gtest BINARY_DIR)
   ExternalProject_Get_Property(gtest SOURCE_DIR)
-  get_target_property(SOURCE_DIR  gtest _EP_SOURCE_DIR)
-  get_target_property(INSTALL_DIR gtest _EP_BINARY_DIR)
+
+  file(GLOB HDRS *.h ${SOURCE_DIR}/include/gtest)
 
   if(NOT TARGET libgtest)
     add_library(libgtest IMPORTED SHARED)
@@ -24,21 +24,23 @@ if(NOT GTEST_INCLUDE_DIR) #if this is set, assume gtest location has been overri
 
   set_target_properties(libgtest PROPERTIES  
     IMPORTED_LINK_INTERFACE_LANGUAGES CXX
-    IMPORTED_IMPLIB   ${INSTALL_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}
-    IMPORTED_LOCATION ${INSTALL_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}
+    IMPORTED_IMPLIB   ${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}
+    IMPORTED_LOCATION ${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}
+    PUBLIC_HEADER     "${HDRS}"
   )
   set_target_properties(libgtest-main PROPERTIES  
     IMPORTED_LINK_INTERFACE_LANGUAGES CXX
-    IMPORTED_IMPLIB   ${INSTALL_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}
-    IMPORTED_LOCATION ${INSTALL_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}
+    IMPORTED_IMPLIB   ${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}
+    IMPORTED_LOCATION ${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}
+    PUBLIC_HEADER     "${HDRS}"
   )
 
+  get_property(GTEST_LIBRARY      TARGET libgtest      PROPERTY LOCATION)
+  get_property(GTEST_MAIN_LIBRARY TARGET libgtest-main PROPERTY LOCATION)
+  set(GTEST_SHARED_LIBRARIES ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY})
   if(WIN32)
     get_property(GTEST_LIBRARY      TARGET libgtest      PROPERTY IMPORTED_IMPLIB)
     get_property(GTEST_MAIN_LIBRARY TARGET libgtest-main PROPERTY IMPORTED_IMPLIB)
-  else()
-    get_property(GTEST_LIBRARY      TARGET libgtest      PROPERTY LOCATION)
-    get_property(GTEST_MAIN_LIBRARY TARGET libgtest-main PROPERTY LOCATION)
   endif()
   set(GTEST_BOTH_LIBRARIES ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY})
   set(GTEST_INCLUDE_DIR ${SOURCE_DIR}/include)
@@ -49,7 +51,7 @@ find_package_handle_standard_args(GTEST DEFAULT_MSG
 )
 
 macro(gtest_copy_shared_libraries _target)  
-  foreach(_lib ${GTEST_BOTH_LIBRARIES})
+  foreach(_lib ${GTEST_SHARED_LIBRARIES})
     add_custom_command(TARGET ${_target} POST_BUILD
       COMMAND ${CMAKE_COMMAND};-E;copy;${_lib};$<TARGET_FILE_DIR:${_target}>)  
   endforeach()
@@ -57,10 +59,9 @@ endmacro()
 
 ### INSTALL
 if(NOT TARGET install-gtest)
-  add_custom_target(install-gtest DEPENDS ${GTEST_BOTH_LIBRARIES})
+  add_custom_target(install-gtest DEPENDS ${GTEST_SHARED_LIBRARIES})
 endif()
-#install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" --build --target install-gtest)")
-foreach(lib ${GTEST_BOTH_LIBRARIES})
+foreach(lib libgtest libgtest-main)
   get_target_property(loc ${lib} IMPORTED_LOCATION)  
   if(MSVC)
     string(REPLACE ${CMAKE_CFG_INTDIR} Debug   loc_debug   ${loc})

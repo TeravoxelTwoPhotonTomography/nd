@@ -67,8 +67,21 @@ endif()
 ################################################################################
 
 file(GLOB SRCS  src/*.c src/io/*.c src/affine/*.c src/conv/*.c)
-file(GLOB HDRS  src/*.h src/io/*. src/conv/*.h)
+file(GLOB HDRS  *.h src/*.h src/io/*. src/conv/*.h)
 file(GLOB CUSRC src/affine/*.cu src/conv/*.cu src/generic/*.cu)
+
+# PUBLIC HEADERS
+install(
+  FILES   nd.h
+  #EXPORT  libnd-targets 
+  DESTINATION include/nd)
+install(
+  FILES 
+    src/ops.h
+    src/core.h
+    src/io.h
+  #EXPORT libnd-targets
+  DESTINATION include/nd/src)
 
 if(CUDA_FOUND)
   #add_executable(cuda_compute_capability cmake/cuda_compute_capability.c)
@@ -86,8 +99,6 @@ include_directories(${PROJECT_BINARY_DIR})
 # TARGETS
 ################################################################################
 
-add_definitions(-fPIC)
-
 add_library(nd
   ${SRCS}
   ${HDRS}
@@ -101,13 +112,11 @@ target_link_libraries(nd
   ${CMAKE_DL_LIBS}
   ${SHLWAPI}
 )
-set_target_properties(nd PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-
-# ndio plugins
-file(GLOB PLUGINS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/ndio*)
-foreach(PLUGIN ${PLUGINS})
-  add_subdirectory(${PLUGIN})
-endforeach(PLUGIN)
+set_target_properties(nd PROPERTIES 
+  POSITION_INDEPENDENT_CODE TRUE
+  PUBLIC_HEADERS            "${HDRS}"
+)
+install(TARGETS nd EXPORT libnd-targets LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 
 ### APPS
 
@@ -115,7 +124,7 @@ endforeach(PLUGIN)
 set(_TARGET ndconvert)
 add_executable(${_TARGET} app/ndconvert.c)
 target_link_libraries(${_TARGET} nd)
-install(TARGETS ${_TARGET} DESTINATION bin)
+install(TARGETS ${_TARGET} EXPORT libnd-targets DESTINATION bin)
 
 ###############################################################################
 #  Testing
@@ -140,7 +149,7 @@ if(GTEST_FOUND)
     ndio-ffmpeg)
   add_test(TestLibND test-libnd)
   gtest_copy_shared_libraries(test-libnd)
-  install(FILES ${GTEST_BOTH_LIBRARIES} DESTINATION bin)
+  install(TARGETS test-libnd EXPORT libnd-targets RUNTIME DESTINATION bin)
 endif()
 
 ###############################################################################
@@ -164,12 +173,7 @@ endif()
 ###############################################################################
 #  Install
 ###############################################################################
-install(TARGETS nd
-  EXPORT libnd-targets
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
-  PUBLIC_HEADER DESTINATION include/nd
-)
-install(TARGETS test-libnd RUNTIME DESTINATION bin)
 install(EXPORT libnd-targets DESTINATION cmake)
+export(TARGETS nd FILE nd-config-targets.cmake )
+export(PACKAGE nd)
+configure_file(nd-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/nd-config.cmake @ONLY)
