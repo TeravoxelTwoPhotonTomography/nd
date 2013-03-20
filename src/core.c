@@ -306,7 +306,7 @@ nd_t ndreshapev(nd_t a,unsigned ndim,...)
   va_list args;  
   TRY(shape=(size_t*)alloca(ndim*sizeof(size_t)));
   va_start(args,ndim);
-  for(i=0;i<ndim;++i) shape[i]=va_arg(args,size_t);
+  for(i=0;i<ndim;++i) shape[i]=va_arg(args,unsigned);
   va_end(args);
   return ndreshape(a,ndim,shape);
 Error:
