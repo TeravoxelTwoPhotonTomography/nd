@@ -1,10 +1,13 @@
-include(@CMAKE_CURRENT_BINARY_DIR@/nd-config-targets.cmake)
+if(NOT TARGET nd)
+  include(@CMAKE_CURRENT_BINARY_DIR@/nd-config-targets.cmake)
+endif()
+
 set(ND_INCLUDE_DIR @CMAKE_CURRENT_SOURCE_DIR@)
 set(ND_LIBRARY nd)
 
 find_package(CUDA 4.0)
 
-message(STATUS "Configuring nd from the build tree.")
+message(STATUS "Configuring nd from the build tree at @CMAKE_CURRENT_BINARY_DIR@.")
 
 set(ND_INCLUDE_DIRS   "${ND_INCLUDE_DIR}" "${CUDA_INCLUDE_DIRS}")
 set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}")
@@ -13,6 +16,9 @@ set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}")
 foreach(package ${ND_FIND_COMPONENTS})
   find_package(${package} CONFIG PATHS .)
   get_property(plugin TARGET ${package} PROPERTY LOCATION)
+  if(plugin) ## should remove this when I add config files for the plugins?
+    set(ND_${package}_FOUND TRUE)
+  endif()
   file(COPY ${plugin} DESTINATION @CMAKE_CURRENT_BINARY_DIR@/plugins)
 endforeach()
 
