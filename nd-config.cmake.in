@@ -39,19 +39,6 @@ find_package_handle_standard_args(ND
   HANDLE_COMPONENTS
 )
 
-### Handle components (plugins)
-# Each package defines a shared library with the same name:
-#  e.g find_package(ndio-series)
-#      defines a target: ndio-series
-#      that refers to a shared library
-# I want these libraries installed to
-#   1. the build path plugins directory
-#   2. the installation path plugin directory
-# Is this taken care of by install directives in the plugin? Only if build by ep.
-# Otherwise, need to copy the targets ourselves.
-# 
-
-
 ### macro for copying plugins to a target's build Location
 # component name and the imported target must be the same
 #
@@ -67,7 +54,6 @@ function(nd_copy_plugins_to_target _target _plugins)
       if(TARGET ${package})
         get_property(plugin TARGET ${package} PROPERTY LOCATION)
         if(plugin)
-
           message(STATUS "Configuring ${package} to be copied to build path for ${_target}.")
           add_custom_command(TARGET ${_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${_target}>/plugins/
@@ -77,7 +63,6 @@ function(nd_copy_plugins_to_target _target _plugins)
                 COMMENT "Copying ${package} to build path for ${_target}."
                 )
           add_dependencies(${_target} ${package})
-
           # extras
           if(${package}-EXTRAS)
             message(STATUS "Configuring ${package} extras to be copied to build path for ${_target}.")
@@ -91,7 +76,6 @@ function(nd_copy_plugins_to_target _target _plugins)
                     )           
             endforeach()
           endif()
-
         endif()
       endif()
     endforeach()
