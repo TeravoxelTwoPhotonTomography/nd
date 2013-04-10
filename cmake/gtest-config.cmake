@@ -6,6 +6,7 @@ if(NOT GTEST_INCLUDE_DIR) #if this is set, assume gtest location has been overri
     # DOWNLOAD AND BUILD
     ExternalProject_Add(gtest
       SVN_REPOSITORY http://googletest.googlecode.com/svn/trunk/
+      UPDATE_COMMAND "" #We do not want to be hitting this repo on each build
       INSTALL_COMMAND "" #The gtest project  doesn't support install
       CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                  -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}

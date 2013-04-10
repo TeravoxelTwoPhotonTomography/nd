@@ -66,9 +66,11 @@ endif()
 # SOURCE
 ################################################################################
 
-file(GLOB SRCS  src/*.c src/io/*.c src/affine/*.c src/conv/*.c)
+file(GLOB SRCS  src/*.c src/*.cc src/io/*.c src/affine/*.c src/conv/*.c)
 file(GLOB HDRS  *.h src/*.h src/io/*. src/conv/*.h)
 file(GLOB CUSRC src/affine/*.cu src/conv/*.cu src/generic/*.cu)
+include_directories(${PROJECT_SOURCE_DIR})
+
 
 # PUBLIC HEADERS
 install(
@@ -109,6 +111,7 @@ add_library(nd
   )
 target_link_libraries(nd
   ${CUDA_LIBRARIES}
+  ${CUDA_CUFFT_LIBRARIES}
   ${CMAKE_DL_LIBS}
   ${SHLWAPI}
 )
@@ -119,38 +122,12 @@ set_target_properties(nd PROPERTIES
 install(TARGETS nd EXPORT libnd-targets LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 
 ### APPS
-
-# ndconvert
-set(_TARGET ndconvert)
-add_executable(${_TARGET} app/ndconvert.c)
-target_link_libraries(${_TARGET} nd)
-install(TARGETS ${_TARGET} EXPORT libnd-targets DESTINATION bin)
+# add_subdirectory(app/ndconvert) # FIXME
 
 ###############################################################################
 #  Testing
 ###############################################################################
-
-find_package(Threads)
-if(GTEST_FOUND)
-  enable_testing()
-  include_directories(${PROJECT_SOURCE_DIR})
-  include_directories(${GTEST_INCLUDE_DIR})
-  file(GLOB TEST_SOURCES test/*.cc)
-  add_executable(test-libnd
-    ${TEST_SOURCES}
-    )
-  target_link_libraries(test-libnd
-    ${GTEST_BOTH_LIBRARIES}
-    ${CMAKE_THREAD_LIBS_INIT}
-    nd
-    )
-  add_dependencies(test-libnd
-    ndio-tiff
-    ndio-ffmpeg)
-  add_test(TestLibND test-libnd)
-  gtest_copy_shared_libraries(test-libnd)
-  install(TARGETS test-libnd EXPORT libnd-targets RUNTIME DESTINATION bin)
-endif()
+add_subdirectory(test)
 
 ###############################################################################
 #  Documentation

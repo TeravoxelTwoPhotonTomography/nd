@@ -65,7 +65,9 @@ size_t        ndnbytes (const nd_t a);                    ///< \returns the tota
 void*         nddata   (const nd_t a);                    ///< \returns a pointer to the origin pixel
 unsigned      ndndim   (const nd_t a);
 size_t*       ndshape  (const nd_t a);
+int*          ndshape_as_int(const nd_t a, int *buf);
 size_t*       ndstrides(const nd_t a);
+int*          ndstrides_as_int(const nd_t a, int *buf);
 
 char*         nderror(const nd_t a);                      ///< \returns NULL if no error, otherwise a descriptive string
 void          ndLogError(nd_t a, const char *fmt, ...);   ///< logs an error, storing it with the array

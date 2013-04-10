@@ -141,6 +141,30 @@ char*         nderror   (const nd_t a)    {return a?a->log:0;}
 void          ndResetLog(nd_t a)          {SAFEFREE(a->log);}
 nd_kind_t     ndkind    (const nd_t a)    {return a?a->kind:nd_unknown_kind;}
 
+/** Fills buf with the shape cast to integers.
+    \param  buf must be at least ndndim(a) elements in size.
+    \return buf on success, otherwise 0. 
+*/
+int* ndshape_as_int(nd_t a, int *buf)
+{ unsigned i;
+  size_t *s=ndshape(a);
+  if(!s) return 0;
+  for(i=0;i<ndndim(a);++i) buf[i]=(int)s[i];
+  return buf;
+}
+
+/** Fills buf with the strides cast to integers.
+    \param  buf must be at least ndndim(a)+1 elements in size.
+    \return buf on success, otherwise 0. 
+*/
+int* ndstrides_as_int(nd_t a, int *buf)
+{ unsigned i;
+  size_t *s=ndstrides(a);
+  if(!s) return 0;
+  for(i=0;i<ndndim(a)+1;++i) buf[i]=(int)s[i];
+  return buf;
+}
+
 /** \returns the input array \a a*/
 nd_t ndsetkind(nd_t a,nd_kind_t kind)
 { a->kind=kind;

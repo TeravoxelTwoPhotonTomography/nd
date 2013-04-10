@@ -58,39 +58,28 @@ DECL(i8);   DECL(i16);   DECL(i32);   DECL(i64);
 DECL(f32);  DECL(f64);
 #undef DECL
 
-template<typename T,unsigned BX,unsigned BY,unsigned WORK>
-__global__ void __launch_bounds__(BX*BY,1)
-fmad_scalar_ip_kernel(T* dst,unsigned w,unsigned h,float m,float b)
-{ const int ox=threadIdx.x+(blockIdx.x*WORK)*BX,
-            oy=threadIdx.y+ blockIdx.y      *BY;
-  if(oy<h)
-  { dst+=ox+oy*(int)w;
-    if(blockIdx.x!=(gridDim.x-1))
-    {
-      #pragma unroll
-      for(int i=0;i<WORK;++i) dst[i*BX]=saturate<T>(m*dst[i*BX]+b);
-    } else
-    { // last block 
-      #pragma unroll
-      for(int i=0;i<WORK;++i) if(w-ox>i*BX) dst[i*BX]=saturate<T>(m*dst[i*BX]+b);
-    }
+template<typename T,unsigned BX,unsigned WORK>
+__global__ void __launch_bounds__(BX,1)
+fmad_scalar_ip_kernel(T* dst,unsigned n,float m,float b)
+{ const int ox=threadIdx.x+(blockIdx.x*WORK)*BX;
+  dst+=ox;
+  if(blockIdx.x!=(gridDim.x-1))
+  {
+    #pragma unroll
+    for(int i=0;i<WORK;++i) dst[i*BX]=saturate<T>(m*dst[i*BX]+b);
+  } else
+  { // last block 
+    #pragma unroll
+    for(int i=0;i<WORK;++i) if(n-ox>i*BX) dst[i*BX]=saturate<T>(m*dst[i*BX]+b);
   } 
 }
 
-static unsigned prod(size_t n, size_t *v)
-{ size_t o=1;
-  while(n-->0) o*=v[n];
-  return (unsigned)o;
-}
-
 extern "C" unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b)
-{ unsigned w=ndshape(dst)[0],
-           h=prod(ndndim(dst)-1,ndshape(dst)+1);
-  const unsigned BX=32,BY=32,WORK=8;
-  dim3 blocks((unsigned)ceil(w/(float)(WORK*BX)), (unsigned)ceil(h/(float)BY)),
-       threads(BX,BY); // run max threads per block (1024).  Set BX to be 1 warp (32).
+{ unsigned n=ndnelem(dst);
+  const unsigned BX=1024,WORK=8;
+  unsigned blocks=(unsigned)ceil(n/(float)(WORK*BX));
   /// @cond DEFINES
-  #define CASE(T) fmad_scalar_ip_kernel<T,BX,BY,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(dst)>>>((T*)nddata(dst),w,h,m,b); break
+  #define CASE(T) fmad_scalar_ip_kernel<T,BX,WORK><<<blocks,BX,0,(cudaStream_t)ndCudaStream(dst)>>>((T*)nddata(dst),n,m,b); break
        {TYPECASE(ndtype(dst));}
   #undef CASE
   /// @endcond

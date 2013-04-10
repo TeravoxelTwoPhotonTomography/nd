@@ -17,7 +17,6 @@
 extern "C" {
 #endif
 
-
 typedef enum boundary_condition_t_
 { nd_boundary_unknown=-1,
   /// out-of-bounds values are set to the value at the nearest edge
@@ -35,6 +34,8 @@ typedef struct nd_affine_params_t_
 typedef struct nd_conv_params_t_
 { boundary_condition_t boundary_condition;
 } nd_conv_params_t;
+
+typedef struct _nd_fft_plan_t* nd_fft_plan_t;
 
 // Required: Include "nd.h" before this header.  
 // typedef struct _nd_t* nd_t;
@@ -59,6 +60,7 @@ typedef struct nd_conv_params_t_
 // ndconv1          [x] impl cpu    [x] impl gpu    [x] test
 // ndconv1_ip       [x] impl cpu    [ ] impl gpu    [~] test
 // ndsaturate_ip    [x] impl cpu    [x] impl gpu    [ ] test
+// ndfft            [ ] impl cpu    [ ] impl gpu    [ ] test
 
 nd_t ndcopy          (nd_t dst,const nd_t src,size_t ndim,size_t* shape);
 nd_t ndtranspose     (nd_t dst,const nd_t src,unsigned i,unsigned j,size_t ndim,size_t *shape);
@@ -78,7 +80,10 @@ nd_t ndaffine        (nd_t dst, const nd_t src, const float *transform, const nd
 nd_t ndconv1         (nd_t dst, nd_t src, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
 nd_t ndconv1_ip      (nd_t dst, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
 
-nd_t ndLinearConstrastAdjust_ip(nd_t dst,nd_type_id_t dtype,.../*min,max*/); //type of min and max determined from dst. vararg's used to generical pass values
+nd_t ndfft           (nd_t dst, nd_t src, int direction, nd_fft_plan_t *plan);// src and dst may be the same.
+nd_t ndfftFreePlan   (nd_fft_plan_t plan);
+
+nd_t ndLinearConstrastAdjust_ip(nd_t dst,nd_type_id_t dtype,.../*min,max*/);    //type of min and max determined from dst. vararg's used to generical pass values
 
 #ifdef __cplusplus
 } //extern "C" {
