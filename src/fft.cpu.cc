@@ -23,7 +23,7 @@ static void gather(size_t n, T* x, size_t stride)
 
 template<class T>
 inline void root_(size_t i, T* real, T* imag)
-{ double th=PI/(double)i,
+{ double th=-PI/(double)i,
             s=sin(th*0.5);
   *real=-2.0*s*s;
   *imag= sin(th);

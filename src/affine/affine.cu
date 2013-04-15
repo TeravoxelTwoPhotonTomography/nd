@@ -135,7 +135,6 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
   affine_kernel(arg_t dst, arg_t src, const float *transform, const nd_affine_params_t param)
 { 
   Tdst     o,v;
-  //unsigned idst=threadIdx.x+blockIdx.x*blockDim.x;
   unsigned idst = sum(threadIdx)+stride(blockIdx,gridDim)*prod(blockDim);
 #if 0
   if(blockIdx.x==0 && threadIdx.x==2)

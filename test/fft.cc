@@ -11,7 +11,7 @@
 #include "nd.h"
 
 #define TOL_F32 (0.5)
-#define P       (12)
+#define P       (18)
 
 ///// types
 typedef ::testing::Types<
@@ -78,8 +78,8 @@ struct FFT4D:public FFTTest<T>
   FFT4D() {}
   void SetUp()
   { FFTTest<T>::SetUp();
-    EXPECT_EQ(this->src,ndreshapev(this->src,4,2,1<<(P/4),1<<(P/4),1<<(P/4)));
-    EXPECT_EQ(this->dst,ndreshapev(this->dst,4,2,1<<(P/4),1<<(P/4),1<<(P/4)));
+    EXPECT_EQ(this->src,ndreshapev(this->src,5,2,1<<(P/4),1<<(P/4),1<<(P/4),1<<(P/4)));
+    EXPECT_EQ(this->dst,ndreshapev(this->dst,5,2,1<<(P/4),1<<(P/4),1<<(P/4),1<<(P/4)));
   }
 };
 

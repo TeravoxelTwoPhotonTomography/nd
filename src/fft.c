@@ -3,6 +3,12 @@
  * FFT
  *
  * GPU based FFTs are performed via CUFFT.
+ *
+ * TODO
+ *  - It would be nice to allow for non-floating point input where possible?
+ *    See http://www.mathworks.com/products/demos/fixedpt/radix2fft/fi_radix2fft_demo.html
+ *    for fixed point fft on the cpu side.
+ *    - I'm pretty sure CUFFT won't have fixed point support for a while.    
  */
 #include "config.h"
 #include "nd.h"
