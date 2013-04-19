@@ -46,17 +46,17 @@ TYPEDEFS;
 /// @cond DEFINES
 
 inline __device__ float clamp(float f, float a, float b)          {return fmaxf(a, fminf(f, b));}
-template<class T> inline __device__ T saturate(float f);
-template<> inline __device__ uint8_t  saturate<uint8_t>(float f)  {return clamp(f,0,UCHAR_MAX);}
-template<> inline __device__ uint16_t saturate<uint16_t>(float f) {return clamp(f,0,USHRT_MAX);}
-template<> inline __device__ uint32_t saturate<uint32_t>(float f) {return clamp(f,0,UINT_MAX);}
-template<> inline __device__ uint64_t saturate<uint64_t>(float f) {return clamp(f,0,ULLONG_MAX);} // FIXME - will overflow float type
-template<> inline __device__  int8_t  saturate< int8_t> (float f) {return clamp(f,CHAR_MIN,CHAR_MAX);}
-template<> inline __device__  int16_t saturate< int16_t>(float f) {return clamp(f,SHRT_MIN,SHRT_MAX);}
-template<> inline __device__  int32_t saturate< int32_t>(float f) {return clamp(f,INT_MIN,INT_MAX);}
-template<> inline __device__  int64_t saturate< int64_t>(float f) {return clamp(f,LLONG_MIN,LLONG_MAX);} // FIXME - will overflow float type
-template<> inline __device__  float   saturate<float>(float f)    {return f;}
-template<> inline __device__  double  saturate<double>(float f)   {return f;}
+template<class T> static inline __device__ T saturate(float f);
+template<> static inline __device__ uint8_t  saturate<uint8_t>(float f)  {return clamp(f,0,UCHAR_MAX);}
+template<> static inline __device__ uint16_t saturate<uint16_t>(float f) {return clamp(f,0,USHRT_MAX);}
+template<> static inline __device__ uint32_t saturate<uint32_t>(float f) {return clamp(f,0,UINT_MAX);}
+template<> static inline __device__ uint64_t saturate<uint64_t>(float f) {return clamp(f,0,ULLONG_MAX);} // FIXME - will overflow float type
+template<> static inline __device__  int8_t  saturate< int8_t> (float f) {return clamp(f,CHAR_MIN,CHAR_MAX);}
+template<> static inline __device__  int16_t saturate< int16_t>(float f) {return clamp(f,SHRT_MIN,SHRT_MAX);}
+template<> static inline __device__  int32_t saturate< int32_t>(float f) {return clamp(f,INT_MIN,INT_MAX);}
+template<> static inline __device__  int64_t saturate< int64_t>(float f) {return clamp(f,LLONG_MIN,LLONG_MAX);} // FIXME - will overflow float type
+template<> static inline __device__  float   saturate<float>(float f)    {return f;}
+template<> static inline __device__  double  saturate<double>(float f)   {return f;}
 
 inline __device__ unsigned prod(dim3 a)            {return a.x*a.y*a.z;}
 inline __device__ unsigned stride(uint3 a, dim3 b) {return a.x+b.x*(a.y+b.y*a.z);}

@@ -11,10 +11,15 @@
 #include "config.h"
 #include <stdlib.h>
 #include <string.h>
+#ifdef _MSC_VER
+#include <tuple>
+#else
 #include <tr1/tuple>
+#endif
 
 #define countof(e) (sizeof(e)/sizeof(*(e)))
 #define TOL (1e-5)
+
 static nd_t fromfile(const char *name)
 { ndio_t f=0;
   nd_t x=ndheap_ip(ndioShape(f=ndioOpen(name,"hdf5","r")));
@@ -67,8 +72,8 @@ TEST_P(FMAD,GPU)
   { EXPECT_NE((void*)0,ts[i]=ndcuda(all[i],0));
     ndcopy(ts[i],all[i],0,0);
   }
-  EXPECT_EQ(ts[0],ndfmad(ts[0],ts[1],ts[2],ts[3],0,0));
-  EXPECT_EQ(zz,ndcopy(zz,ts[0],0,0));
+  EXPECT_EQ(ts[0],ndfmad(ts[0],ts[1],ts[2],ts[3],0,0))<<nderror(ts[0]);
+  EXPECT_EQ(zz,ndcopy(zz,ts[0],0,0))<<nderror(zz);
   EXPECT_GT(TOL,ndRMSE(zz,z));
   for(int i=0;i<countof(ts);++i)
     ndfree(ts[i]);

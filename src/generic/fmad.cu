@@ -52,9 +52,9 @@ TYPEDEFS; ///< Typedef aliases for basic types.  See generic/macros.h
 #define max_f32  FLT_MAX
 #define max_f64  DBL_MAX
 
-template<typename T> __device__ T saturate(float v);
+template<typename T> inline __device__ T saturate(float v);
 #define DECL(T) \
-  template<> T saturate<T>(float v) \
+  template<> inline T saturate<T>(float v) \
   { const float mn=min_(v,max_##T); \
     return max_(min_##T,mn); \
   }
@@ -112,10 +112,11 @@ inline __device__ unsigned sum(uint3 a)            {return a.x+a.y+a.z;}
 // [ ] requires shape[0] aligned to WORK
 // [ ] bad memory access pattern - want to do BX*WORK (Bx=32) loads, and then distribute over BY elements.
 //     - then we'd require shape[0] aligned to BX*WORK (or do bounds checking)
-template<typename TDST,typename TSRC,unsigned BX,unsigned WORK>
-__global__ void __launch_bounds__(BX,1)
+template<typename TDST,typename TSRC,unsigned BX,unsigned BY,unsigned WORK>
+__global__ void __launch_bounds__(BX*BY,1)
 fmad_kernel(vol_t<TDST> z, vol_t<TSRC> a, vol_t<TSRC> x, vol_t<TSRC> b, shape_t shape)
 { unsigned i = WORK*(sum(threadIdx)+stride(blockIdx,gridDim)*prod(blockDim));
+#if 1
   if(i<shape.nelem)
   { unsigned st=1;
     TDST     *zz=z.data;
@@ -124,28 +125,43 @@ fmad_kernel(vol_t<TDST> z, vol_t<TSRC> a, vol_t<TSRC> x, vol_t<TSRC> b, shape_t 
              *bb=b.data;
     for(u8 dim=0;dim<shape.ndim;++dim)
     { unsigned r=(i/st)%shape.shape[dim];
+      st*=shape.shape[dim];
       zz+=r*z.strides[dim];
       aa+=r*a.strides[dim];
       xx+=r*x.strides[dim];
       bb+=r*b.strides[dim];
+      if(threadIdx.x==7 && threadIdx.y==0)
+      { printf("i: %5u\tshape[dim]: %5u\tst: %5u\tr: %5u\n",i,shape.shape[dim],st,r);
+      }
     }
-    #pragma unroll
-    for(unsigned j=0;j<WORK;++j)
-      zz[j*BX]=aa[j*BX]*xx[j*BX]+bb[j*BX];
+    if(i<(((int)shape.nelem)-BX*WORK))
+    { 
+      #pragma unroll
+      for(unsigned j=0;j<WORK;++j)
+        zz[j*BX]=aa[j*BX]*xx[j*BX]+bb[j*BX];
+    } else
+    {
+      for(unsigned j=0;j<(shape.nelem-i)/BX;++j)
+        zz[j*BX]=aa[j*BX]*xx[j*BX]+bb[j*BX];
+    }
   }
+#endif
 }
+
+
+
 
 // Treat this as a 1d problem, each thread does WORK elements.
 // [ ] FIXME - use shape properly
 extern "C" unsigned fmad_cuda(nd_t z,nd_t a,nd_t x,nd_t b,size_t ndim,size_t *shape)
 { unsigned n=ndnelem(z);
-  const unsigned BX=32,BY=32,WORK=8;
+  const unsigned BX=32,BY=32,WORK=1;
   dim3 blocks((unsigned)ceil(n/(float)(WORK*BX*BY)),1),
        threads(BX,BY);
   /// @cond DEFINES
   #define V(a,T) make_vol<T>(a)
   #define S(a)   make_shape(a)
-  #define CASE2(TDST,TSRC) fmad_kernel<TDST,TSRC,BX,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(z)>>>(V(z,TDST),V(a,TSRC),V(x,TSRC),V(b,TSRC),S(z));break
+  #define CASE2(TDST,TSRC) fmad_kernel<TDST,TSRC,BX,BY,WORK><<<blocks,threads,0,(cudaStream_t)ndCudaStream(z)>>>(V(z,TDST),V(a,TSRC),V(x,TSRC),V(b,TSRC),S(z));break
   #define CASE(TSRC)       TYPECASE2(ndtype(z),TSRC); break
        {TYPECASE(ndtype(x));}
   #undef CASE

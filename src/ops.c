@@ -131,13 +131,15 @@ extern unsigned bitshift_ip_cuda(nd_t dst,int b,int n);
 extern unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx);
 extern unsigned fill_cuda(nd_t dst,uint64_t v);
 extern unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b);
+extern unsigned fmad_cuda(nd_t z,nd_t a,nd_t x,nd_t b,size_t ndim,size_t *shape);
 #else
 #define NO_CUDA_SUPPORT {FAIL; Error: return 0;}
-unsigned xor_ip_cuda(nd_t dst,uint64_t v)               NO_CUDA_SUPPORT
-unsigned bitshift_ip_cuda(nd_t dst,int b,int n)         NO_CUDA_SUPPORT
-unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx)  NO_CUDA_SUPPORT
-unsigned fill_cuda(nd_t dst,uint64_t v)                 NO_CUDA_SUPPORT
-unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b) NO_CUDA_SUPPORT
+unsigned xor_ip_cuda(nd_t dst,uint64_t v)                                 NO_CUDA_SUPPORT
+unsigned bitshift_ip_cuda(nd_t dst,int b,int n)                           NO_CUDA_SUPPORT
+unsigned saturate_ip_cuda(nd_t dst,val_t mn, val_t mx)                    NO_CUDA_SUPPORT
+unsigned fill_cuda(nd_t dst,uint64_t v)                                   NO_CUDA_SUPPORT
+unsigned fmad_scalar_ip_cuda(nd_t dst,float m, float b)                   NO_CUDA_SUPPORT
+unsigned fmad_cuda(nd_t z,nd_t a,nd_t x,nd_t b,size_t ndim,size_t *shape) NO_CUDA_SUPPORT
 #endif
 
 //-//
@@ -723,11 +725,14 @@ Error:
 nd_t ndfmad(nd_t z,const nd_t a,const nd_t x,const nd_t b,size_t ndim,size_t* shape)
 { nd_t args[] = {z,a,x,b};
   size_t i;
-  for(i=0;i<countof(args);++i) TRY(args[i]); // check for null arrays
+  // Check preconditions on input
+  for(i=0;i<countof(args);++i)
+  { TRY(args[i]);
+    REQUIRE(args[i],PTR_ARITHMETIC);
+    TRY(ndkind(z)==ndkind(args[i]));
+  }
   TRY(ndtype(a)==ndtype(x));      // Require source arrays to have the same type, z type may vary
   TRY(ndtype(a)==ndtype(b));
-  for(i=0;i<countof(args);++i)
-    REQUIRE(args[i],PTR_ARITHMETIC|CAN_MEMCPY);
   // set shape and dim if necessary
   if(!ndim)
   { for(i=1,ndim=ndndim(args[0]);i<countof(args);++i)
@@ -742,18 +747,22 @@ nd_t ndfmad(nd_t z,const nd_t a,const nd_t x,const nd_t b,size_t ndim,size_t* sh
         shape[j]=min_sz_t(shape[j],ndshape(args[i])[j]);
     }
   }
-  /// @cond DEFINES
-  #define CASE2(T1,T2) TRY(ternary_op(ndim,shape, \
-                              nddata(z),ndstrides(z), \
-                              nddata(a),ndstrides(a), \
-                              nddata(x),ndstrides(x), \
-                              nddata(b),ndstrides(b), \
-                              NULL,0, \
-                              fmad_##T1##_##T2)); break
-  #define CASE(T)      TYPECASE2(ndtype(z),T); break
-  TYPECASE(ndtype(x));
-  #undef CASE
-  #undef CASE2
+  if(ndkind(z)==nd_gpu_cuda)
+  { TRY(fmad_cuda(z,a,x,b,0,0));
+  } else
+  { /// @cond DEFINES
+    #define CASE2(T1,T2) TRY(ternary_op(ndim,shape, \
+                                nddata(z),ndstrides(z), \
+                                nddata(a),ndstrides(a), \
+                                nddata(x),ndstrides(x), \
+                                nddata(b),ndstrides(b), \
+                                NULL,0, \
+                                fmad_##T1##_##T2)); break
+    #define CASE(T)      TYPECASE2(ndtype(z),T); break
+    TYPECASE(ndtype(x));
+    #undef CASE
+    #undef CASE2
+  }
   /// @endcond
   // convert signed vals to unsigned vals in case of type change
   { int b;

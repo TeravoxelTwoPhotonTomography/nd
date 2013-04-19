@@ -19,6 +19,9 @@
 #include "stdlib.h"
 
 #include "cufft.h"
+#ifdef _MSC_VER
+#define alloca _alloca
+#endif
 
 // 
 // Error handling

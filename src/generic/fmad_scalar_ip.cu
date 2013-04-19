@@ -47,9 +47,9 @@ TYPEDEFS;
 #define max_f32  FLT_MAX
 #define max_f64  DBL_MAX
 
-template<typename T> __device__ T saturate(float v);
+template<typename T> inline __device__ T saturate(float v);
 #define DECL(T) \
-  template<> T saturate<T>(float v) \
+  template<> inline T saturate<T>(float v) \
   { const float mn=min_(v,max_##T); \
     return max_(min_##T,mn); \
   }

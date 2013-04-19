@@ -528,11 +528,10 @@ Error:
  * \endcode
  */
 nd_t ndheap_ip (nd_t a)
-{ nd_t out;
-  TRY(a);
+{ TRY(a);
   TRY(ndreshape(a,ndndim(a),ndshape(a)));
-  TRY(ndref(out,realloc(nddata(a),ndnbytes(a)),nd_heap));
-  return out;
+  TRY(ndref(a,realloc(nddata(a),ndnbytes(a)),nd_heap));
+  return a;
 Error:
   return 0;
 
