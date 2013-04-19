@@ -33,6 +33,8 @@ double RMSE(size_t n, T* a, T* b)
   return sqrt(ssq/n);
 }
 
+double ndRMSE(nd_t a, nd_t b);
+
 /**
  * Find first difference. 
  * \returns the index of the first difference, or -1 if none found

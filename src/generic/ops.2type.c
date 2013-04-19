@@ -124,7 +124,7 @@ Error:
 /** Floating multiply and add.
  *  Just like \a project but with floating-point coefficients.
  *  \code
- *    z = a*x+b*y
+ *    z = a*x+b
  *  \endcode
  *  where \c a=param[0] and \c b=param[1].
  *
@@ -139,34 +139,28 @@ Error:
  *  \param[in]     xst The number of bytes between each element in \a x.
  *  \param[in]     y   The first input buffer.
  *  \param[in]     yst The number of bytes between each element in \a y.
- *  \param[in]   param The coefficients for projection with type \a float.
- *  \param[in]  nbytes The number of bytes in \a param (ignored).
+ *  \param[in]   param Ignored
+ *  \param[in]  nbytes Ignored
  */
 static void NAME(fmad,TSRC,TDST)(stride_t N,
                                  void* restrict z,stride_t zst,
+                                 const void* restrict a,stride_t ast,
                                  const void* restrict x,stride_t xst,
-                                 const void* restrict y,stride_t yst,
+                                 const void* restrict b,stride_t bst,
                                  void *param, size_t nbytes)
-{ TSRC * restrict _x = (TSRC*)x;
-  TSRC * restrict _y = (TSRC*)y;
+{ TSRC * restrict _a = (TSRC*)a;
+  TSRC * restrict _x = (TSRC*)x;
+  TSRC * restrict _b = (TSRC*)b;
   TDST * restrict _z = (TDST*)z;
-  const size_t _xst = xst/sizeof(TSRC),
-               _yst = yst/sizeof(TSRC),
+  const size_t _ast = ast/sizeof(TSRC),
+               _xst = xst/sizeof(TSRC),
+               _bst = bst/sizeof(TSRC),
                _zst = zst/sizeof(TDST);
-#if 1
-  if(nbytes!=2*sizeof(float))
-    goto Error;
-#endif
-  { float *p=(float*)param,
-          a=p[0],
-          b=p[1];
-    size_t i;
+  { size_t i;
     for(i=0;i<N;++i)
-      _z[i*_zst]=(TDST)(a*_x[i*_xst]+b*_y[i*_yst]);
+      _z[i*_zst]=(TDST)(_a[i*_ast]*_x[i*_xst]+_b[i*_bst]);
   }
   return;
-Error:
-  exit(1);
 }
 
 #undef TDST

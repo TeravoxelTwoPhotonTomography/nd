@@ -77,6 +77,7 @@ typedef union val_t_ { int d; unsigned u; unsigned long long llu; long long lld;
 typedef void (inplace_vec_op_t)(stride_t N, void *z, stride_t zst, void *param, size_t nbytes);                                                   ///< \verbatim 1D f:z=f(z) \endverbatim
 typedef void (unary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes);                             ///< \verbatim 1D f:z=f(x)   \endverbatim
 typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,const void* y,stride_t yst,void *param, size_t nbytes); ///< \verbatim 1D f:z=f(x,y) \endverbatim
+typedef void (ternary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,const void* y,stride_t yst,const void *w, stride_t wst, void *param, size_t nbytes); ///< \verbatim 1D f:z=f(x,y,w) \endverbatim
 
 #define min_u8   0
 #define min_u16  0
@@ -326,6 +327,55 @@ static int binary_op(
   const stride_t *strides[] = {zst,xst,yst};
   TRY( (m=find_vectorizable_dim(ndim,shape,countof(strides),strides))>=0 );
   binary_op_recurse(m,ndim-1,shape,z,zst,x,xst,y,yst,param,nbytes,f);
+  return 1;
+Error:
+  return 0; // stack overflowed
+}
+
+//-// TERNARY
+static void ternary_op_recurse(
+    int64_t m,
+    int64_t idim,
+    const stride_t *shape,
+          void* z,const stride_t *zst,
+    const void* x,const stride_t *xst,
+    const void* y,const stride_t *yst,
+    const void* w,const stride_t *wst,
+    void* param, size_t nbytes,
+    ternary_vec_op_t *f)
+{
+  if(idim<m)
+  { f(zst[m]/zst[0],z,zst[0],x,xst[0],y,yst[0],w,wst[0],param,nbytes);
+    return;
+  }
+  if(idim<1)
+  { f(shape[0],z,zst[0],x,xst[0],y,yst[0],w,wst[0],param,nbytes);
+    return;
+  }
+  { stride_t i;
+    const stride_t ox = xst[idim],
+                   oy = yst[idim],
+                   oz = zst[idim],
+                   ow = wst[idim];
+    for(i=0;i<shape[idim];++i)
+      ternary_op_recurse(m,idim-1,shape,(u8*)z+oz*i,zst,(u8*)x+ox*i,xst,(u8*)y+oy*i,yst,(u8*)w+ow*i,wst,param,nbytes,f);
+  }
+}
+
+static int ternary_op(
+    stride_t ndim,
+    stride_t *shape,
+          void* z,const stride_t *zst,
+    const void* x,const stride_t *xst,
+    const void* y,const stride_t *yst,
+    const void* w,const stride_t *wst,
+    void* param, size_t nbytes,
+    ternary_vec_op_t *f)
+{
+  int64_t m;
+  const stride_t *strides[] = {zst,xst,yst,wst};
+  TRY( (m=find_vectorizable_dim(ndim,shape,countof(strides),strides))>=0 );
+  ternary_op_recurse(m,ndim-1,shape,z,zst,x,xst,y,yst,w,wst,param,nbytes,f);
   return 1;
 Error:
   return 0; // stack overflowed
@@ -645,17 +695,22 @@ Error:
   return NULL;
 }
 
+
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndLogError(z,__VA_ARGS__)
+/// @endcond
+//
 /** Floating multiply and add.
  *  \code
- *    z = a*x+b*y
+ *    z = a.*x+b
  *  \endcode
- *  Operations are performed in floating-point and then cast to the destination type.
+ *  Operations are performed in floating-point and then cast to the destination type
  *
  *  \param[out]    z   The output array.
- *  \param[in]     a   The first coefficient.
- *  \param[in]     x   The first input array.
- *  \param[in]     b   The second coefficient.
- *  \param[in]     y   The first input array.
+ *  \param[in]     a   An array.
+ *  \param[in]     x   An array.
+ *  \param[in]     b   An array.  If NULL, it will be ignored.
  *  \param[in]  ndim   The number of dimensions in the sub-volume described by \a shape.
  *                     If 0, this is set to the largest dimension that still fits \a x,
  *                     \a y, and \a z.
@@ -665,11 +720,12 @@ Error:
  *  \returns \a z on success, or NULL otherwise.
  *  \ingroup ndops
  */
-nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, size_t *shape)
-{ nd_t args[] = {z,x,y};
+nd_t ndfmad(nd_t z,const nd_t a,const nd_t x,const nd_t b,size_t ndim,size_t* shape)
+{ nd_t args[] = {z,a,x,b};
   size_t i;
-  float param[] = {a,b};
-  TRY(ndtype(x)==ndtype(y));      // Require x and y have the same type, z type may vary
+  for(i=0;i<countof(args);++i) TRY(args[i]); // check for null arrays
+  TRY(ndtype(a)==ndtype(x));      // Require source arrays to have the same type, z type may vary
+  TRY(ndtype(a)==ndtype(b));
   for(i=0;i<countof(args);++i)
     REQUIRE(args[i],PTR_ARITHMETIC|CAN_MEMCPY);
   // set shape and dim if necessary
@@ -687,12 +743,13 @@ nd_t ndfmad(nd_t z, float a, const nd_t x, float b, const nd_t y,size_t ndim, si
     }
   }
   /// @cond DEFINES
-  #define CASE2(T1,T2) TRY(binary_op(ndim,shape, \
+  #define CASE2(T1,T2) TRY(ternary_op(ndim,shape, \
                               nddata(z),ndstrides(z), \
+                              nddata(a),ndstrides(a), \
                               nddata(x),ndstrides(x), \
-                              nddata(y),ndstrides(y), \
-                              (void*)param,sizeof(param), \
-                              project_##T1##_##T2)); break
+                              nddata(b),ndstrides(b), \
+                              NULL,0, \
+                              fmad_##T1##_##T2)); break
   #define CASE(T)      TYPECASE2(ndtype(z),T); break
   TYPECASE(ndtype(x));
   #undef CASE

@@ -50,13 +50,13 @@ typedef struct _nd_fft_plan_t* nd_fft_plan_t;
 // ndcat            [x] impl cpu    [ ] impl gpu    [x] test
 // ndcat_ip         [x] impl cpu    [ ] impl gpu    [~] test - needs valgrind debugging.  crash in release mode on win7
 // ndadd            [x] impl cpu    [ ] impl gpu    [x] test
-// ndfmad           [x] impl cpu    [ ] impl gpu    [ ] test
+// ndfmad           [x] impl cpu    [x] impl gpu    [ ] test
 // ndfmad_scalar_ip [x] impl cpu    [x] impl gpu    [ ] test - check saturation behavior
 // ndfill           [x] impl cpu    [x] impl gpu    [ ] test
 // ndxor_ip         [x] impl cpu    [x] impl gpu    [x] test
 // ndbitshift_ip    [x] impl cpu    [x] impl gpu    [ ] test - only tested incidentally on cpu (no gpu testing)
 // ndconvert_ip     [x] impl cpu    [x] impl gpu    [ ] test - only tested incidentally on cpu (no gpu testing)
-// ndaffine         [x] impl cpu    [x] impl gpu    [x] test
+// ndaffine         [x] impl cpu    [] impl gpu    [x] test
 // ndconv1          [x] impl cpu    [x] impl gpu    [x] test
 // ndconv1_ip       [x] impl cpu    [ ] impl gpu    [~] test
 // ndsaturate_ip    [x] impl cpu    [x] impl gpu    [ ] test
@@ -68,7 +68,7 @@ nd_t ndshiftdim      (nd_t dst,const nd_t src,int n);
 nd_t ndcat           (nd_t x,nd_t y, size_t idim);
 nd_t ndcat_ip        (nd_t dst,nd_t src);
 nd_t ndadd           (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
-nd_t ndfmad          (nd_t z,float a,const nd_t x,float b,const nd_t y,size_t ndim,size_t* shape);
+nd_t ndfmad          (nd_t z,const nd_t a,const nd_t x,const nd_t b,size_t ndim,size_t* shape);
 nd_t ndfmad_scalar_ip(nd_t z,float m,float b,size_t ndim,size_t *shape);
 nd_t ndsaturate_ip   (nd_t z,.../*min,max*/); // type of min and max determined from dst.
 nd_t ndfill          (nd_t z,uint64_t c);

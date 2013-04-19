@@ -1,6 +1,6 @@
 /**
  * \file
- * Fill a gpu-based array with a constant value.
+ * Scalar multiply and add for all elements in a gpu based buffer.
  * \todo This only works for contiguous strides.
  */
 #include "../core.h"

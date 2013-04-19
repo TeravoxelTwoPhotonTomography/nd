@@ -103,6 +103,7 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o); ///< increments data p
 nd_t         ndmake           (nd_t a);                      ///< Creates a new array with the same kind as \a a.
 nd_t         ndunknown        (nd_t a);
 nd_t         ndheap           (nd_t a);
+nd_t         ndheap_ip        (nd_t a);
 nd_t         ndcuda           (nd_t a, void* stream);
 
 //

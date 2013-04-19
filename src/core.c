@@ -509,11 +509,33 @@ Error:
  */
 nd_t ndheap(nd_t a)
 { nd_t out;
+  TRY(a);
   TRY(ndreshape(ndcast(out=ndinit(),ndtype(a)),ndndim(a),ndshape(a)));
   TRY(ndref(out,malloc(ndnbytes(out)),nd_heap));
   return out;
 Error:
   return 0;
+}
+
+/**
+ * Allocator.  Creates a RAM based array according to the shape specified by \a a.
+ * Changes the \a a data pointer.
+ * Allocates the data buffer with realloc();
+ * Example:
+ * \code{c}
+ * nd_t a=0;
+ * a=ndheap_ip(ndioShape(f));
+ * \endcode
+ */
+nd_t ndheap_ip (nd_t a)
+{ nd_t out;
+  TRY(a);
+  TRY(ndreshape(a,ndndim(a),ndshape(a)));
+  TRY(ndref(out,realloc(nddata(a),ndnbytes(a)),nd_heap));
+  return out;
+Error:
+  return 0;
+
 }
 
 /**
