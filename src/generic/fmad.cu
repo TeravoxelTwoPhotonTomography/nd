@@ -126,13 +126,10 @@ fmad_kernel(vol_t<TDST> z, vol_t<TSRC> a, vol_t<TSRC> x, vol_t<TSRC> b, shape_t 
     for(u8 dim=0;dim<shape.ndim;++dim)
     { unsigned r=(i/st)%shape.shape[dim];
       st*=shape.shape[dim];
-      zz+=r*z.strides[dim];
-      aa+=r*a.strides[dim];
-      xx+=r*x.strides[dim];
-      bb+=r*b.strides[dim];
-      if(threadIdx.x==7 && threadIdx.y==0)
-      { printf("i: %5u\tshape[dim]: %5u\tst: %5u\tr: %5u\n",i,shape.shape[dim],st,r);
-      }
+      zz+=r*z.strides[dim]/z.strides[0];
+      aa+=r*a.strides[dim]/a.strides[0];
+      xx+=r*x.strides[dim]/x.strides[0];
+      bb+=r*b.strides[dim]/b.strides[0];
     }
     if(i<(((int)shape.nelem)-BX*WORK))
     { 
@@ -149,15 +146,13 @@ fmad_kernel(vol_t<TDST> z, vol_t<TSRC> a, vol_t<TSRC> x, vol_t<TSRC> b, shape_t 
 }
 
 
-
-
 // Treat this as a 1d problem, each thread does WORK elements.
 // [ ] FIXME - use shape properly
 extern "C" unsigned fmad_cuda(nd_t z,nd_t a,nd_t x,nd_t b,size_t ndim,size_t *shape)
 { unsigned n=ndnelem(z);
-  const unsigned BX=32,BY=32,WORK=1;
-  dim3 blocks((unsigned)ceil(n/(float)(WORK*BX*BY)),1),
-       threads(BX,BY);
+  const unsigned BX=32,BY=32,WORK=8;
+  dim3 blocks((unsigned)ceil(n/(float)(WORK*BX*BY))),
+       threads(BX*BY);
   /// @cond DEFINES
   #define V(a,T) make_vol<T>(a)
   #define S(a)   make_shape(a)
