@@ -33,6 +33,7 @@
 #define FAIL(msg)                    do{ LOG("%s(%d):"ENDL "\t%s"ENDL,__FILE__,__LINE__,msg); goto Error;} while(0)
 #define RESIZE(type,e,nelem)         TRY((e)=(type*)realloc((e),sizeof(type)*(nelem)))
 #define NEW(type,e,nelem)            TRY((e)=(type*)malloc(sizeof(type)*(nelem)))
+#define ZERO(type,e,nelem)           memset((e),0,sizeof(type)*(nelem))
 #define SAFEFREE(e)                  if((e)){free(e); (e)=NULL;}
 #if HAVE_CUDA
   #define CUTRY(e)                     do{cudaError_t ecode=(e); if(ecode!=cudaSuccess) {LOG("%s(%d): %s()"ENDL "\tExpression evaluated as failure."ENDL "\t%s"ENDL "\t%s"ENDL,__FILE__,__LINE__,__FUNCTION__,#e,cudaGetErrorString(ecode)); goto Error; }}while(0)
@@ -52,15 +53,24 @@ struct _nd_slice_t
 };
 #endif
 
+struct _nd_t;
+
+typedef struct _nd_stack_t
+{ int           i,
+                sz;
+  struct _nd_t* data; 
+} nd_stack_t;
+
 /// \brief N-dimensional array type.  Implementation of the abstract type nd_t.
 struct _nd_t
-{ size_t    ndim;               ///< The number of dimensions
-  size_t   *restrict shape;     ///< Buffer of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
-  size_t   *restrict strides;   ///< Buffer of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i
-  void     *restrict data;      ///< A poitner to the data.
-  nd_type_id_t type_desc;       ///< Element type descriptor. \see nd_type_id_t
-  nd_kind_t kind;               ///< Kind descriptor. \see nd_kind_t
-  char     *log;                ///< If non-null, holds error message log.
+{ size_t       ndim;               ///< The number of dimensions
+  size_t      *restrict shape;     ///< Buffer of length ndim,  ordered [w,h,d,...].  Always agrees with stride.  Maintained for convenience.
+  size_t      *restrict strides;   ///< Buffer of length ndim+1, strides[i] is the number of bytes layed out between unit steps along dimension i
+  void        *restrict data;      ///< A poitner to the data.
+  nd_type_id_t type_desc;          ///< Element type descriptor. \see nd_type_id_t
+  nd_kind_t    kind;               ///< Kind descriptor. \see nd_kind_t
+  char        *log;                ///< If non-null, holds error message log.
+  nd_stack_t   history;
 };
 
 typedef struct _nd_cuda_t* nd_cuda_t;
@@ -141,6 +151,67 @@ char*         nderror   (const nd_t a)    {return a?a->log:0;}
 void          ndResetLog(nd_t a)          {SAFEFREE(a->log);}
 nd_kind_t     ndkind    (const nd_t a)    {return a?a->kind:nd_unknown_kind;}
 
+/*
+ * SHAPE HISTORY 
+ */
+
+/** \returns a on success, 0 on error */
+static nd_t push(nd_stack_t *stack, nd_t a)
+{ nd_t c=0;
+  if(stack->i>=stack->sz)
+  { stack->sz=stack->i*1.2+50;
+    RESIZE(struct _nd_t,stack->data,stack->sz);
+  }
+  ZERO(struct _nd_t,(c=stack->data+stack->i),1);
+  stack->i++; // i points to the next write point, 1 past the read point
+  // Make a partial copy of a.  Want the shape, strides, offset, and dimensionality.
+  c->ndim=a->ndim;
+  NEW(size_t,c->shape,c->ndim);
+  NEW(size_t,c->strides,c->ndim+1);
+  memcpy(c->shape,a->shape,c->ndim*sizeof(size_t));
+  memcpy(c->strides,a->strides,(c->ndim+1)*sizeof(size_t));
+  c->data=a->data;
+  c->kind=nd_unknown_kind;
+  return a;
+Error:
+  return 0;
+}
+
+/** \returns a on success, or 0 on underflow. */
+static nd_t pop (nd_stack_t *stack, nd_t a)
+{ nd_t c=0;
+  if(stack->i==0) return 0; //underflow
+  c=stack->data+(--stack->i);
+  a->ndim=c->ndim;
+  memcpy(a->shape  ,c->shape,c->ndim*sizeof(size_t));
+  memcpy(a->strides,c->strides,(c->ndim+1)*sizeof(size_t));
+  a->data=c->data;
+  return a;
+Error:
+  return 0;
+}
+
+/** Saves the shape to the a's internal shape stack.
+    \returns a on success, 0 otherwise.
+*/
+nd_t ndPushShape(nd_t a)
+{ TRY(a);
+  TRY(push(&a->history,a));
+  return a;
+Error:
+  return 0;
+}
+
+nd_t ndPopShape (nd_t a)
+{ TRY(a);
+  TRY(pop(&a->history,a));
+  if(a->kind==nd_gpu_cuda)
+    TRY(ndCudaSyncShape(a));
+  return a;
+Error:
+  return 0;
+}
+
 /** Fills buf with the shape cast to integers.
     \param  buf must be at least ndndim(a) elements in size.
     \return buf on success, otherwise 0. 
@@ -204,9 +275,9 @@ Error:
 static void ndcuda_free(nd_cuda_t a)
 { void *d=0;
 #if HAVE_CUDA
-  if(d=nddata((nd_t)a))CUWARN(cudaFree(d));
-  if(d=a->dev_shape)   CUWARN(cudaFree(d));
-  if(d=a->dev_strides) CUWARN(cudaFree(d));
+  if((d=nddata((nd_t)a)))CUWARN(cudaFree(d));
+  if((d=a->dev_shape))   CUWARN(cudaFree(d));
+  if((d=a->dev_strides)) CUWARN(cudaFree(d));
 #endif
 }
 
@@ -551,9 +622,9 @@ nd_t ndcuda(nd_t a,void* stream)
   out->stream=(cudaStream_t)stream;
   TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
-  CUTRY(cudaMalloc(&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
-  CUTRY(cudaMalloc(&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
-  CUTRY(cudaMalloc(&out->vol.data   ,out->dev_cap=ndnbytes(a)));
+  CUTRY(cudaMalloc((void**)&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
+  CUTRY(cudaMalloc((void**)&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
+  CUTRY(cudaMalloc((void**)&out->vol.data   ,out->dev_cap=ndnbytes(a)));
   out->dev_ndim=ndndim(a);
 
   TRY(ndCudaSyncShape((nd_t)out));
@@ -596,8 +667,8 @@ nd_t ndCudaSyncShape(nd_t a)
   if(self->dev_ndim<ndndim(a)) // resize device shape and strides arrays if necessary
   { CUTRY(cudaFree(self->dev_shape));
     CUTRY(cudaFree(self->dev_strides));
-    CUTRY(cudaMalloc(&self->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
-    CUTRY(cudaMalloc(&self->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
+    CUTRY(cudaMalloc((void**)&self->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
+    CUTRY(cudaMalloc((void**)&self->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
     self->dev_ndim=ndndim(a);
   }
   CUTRY(cudaMemcpy(self->dev_shape  ,a->shape  ,sizeof(size_t)* ndndim(a)   ,cudaMemcpyHostToDevice));
@@ -680,7 +751,7 @@ nd_t ndCudaSetCapacity(nd_t self_, size_t nbytes)
 #if HAVE_CUDA
   if(self->dev_cap<nbytes)
   { CUTRY(cudaFree(self_->data));
-    CUTRY(cudaMalloc(&self_->data,nbytes));
+    CUTRY(cudaMalloc((void**)&self_->data,nbytes));
     self->dev_cap=nbytes;
   }
 #endif

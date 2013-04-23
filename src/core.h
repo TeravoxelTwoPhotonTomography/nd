@@ -86,6 +86,8 @@ nd_t          ndreshapev (nd_t a, unsigned ndim, ...);
 nd_t          ndShapeSet (nd_t a, unsigned idim, size_t val); /// \todo bad name: should distinguish from using ndshape(a)[i]=c
 nd_t          ndInsertDim(nd_t a, unsigned idim);
 nd_t          ndRemoveDim(nd_t a, unsigned idim);
+nd_t          ndPushShape(nd_t a);                        ///< Save the current state to an internal history
+nd_t          ndPopShape (nd_t a);                        ///< Restore the shape from the internal history
 
 nd_t          ndoffset(nd_t a, unsigned idim, int64_t o); ///< increments data pointer: data+=o*stride[idim]
 

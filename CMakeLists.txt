@@ -116,7 +116,7 @@ set_target_properties(nd PROPERTIES
 install(TARGETS nd EXPORT libnd-targets LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 
 ### APPS
-# add_subdirectory(app/ndconvert) # FIXME
+add_subdirectory(app/ndconvert) # FIXME
 
 ###############################################################################
 #  Testing
