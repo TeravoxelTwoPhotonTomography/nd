@@ -24,6 +24,7 @@ ExternalProject_Add(ndio-ffmpeg-plugin
   )
 
 add_library(ndio-ffmpeg MODULE IMPORTED)
+set(plugin ndio-ffmpeg)
 set_target_properties(${plugin} PROPERTIES
   IMPORTED_LINK_INTERFACE_LANGUAGES "C"
   IMPORTED_LOCATION "${ND_ROOT_DIR}/bin/plugins/${CMAKE_SHARED_MODULE_PREFIX}${plugin}${CMAKE_SHARED_MODULE_SUFFIX}"
