@@ -622,10 +622,10 @@ nd_t ndcuda(nd_t a,void* stream)
   out->stream=(cudaStream_t)stream;
   TRY(ndreshape(ndcast((nd_t)out,ndtype(a)),(unsigned)ndndim(a),ndshape(a)));
   
-  CUTRY(cudaMalloc((void**)&out->dev_shape  ,sizeof(size_t)* ndndim(a)   ));
-  CUTRY(cudaMalloc((void**)&out->dev_strides,sizeof(size_t)*(ndndim(a)+1)));
-  CUTRY(cudaMalloc((void**)&out->vol.data   ,out->dev_cap=ndnbytes(a)));
-  out->dev_ndim=ndndim(a);
+  CUTRY(cudaMalloc((void**)&out->dev_shape  ,sizeof(size_t)* ndndim(out)   ));
+  CUTRY(cudaMalloc((void**)&out->dev_strides,sizeof(size_t)*(ndndim(out)+1)));
+  CUTRY(cudaMalloc((void**)&out->vol.data   ,out->dev_cap=ndnbytes(out)));
+  out->dev_ndim=ndndim(out);
 
   TRY(ndCudaSyncShape((nd_t)out));
 #else // fall back to heap
