@@ -102,6 +102,7 @@ nd_t          ndoffset(nd_t a, unsigned idim, int64_t o); ///< increments data p
 // === CONSTRUCTORS ====
 //
 
+nd_t         ndmake_kind      (nd_t a,nd_kind_t kind);       ///< Creates a new array with specified kind.
 nd_t         ndmake           (nd_t a);                      ///< Creates a new array with the same kind as \a a.
 nd_t         ndunknown        (nd_t a);
 nd_t         ndheap           (nd_t a);

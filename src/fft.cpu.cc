@@ -88,8 +88,10 @@ static int fft1d_ip_(size_t n,T* x,size_t cstride, size_t vstride, int direction
 
 extern "C"
 {
+  #define ispow2(x) (((x) != 0) && (((x) & (~(x) + 1)) == (x)))
+
   int fft1d_ip(size_t n, nd_type_id_t tid, void *d, size_t cstride, size_t vstride, int direction)
-  {
+  { if(!ispow2(n)) return 0; //fail!
     switch(tid)
     { case nd_f32: return fft1d_ip_(n, (float*)d, cstride, vstride, direction);
       case nd_f64: return fft1d_ip_(n, (double*)d, cstride, vstride, direction);

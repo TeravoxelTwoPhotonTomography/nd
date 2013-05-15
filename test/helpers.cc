@@ -57,10 +57,31 @@ switch(type_id) \
   default:   \
     FAIL;    \
 }
+#define TYPECASE2(type_id,T) \
+switch(type_id) \
+{               \
+  case nd_u8 :CASE2(T,u8);  \
+  case nd_u16:CASE2(T,u16); \
+  case nd_u32:CASE2(T,u32); \
+  case nd_u64:CASE2(T,u64); \
+  case nd_i8 :CASE2(T,i8);  \
+  case nd_i16:CASE2(T,i16); \
+  case nd_i32:CASE2(T,i32); \
+  case nd_i64:CASE2(T,i64); \
+  case nd_f32:CASE2(T,f32); \
+  case nd_f64:CASE2(T,f64); \
+  default:      \
+    FAIL;       \
+}
+/*
+  #define CASE2(T1,T2) return ndconv1_ip_cpu_##T1##_##T2(dst,filter,idim,param);
+  #define CASE(T)      TYPECASE2(ndtype(dst),T); break
+ */
 #define FAIL
 double ndRMSE(nd_t a, nd_t b)
 { 
-#define CASE(T) return RMSE<T>(ndnelem(a),(T*)nddata(a),(T*)nddata(b));
+#define CASE2(T1,T2) return RMSE2<T1,T2>(ndnelem(a),(T1*)nddata(a),(T2*)nddata(b));
+#define CASE(T) TYPECASE2(ndtype(b),T)
   TYPECASE(ndtype(a));
 #undef CASE
   return 999999999.0;

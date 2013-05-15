@@ -17,6 +17,8 @@
 extern "C" {
 #endif
 
+#include "src/xcorr/normxcorr.h"
+
 typedef enum boundary_condition_t_
 { nd_boundary_unknown=-1,
   /// out-of-bounds values are set to the value at the nearest edge
@@ -68,6 +70,9 @@ nd_t ndshiftdim      (nd_t dst,const nd_t src,int n);
 nd_t ndcat           (nd_t x,nd_t y, size_t idim);
 nd_t ndcat_ip        (nd_t dst,nd_t src);
 nd_t ndadd           (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
+// TODO nd_t ndsub           (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
+// TODO nd_t ndmul           (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
+// TODO nd_t nddiv           (nd_t z,const nd_t x,const nd_t y,size_t ndim,size_t* shape);
 nd_t ndfmad          (nd_t z,const nd_t a,const nd_t x,const nd_t b,size_t ndim,size_t* shape);
 nd_t ndfmad_scalar_ip(nd_t z,float m,float b,size_t ndim,size_t *shape);
 nd_t ndsaturate_ip   (nd_t z,.../*min,max*/); // type of min and max determined from dst.
@@ -80,8 +85,9 @@ nd_t ndaffine        (nd_t dst, const nd_t src, const float *transform, const nd
 nd_t ndconv1         (nd_t dst, nd_t src, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
 nd_t ndconv1_ip      (nd_t dst, const nd_t filter, unsigned idim,const nd_conv_params_t* params);
 
-nd_t ndfft           (nd_t dst, nd_t src, int direction, nd_fft_plan_t *plan);// src and dst may be the same.
-nd_t ndfftFreePlan   (nd_fft_plan_t plan);
+nd_t ndfft           (nd_t dst, nd_t src, nd_fft_plan_t *plan);// src and dst may be the same.
+nd_t ndifft          (nd_t dst, nd_t src, nd_fft_plan_t *plan);// src and dst may be the same.
+void ndfftFreePlan   (nd_fft_plan_t plan);
 
 nd_t ndLinearConstrastAdjust_ip(nd_t dst,nd_type_id_t dtype,.../*min,max*/);    //type of min and max determined from dst. vararg's used to generical pass values
 

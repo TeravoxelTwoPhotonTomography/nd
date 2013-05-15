@@ -180,6 +180,7 @@ Error:
 /** \returns a on success, or 0 on underflow. */
 static nd_t pop (nd_stack_t *stack, nd_t a)
 { nd_t c=0;
+  TRY(stack->sz==0 || stack->i<stack->sz);
   if(stack->i==0) return 0; //underflow
   c=stack->data+(--stack->i);
   a->ndim=c->ndim;
@@ -205,8 +206,10 @@ Error:
 nd_t ndPopShape (nd_t a)
 { TRY(a);
   TRY(pop(&a->history,a));
+#if 0 // not sure if this is a good idea or not...I think shape sync should be explicit
   if(a->kind==nd_gpu_cuda)
     TRY(ndCudaSyncShape(a));
+#endif
   return a;
 Error:
   return 0;
@@ -283,6 +286,8 @@ static void ndcuda_free(nd_cuda_t a)
 
 void ndfree(nd_t a)
 { if(!a) return;
+  while(pop(&a->history,a)); // not necessary to unroll, could just jump to original
+  if(a->history.data) free(a->history.data);
   switch(ndkind(a)) // specially handle certain kinds
   { case nd_gpu_cuda: ndcuda_free((nd_cuda_t)a); break;
     case nd_heap:     if(a->data) free(a->data); break;
@@ -348,18 +353,8 @@ nd_type_id_t ndtype(const nd_t a)
 */
 nd_t ndref(nd_t a, void *buf, nd_kind_t kind)
 { TRY(a);
-  TRY(a->data=buf);
+  a->data=buf;
   a->kind=kind;
-#if 0
-  if(a->strides && ndnelem(a)==nelem)
-    return a;
-  if(a->ndim==0)
-  { maybe_resize_array(a,1);
-    a->shape[0]=nelem;
-    a->strides[0]=ndbpp(a);
-    a->strides[1]=ndbpp(a)*nelem;
-  }
-#endif
   return a;
 Error:
   return NULL;
@@ -379,20 +374,15 @@ Error:
  */
 nd_t ndreshape(nd_t a,unsigned ndim,const size_t *shape)
 { unsigned i;
-  //size_t nelem;
-  //for(i=0,nelem=1;i<ndim;++i)
-  // nelem*=shape[i];
-  //TRY(nelem<=ndnelem(a));
   maybe_resize_array(a,ndim); // sets ndim, maybe resizes shape/strides 
-  if(a->shape==shape) return a;
-  memcpy(a->shape    ,shape,sizeof(*shape)*ndim);
+  if(a->shape!=shape)
+    memcpy(a->shape,shape,sizeof(*shape)*ndim);
+  //update strides
   memcpy(a->strides+1,shape,sizeof(*shape)*ndim);
   a->strides[0]=ndbpp(a);
   for(i=0;i<ndim;++i)
     a->strides[i+1]*=a->strides[i];
   return a;
-//Error:
-//  return NULL;
 }
 
 nd_t ndreshapev(nd_t a,unsigned ndim,...)
@@ -538,11 +528,11 @@ Error:
  * 
  * Note that data isn't copied.  To allocate and generate a copy do:
  * \code{c}
- * nd_t b=ndcopy(ndheap(a),a,0,0);
+ * nd_t b=ndcopy(ndmake_kind(a,nd_heap),a,0,0);
  * \endcode
  */
-nd_t ndmake(nd_t a)
-{ switch(ndkind(a))
+nd_t ndmake_kind(nd_t a,nd_kind_t kind)
+{ switch(kind)
   { case nd_id_unknown:return ndunknown(a);
     case nd_heap:      return ndheap(a);
     case nd_gpu_cuda:  return ndcuda(a,0);
@@ -554,17 +544,29 @@ Error:
 }
 
 /**
- * Constructor.  Creates a RAM based array according to the shape specified by \a a.
- * Allocates the data buffer with malloc();
- * Note that data isn't copied.  To allocate and genrate a copy do:
+ * Constructor.  Creates a new array and allocates space according to the kind 
+ * and shape specified by \a a.
+ *
+ * Note that not all kinds are supported.
+ * 
+ * Note that data isn't copied.  To allocate and generate a copy do:
  * \code{c}
  * nd_t b=ndcopy(ndheap(a),a,0,0);
  * \endcode
  */
+nd_t ndmake(nd_t a) {return ndmake_kind(a,ndkind(a));}
+
+/**
+ * Constructor.  Creates an array according to the shape specified by \a a.
+ * Does not allocate any data.
+ *
+ * This is useful for setting the shape and type, and defering allocation till 
+ * later.
+ */
 nd_t ndunknown(nd_t a)
 { nd_t out;
   TRY(ndreshape(ndcast(out=ndinit(),ndtype(a)),ndndim(a),ndshape(a)));
-  TRY(ndref(out,malloc(ndnbytes(out)),nd_unknown_kind));
+  TRY(ndref(out,0,nd_unknown_kind));
   return out;
 Error:
   return 0;

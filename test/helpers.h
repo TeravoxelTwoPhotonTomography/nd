@@ -32,7 +32,16 @@ double RMSE(size_t n, T* a, T* b)
   }
   return sqrt(ssq/n);
 }
-
+template<class T1,class T2>
+double RMSE2(size_t n, T1* a, T2* b)
+{ double ssq=0.0;
+  for(size_t i=0;i<n;++i)
+  { double t = (double)b[i]-(double)a[i];
+    //if(a[i]!=b[i])
+    ssq+=t*t;
+  }
+  return sqrt(ssq/n);
+}
 double ndRMSE(nd_t a, nd_t b);
 
 /**

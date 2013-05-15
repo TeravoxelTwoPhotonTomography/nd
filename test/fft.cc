@@ -106,9 +106,8 @@ template<class T> void csum(nd_t a, T& real, T& imag)
   { nd_fft_plan_t plan=0; \
     nd_t src=init_(this->src); \
     EXPECT_EQ(src,ndcopy(src,this->src,0,0)); \
-    EXPECT_EQ(src,ndfft(src,src, 1,&plan)); \
-    EXPECT_EQ(src,ndfft(src,src,-1,&plan)); \
-    EXPECT_EQ(src,ndfmad_scalar_ip(src,2.0f/ndnelem(src),0.0,0,0)); \
+    EXPECT_EQ(src,ndfft(src,src,&plan)); \
+    EXPECT_EQ(src,ndifft(src,src,&plan)); \
     EXPECT_EQ(this->src,ndcopy(this->src,src,0,0)); \
     ndfftFreePlan(plan); \
     ndfree(src); \
@@ -120,7 +119,7 @@ template<class T> void csum(nd_t a, T& real, T& imag)
     EXPECT_EQ(src,ndcopy(src,this->src,0,0)); \
     TypeParam sumr,sumi,dr,di; \
     csum(this->src,sumr,sumi); \
-    EXPECT_EQ(src,ndfft(src,src, 1,NULL)); \
+    EXPECT_EQ(src,ndfft(src,src,NULL)); \
     EXPECT_EQ(this->src,ndcopy(this->src,src,0,0)); \
     ndfree(src); \
     dr=(sumr-((TypeParam*)nddata(this->src))[0]); \
@@ -133,8 +132,8 @@ template<class T> void csum(nd_t a, T& real, T& imag)
     nd_t cpy=ndheap(this->src); \
     EXPECT_EQ(src,ndcopy(src,this->src,0,0)); \
     EXPECT_EQ(cpy,ndcopy(cpy,this->src,0,0)); \
-    EXPECT_EQ(src,ndfft(src,src,1,NULL)); \
-    EXPECT_EQ(cpy,ndfft(cpy,cpy,1,NULL)); \
+    EXPECT_EQ(src,ndfft(src,src,NULL)); \
+    EXPECT_EQ(cpy,ndfft(cpy,cpy,NULL)); \
     EXPECT_EQ(this->src,ndcopy(this->src,src,0,0)); \
     EXPECT_NEAR(0.0,RMSE(ndnelem(this->src),(TypeParam*)nddata(this->src),(TypeParam*)nddata(cpy)),TOL_F32); \
     ndfree(src); \

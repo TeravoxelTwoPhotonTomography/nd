@@ -63,12 +63,13 @@ Error:
 unsigned is_set(nd_fft_plan_t self) 
 { return self->plan_is_set;
 }
-nd_fft_plan_t set_plan(nd_fft_plan_t self, void *data, void (*free_fn)(void))
+nd_fft_plan_t set_plan(nd_fft_plan_t self, void *data, void (*free_fn)(void*))
 { if(is_set(self))
     self->free(self->data);
   self->data=free_fn;
   self->data=data;
   self->plan_is_set=1;
+  return self;
 }
 
 
@@ -199,7 +200,7 @@ static nd_t ndfft_cuda(nd_t dst, nd_t src, int direction, nd_fft_plan_t plan_)
       transform_type,
       batch /* number of repititions */
       ));
-    set_plan(plan_,plan,ndfft_cuda_free_plan);
+    set_plan(plan_,(void*)plan,ndfft_cuda_free_plan);
   }
   CUFFTTRY(cufftExecC2C(plan,nddata(src),nddata(dst),(direction>0)?CUFFT_FORWARD:CUFFT_INVERSE));
   return dst;
@@ -265,14 +266,13 @@ Error:
  *  \returns \a dst on success, or NULL otherwise.
  *  \ingroup ndops
  */
-nd_t ndfft(nd_t dst, nd_t src, int direction, nd_fft_plan_t *plan_)
+static nd_t _ndfft(nd_t dst, nd_t src, int direction, nd_fft_plan_t *plan_)
 { nd_fft_plan_t plan=plan_?*plan_:0;
   REQUIRE(src,PTR_ARITHMETIC);
   REQUIRE(dst,PTR_ARITHMETIC);
   TRY(ndtype(dst)==ndtype(src));
   TRY(ndkind(dst)==ndkind(src));
   TRY(ndtype(src)==nd_f32 || ndtype(src)==nd_f64);
-
 
   if(!plan)
     TRY(plan=make_plan());
@@ -291,7 +291,16 @@ Error:
   return NULL;
 }
 
-nd_t ndfftFreePlan(nd_fft_plan_t plan)
+nd_t ndfft(nd_t dst, nd_t src, nd_fft_plan_t *plan_)
+{ return _ndfft(dst,src,1,plan_); 
+}
+
+nd_t ndifft(nd_t dst, nd_t src, nd_fft_plan_t *plan_)
+{ dst=_ndfft(dst,src,-1,plan_);
+  return ndfmad_scalar_ip(dst,2.0f/ndnelem(src),0.0,0,0);
+}
+
+void ndfftFreePlan(nd_fft_plan_t plan)
 { if(plan && plan->free && plan->plan_is_set)
     plan->free(plan->data);
   if(plan) free(plan);

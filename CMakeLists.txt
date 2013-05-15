@@ -60,23 +60,32 @@ endif()
 # SOURCE
 ################################################################################
 
-file(GLOB SRCS  src/*.c src/*.cc src/io/*.c src/affine/*.c src/conv/*.c)
-file(GLOB HDRS  *.h src/*.h src/io/*. src/conv/*.h)
-file(GLOB CUSRC src/affine/*.cu src/conv/*.cu src/generic/*.cu)
+file(GLOB SRCS  src/*.c src/*.cc 
+                src/io/*.c 
+                src/affine/*.c 
+                src/conv/*.c
+                src/xcorr/*.c
+              )
+file(GLOB HDRS  *.h src/*.h 
+                src/io/*.h 
+                src/conv/*.h
+                src/xcorr/*.h
+              )
+file(GLOB CUSRC src/affine/*.cu 
+                src/conv/*.cu
+                src/generic/*.cu)
 include_directories(${PROJECT_SOURCE_DIR})
 
 
 # PUBLIC HEADERS
 install(
   FILES   nd.h
-  #EXPORT  libnd-targets 
   DESTINATION include/nd)
 install(
   FILES 
     src/ops.h
     src/core.h
     src/io.h
-  #EXPORT libnd-targets
   DESTINATION include/nd/src)
 
 if(CUDA_FOUND)
