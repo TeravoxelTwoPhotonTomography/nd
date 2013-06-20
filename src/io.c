@@ -237,6 +237,7 @@ void ndioClose(ndio_t file)
   ndfree(file->cache);
   SAFEFREE(file->dstpos);
   SAFEFREE(file->srcpos);
+  SAFEFREE(file->cachepos);
   SAFEFREE(file->seekable)
 
   if(file->log) fprintf(stderr,"Log: 0x%p"ENDL "\t%s"ENDL,file,file->log);
@@ -504,7 +505,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
   unsigned use_cache=0;
   void *ref=nddata(dst); // remember the original pointer so nddata(dst) doesn't change even when this call fails  
-  
+  TRY(file && dst);
   // Check for direct format support
   if(file->fmt->subarray)
   { size_t *ori_=origin,*step_=step;
@@ -557,7 +558,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
     for(i=0;i<ndim;++i)
       TRY((ndshape(dst)[i]+ori_(i)*step_(i))<=ndshape(file->shape)[i]); // spell it out for the error message
     for(;i<ndndim(file->shape);++i)  // rest of the dst shape==1
-      TRY(1+ori_(i)<=ndshape(file->shape)[i]);
+      TRY((1+ori_(i))<=ndshape(file->shape)[i]);
   }
 
   // Need to cache a dim if it's not seekable and shape[i]<dst->shape[i]
@@ -586,7 +587,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
     if(!file->cache)
       TRY(file->cache=ndunknown(file->shape));
     for(i=0;i<=max_unseekable;++i)
-    { if(i>ndim || canseek_(file,i)) // other dims get full size
+    { if((i>ndim) || canseek_(file,i)) // other dims get full size
         ndShapeSet(file->cache,(unsigned)i,1); //may insert dimensions
     }
     for(;i<ndndim(file->cache);++i)  //set shape of any remaining dimensions
@@ -623,15 +624,19 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   { do
     { getsrcpos(ndim,ndndim(file->shape),file->srcpos,file->dstpos,origin,step); // srcpos=origin+dstpos*step
       if(cachemiss(file))
-      { TRY(seek_(file,file->cache,file->srcpos));
+      { unsigned i;
         MAYBE_REALLOC(size_t,file->cachepos,ndndim(file->shape));
         memcpy(file->cachepos,file->srcpos,sizeof(size_t)*ndndim(file->shape));
+        for(i=0;i<ndndim(file->cache);++i) // cachepos should be 0 for unseekable dims
+          if(!file->seekable[i])
+            file->cachepos[i]=0;
+        TRY(seek_(file,file->cache,file->cachepos)); 
       }
       
       setpos(dst,file->dstpos,0);
-      setpos(file->cache,origin,file->cachepos);
-      TRY(ndcopy(dst,file->cache,ndim,ndshape(dst)));//cache has file's dimensionality.
-      unsetpos(file->cache,origin,file->cachepos);
+      setpos(file->cache,origin,0);
+      TRY(ndcopy(dst,file->cache,0,0));//cache has file's dimensionality.
+      unsetpos(file->cache,origin,0);
       unsetpos(dst,file->dstpos,0);
     } while(inc(dst,file->dstpos,file->seekable));
   }

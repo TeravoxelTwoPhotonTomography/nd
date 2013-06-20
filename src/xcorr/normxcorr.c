@@ -16,7 +16,11 @@
 #include "stdlib.h"
 
 #ifndef restrict
-#define restrict __restrict__
+#define restrict __restrict
+#endif
+
+#ifdef _MSC_VER
+#define roundf(e) floorf(e+0.5f)
 #endif
 
 #define TOL (1.0e-3f)
@@ -50,6 +54,8 @@ static void breakme() {}
 typedef size_t  stride_t;
 typedef uint8_t u8;
 #include "src/private/element-wise.h"
+
+
 
 #undef LOG
 #define LOG(...)          ndLogError(z,__VA_ARGS__)
@@ -94,14 +100,14 @@ ndxcorr_plan_t ndxcorr_make_plan(nd_kind_t kind, nd_t ashape, nd_t bshape, uint6
   self->thresh=overlap_threshold;
   TRY(t=ndcast(ndref(ndunknown(ashape),0,kind),nd_f32)); // use float internally (and for output)
   // add shapes
-  { int i=0;
+  { size_t i=0;
     for(i=0;i<ndndim(t);++i)
-      ndshape(t)[i]=nextpow2(ndshape(t)[i]+ndshape(bshape)[i])+1; // must be pow2 due to fft impl, last el will be used for mirror
+      ndshape(t)[i]=nextpow2((unsigned)(ndshape(t)[i]+ndshape(bshape)[i]))+1; // must be pow2 due to fft impl, last el will be used for mirror
     ndreshape(t,ndndim(t),ndshape(t)); // reset strides
     ndShapeSet(ndInsertDim(t,0),0,2);  // complex field is dim[0] bc this is what ndfft expects
   }
   // alloc data
-  { int d,i=0;
+  { size_t d,i=0;
     nd_t *all=&self->R1;
     for(i=0;i<NARRAY;++i)
     { TRY(all[i]=ndmake(t));
@@ -265,8 +271,6 @@ static nd_t cross(nd_t out, nd_t a, nd_t b, nd_t c, nd_t d)
     oo[st*i+1]=0.25f*(u.i+v.r); //imag part
   }
   return out;
-Error:
-  return 0;
 }
 #undef first
 #undef second
@@ -275,7 +279,7 @@ Error:
 /** for each dim in a >0, copy first to last along dim */
 static nd_t mirror(nd_t a)
 { nd_t ref=0;
-  int i;
+  size_t i;
   for(i=1;i<ndndim(a);++i)
     ndshape(a)[i]++; // was alloc'd with one extra on each dim, so this is ok
   TRY(ref=ndunknown(a));
@@ -284,7 +288,7 @@ static nd_t mirror(nd_t a)
   { ndPushShape(a);
     ndPushShape(ref);
 
-    ndoffset(a,i,ndshape(a)[i]-1);
+    ndoffset(a,(unsigned)i,ndshape(a)[i]-1);
     ndshape(a)[i]=1;
     ndshape(ref)[i]=1;
     ndcopy(a,ref,0,0);
@@ -359,8 +363,7 @@ void numerator_vec_op(stride_t N, void *z,stride_t zst,
 }
 
 static nd_t numerator(nd_t out, ndxcorr_plan_t plan)
-{ size_t i;
-  float *f1f2,*m1m2,*f1m2,*m1f2;
+{ float *f1f2,*m1m2,*f1m2,*m1f2;
   const size_t n=ndstrides(plan->R3)[ndndim(plan->R3)]/ndstrides(plan->R3)[1],
               st=ndstrides(plan->R3)[1]/ndstrides(plan->R3)[0]; // should be 2
   f1f2= (float*)nddata(plan->R3);    // real part
@@ -409,16 +412,15 @@ void denominator_vec_op(stride_t N, void *z,stride_t zst,
   { const float d1=f1f1m2[i*a]-f1m2[i*a]*f1m2[i*a]/m1m2[i*b],
                 d2=m1f2f2[i*a]-m1f2[i*a]*m1f2[i*a]/m1m2[i*b],
                 p =d1*d2,
-                v =(p>TOL)?(zz[i*zst]/sqrt(d1*d2)):0.0;
-    zz[i*zst]=(v<-1.0f)?-1.0:((v>1.0f)?1.0f:v);
+                v =(p>TOL)?(float)(zz[i*zst]/sqrt(d1*d2)):0.0f;
+    zz[i*zst]=(v<-1.0f)?-1.0f:((v>1.0f)?1.0f:v);
   }
 }
 
 static nd_t denominator(nd_t out, ndxcorr_plan_t plan)
-{ size_t i;
-  const size_t n=ndstrides(plan->R3)[ndndim(plan->R3)]/ndstrides(plan->R3)[1],
+{ const size_t n=ndstrides(plan->R3)[ndndim(plan->R3)]/ndstrides(plan->R3)[1],
                st=ndstrides(plan->R3)[1]/ndstrides(plan->R3)[0]; // should be 2;
-  float *f1f1m2,*m1f2f2,*m1m2,*f1m2,*m1f2,*o;
+  float *f1f1m2,*m1f2f2,*m1m2,*f1m2,*m1f2;
   f1f1m2= (float*)nddata(plan->R3);  // real part
   m1f2f2= (float*)nddata(plan->R3)+1;// imag part
   f1m2= (float*)nddata(plan->R4);    // real part

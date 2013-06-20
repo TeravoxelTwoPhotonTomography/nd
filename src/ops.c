@@ -396,7 +396,7 @@ nd_t ndshiftdim(nd_t dst,const nd_t src,int n)
   for(i=0;i<d;++i) imap[(i-n)%d]=i; // compute the inverse permutation
   
   for(i=0;i<d;++i) s[i]=ndshape(dst)[i];        // hold the shape temporarily
-  for(i=0;i<d;++i) ndShapeSet(dst,i,s[map[i]]); // permute dst shape
+  for(i=0;i<d;++i) ndShapeSet(dst,(int)i,s[map[i]]); // permute dst shape
   
   // Copy with permuted pitches
   for(i=0;i<d;++i) s[i]=ndstrides(dst)[i];      // hold the strides temporarily

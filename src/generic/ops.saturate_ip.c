@@ -54,6 +54,8 @@
  *  \param[in]   param A two-element val_t array with <tt>[min,max]</tt>.
  *  \param[in]  nbytes The number of bytes in \a param (ignored).
  */
+#pragma warning(push)
+#pragma warning(disable:4244)
 static void NAME(saturate_ip,TDST)(stride_t N,
                               void* restrict z,stride_t zst,
                               void* restrict param, size_t nbytes)
@@ -69,6 +71,8 @@ static void NAME(saturate_ip,TDST)(stride_t N,
     }
   }
 }
+#pragma warning(pop)
+
 #undef TDST
 #undef NAME
 #undef _NAME

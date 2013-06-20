@@ -93,7 +93,7 @@ static size_t g_npaths=0;
  */
 static unsigned pushpath(const char *path)
 { REALLOC(char*,g_paths,g_npaths+1);
-  NEW(char,g_paths[g_npaths],strlen(path));
+  NEW(char,g_paths[g_npaths],strlen(path)+1);
   strcpy(g_paths[g_npaths],path);
   g_npaths++;
   return 1;

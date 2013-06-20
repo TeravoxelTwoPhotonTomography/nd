@@ -53,9 +53,12 @@
  * This defines what happens when the source value overflows the destination
  * type.
  */
+#pragma warning(push)
+#pragma warning(disable:4244) // warning: possible loss of data on conversion
 static TDST NAME(saturate,TDST)(f32 v)
 { return min(max(v,NAME(min,TDST)),NAME(max,TDST));
 }
+#pragma warning(pop)
 
 /** In-place xor with a constant.
  *  \code
@@ -69,6 +72,8 @@ static TDST NAME(saturate,TDST)(f32 v)
  *  \param[in]   param A two-element f32 array with <tt>[m,b]</tt>.
  *  \param[in]  nbytes The number of bytes in \a param (ignored).
  */
+#pragma warning(push)
+#pragma warning(disable:4244) // warning: possible loss of data on conversion
 static void NAME(fmad_scalar_ip,TDST)(stride_t N,
                               void* restrict z,stride_t zst,
                               void* restrict param, size_t nbytes)
@@ -81,6 +86,7 @@ static void NAME(fmad_scalar_ip,TDST)(stride_t N,
       _z[i*_zst]=NAME(saturate,TDST)(m*_z[i*_zst]+b);
   }
 }
+#pragma warning(pop)
 #undef TDST
 #undef NAME
 #undef _NAME

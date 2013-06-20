@@ -186,6 +186,8 @@ static nd_t pop (nd_stack_t *stack, nd_t a)
   a->ndim=c->ndim;
   memcpy(a->shape  ,c->shape,c->ndim*sizeof(size_t));
   memcpy(a->strides,c->strides,(c->ndim+1)*sizeof(size_t));
+  free(c->shape);
+  free(c->strides);
   a->data=c->data;
   return a;
 Error:

@@ -10,6 +10,11 @@
  *   - size_t
  */
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#define alloca _alloca
+#endif
+
 typedef void (inplace_vec_op_t)(stride_t N, void *z, stride_t zst, void *param, size_t nbytes);                                                   ///< \verbatim 1D f:z=f(z) \endverbatim
 typedef void (unary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,void *param, size_t nbytes);                             ///< \verbatim 1D f:z=f(x)   \endverbatim
 typedef void (binary_vec_op_t)(stride_t N,void* z,stride_t zst,const void* x,stride_t xst,const void* y,stride_t yst,void *param, size_t nbytes); ///< \verbatim 1D f:z=f(x,y) \endverbatim
@@ -283,7 +288,7 @@ static int many_op(
     many_vec_op_t *f)
 {
   int64_t m;
-  TRY( (m=find_vectorizable_dim(ndim,shape,narg,strides))>=0 );
+  TRY( (m=(int64_t)find_vectorizable_dim(ndim,shape,(int)narg,strides))>=0 );
   many_op_recurse(m,ndim-1,shape,z,zst,narg,args,strides,param,nbytes,f);
   return 1;
 Error:
