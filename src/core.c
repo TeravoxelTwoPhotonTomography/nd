@@ -523,7 +523,7 @@ Error:
 /// @endcond
 
 /**
- * Constructor.  Creates a new array and allocates space according to the kind 
+ * Constructor.  Creates a new array and allocates space according to the type 
  * and shape specified by \a a.
  *
  * Note that not all kinds are supported.
@@ -541,6 +541,34 @@ nd_t ndmake_kind(nd_t a,nd_kind_t kind)
     default:
       FAIL("No constructor found for the requested array kind.");
   }
+Error:
+  return 0;
+}
+
+/**
+ * Constructor.  Creates a new array and allocates space according to the kind 
+ * and shape specified by \a a.
+ *
+ * Note that not all kinds are supported.
+ * 
+ * Data isn't copied.  To allocate and generate a copy do:
+ * \code{c}
+ * nd_t b=ndcopy(ndmake_type(a,nd_u8),a,0,0);
+ * \endcode
+ */
+nd_t ndmake_type(nd_t a,nd_type_id_t type)
+{ nd_t out=0;
+  nd_type_id_t old=ndtype(a);
+  TRY(a=ndcast(a,type));
+  switch(ndkind(a))
+  { case nd_id_unknown: out=ndunknown(a); break;
+    case nd_heap:       out=ndheap(a); break;
+    case nd_gpu_cuda:   out=ndcuda(a,0); break;
+    default:
+      FAIL("No constructor found for the requested array kind.");
+  }
+  ndcast(a,old);
+  return out;
 Error:
   return 0;
 }
