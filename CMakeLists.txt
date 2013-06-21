@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.6CONFIG)
 project(nd)
 
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
@@ -95,8 +95,9 @@ if(CUDA_FOUND)
 endif()
 
 ################################################################################
-# config.h
+# config files
 ################################################################################
+configure_file(nd-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/nd-config.cmake @ONLY)
 configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 include_directories(${PROJECT_BINARY_DIR})
 
@@ -156,4 +157,4 @@ endif()
 install(EXPORT libnd-targets DESTINATION cmake)
 export(TARGETS nd FILE nd-config-targets.cmake )
 export(PACKAGE nd)
-configure_file(nd-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/nd-config.cmake @ONLY)
+
