@@ -24,7 +24,7 @@ set(CMAKE_INSTALL_RPATH ${RPATH}) ## Probably need to change this to @rpath or @
 
 ### GTest (as an ExternalProject)
 #   do this before anything else so gtest gets built in the root dir
-find_package(GTEST CONFIG PATHS cmake)
+find_package(GTEST PATHS cmake)
 
 ### NDIO plugins
 set(NDIO_PLUGIN_PATH  plugins)
