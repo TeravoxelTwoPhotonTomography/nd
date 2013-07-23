@@ -23,7 +23,7 @@ set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}" "${SHLWAPI}")
 ### Handle components
 # component name and the imported target must be the same
 foreach(package ${ND_FIND_COMPONENTS})
-  find_package(${package} CONFIG PATHS .)
+  find_package(${package} PATHS .)
   get_property(plugin TARGET ${package} PROPERTY LOCATION)
   if(plugin) ## should remove this when I add config files for the plugins?
     set(ND_${package}_FOUND TRUE)
@@ -50,7 +50,7 @@ function(nd_copy_plugins_to_target _target _plugins)
     list(REMOVE_AT ARGV 0)
     foreach(package ${ARGV})      
       if(NOT TARGET ${package})
-        find_package(${package} CONFIG PATHS .)
+        find_package(${package} PATHS .)
       endif()
       if(TARGET ${package})
         get_property(plugin TARGET ${package} PROPERTY LOCATION)
