@@ -54,6 +54,10 @@ if(CUDA_FOUND)
     RELWITHDEBINFO --use_fast_math;-g
     MINSIZEREL --use_fast_math
     )
+else()
+  # clear these 
+  set(CUDA_LIBRARIES)
+  set(CUDA_CUFFT_LIBRARIES)
 endif()
 
 ################################################################################
