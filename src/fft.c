@@ -18,7 +18,10 @@
 #include "string.h"
 #include "stdlib.h"
 
-#include "cufft.h"
+#if HAVE_CUDA
+  #include "cufft.h"
+#endif
+
 #ifdef _MSC_VER
 #define alloca _alloca
 #endif
@@ -74,6 +77,7 @@ nd_fft_plan_t set_plan(nd_fft_plan_t self, void *data, void (*free_fn)(void*))
 
 
 // === HELPERS ===
+#if HAVE_CUDA
 static const char* cufftGetErrorString(enum cufftResult_t r)
 {
   //extracted from CUFFT docs (CUDA v5.0)
@@ -91,6 +95,7 @@ static const char* cufftGetErrorString(enum cufftResult_t r)
   };
   return strings[r];
 }
+#endif
 
 static int prod(int* v,int n)
 { int x=1;
@@ -116,7 +121,10 @@ static size_t prod_sz(size_t *v,int n)
 //    errors and report.
 // 4. can safely ignore the plan argument
 
+#if HAVE_CUDA
 static void ndfft_cuda_free_plan(void* data) {cufftDestroy((cufftHandle)data);}
+#endif
+
 /**
  *  \param[in,out]  dst         The destination array.
  *                              May be the same as \a src.
@@ -136,6 +144,7 @@ static void ndfft_cuda_free_plan(void* data) {cufftDestroy((cufftHandle)data);}
  *  \todo validate src and dst shapes based on transfer types
  *  \todo tests
  */
+#if HAVE_CUDA
 static nd_t ndfft_cuda(nd_t dst, nd_t src, int direction, nd_fft_plan_t plan_)
 { cufftHandle plan=(cufftHandle)plan_->data; // will be 0 if not init'd yet
   int *shape,*ishape=0,*istrides=0,*oshape=0,*ostrides=0;
@@ -207,6 +216,11 @@ static nd_t ndfft_cuda(nd_t dst, nd_t src, int direction, nd_fft_plan_t plan_)
 Error:
   return 0;
 }
+#else  // Do Not HAVE_CUDA
+static nd_t ndfft_cuda(nd_t dst, nd_t src, int direction, nd_fft_plan_t plan_)
+{ return 0;
+}
+#endif 
 
 extern int fft1d_ip(size_t n, nd_type_id_t tid, void *d, size_t cstride, size_t vstride, int is_inverse);
 
