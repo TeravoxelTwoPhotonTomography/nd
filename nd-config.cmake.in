@@ -6,7 +6,9 @@ set(ND_INCLUDE_DIR @CMAKE_CURRENT_SOURCE_DIR@)
 set(ND_LIBRARY nd)
 
 find_package(CUDA 4.0)
-
+if(CUDA_FOUND)
+  set(CUDA_LIBRARIES) #clear this if it's not found
+endif()
 ### Windows shell lightweight utility functions - for plugin search
 message(STATUS "Configuring nd from the build tree at @CMAKE_CURRENT_BINARY_DIR@.")
 if(WIN32)  
