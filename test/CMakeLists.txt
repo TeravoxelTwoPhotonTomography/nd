@@ -1,7 +1,7 @@
 #
 # Testing
 #
-find_package(GTEST CONFIG PATHS cmake)
+find_package(GTEST PATHS cmake)
 find_package(ND COMPONENTS ndio-hdf5) # for debugging mostly
 find_package(Threads)
 if(GTEST_FOUND)
