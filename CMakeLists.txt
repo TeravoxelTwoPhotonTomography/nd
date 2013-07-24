@@ -161,4 +161,5 @@ endif()
 install(EXPORT libnd-targets DESTINATION cmake)
 export(TARGETS nd FILE nd-config-targets.cmake )
 export(PACKAGE nd)
+export(PACKAGE ND)
 
