@@ -16,7 +16,7 @@ set(RPATH \$ORIGIN)
 if(APPLE)
   set(RPATH @rpath)
 endif()
-set(CMAKE_INSTALL_RPATH ${RPATH}) ## Probably need to change this to @rpath or @loaderpath on os x
+set(CMAKE_INSTALL_RPATH ${RPATH})
 
 ################################################################################
 # CONFIG
