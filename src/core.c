@@ -318,7 +318,7 @@ Error:
 }
 
 nd_type_id_t ndtype(const nd_t a)
-{ return a->type_desc;
+{ return a?a->type_desc:nd_id_unknown;
 }
 
 /** Initializes \a a so that it references \a buf.
