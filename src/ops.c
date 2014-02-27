@@ -391,9 +391,9 @@ nd_t ndshiftdim(nd_t dst,const nd_t src,int n)
 { size_t i,imap[32]={0},map[32]={0},s[32]={0};
   const unsigned d=ndndim(src);
   TRY(d<countof(map));
-  //TRY(ndndim(dst)==ndndim(src));  // Don't need to check because we'll add needed dimensions, and we don't care about extras
-  for(i=0;i<d;++i)  map[(i+n)%d]=i; // compute the permutation
-  for(i=0;i<d;++i) imap[(i-n)%d]=i; // compute the inverse permutation
+  //TRY(ndndim(dst)==ndndim(src));    // Don't need to check because we'll add needed dimensions, and we don't care about extras
+  for(i=0;i<d;++i)  map[(i+n)%d]=i;   // compute the permutation
+  for(i=0;i<d;++i) imap[(i+d-n)%d]=i; // compute the inverse permutation
   
   for(i=0;i<d;++i) s[i]=ndshape(dst)[i];        // hold the shape temporarily
   for(i=0;i<d;++i) ndShapeSet(dst,(int)i,s[map[i]]); // permute dst shape
