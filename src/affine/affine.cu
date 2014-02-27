@@ -155,6 +155,10 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
       }
       fcoord+=transform[o+dst.ndim];
       int coord = floor(fcoord);
+      // bc: nearest for 1 px 
+      if(coord==-1) coord=0;
+      if(coord==src.shape[r]) coord=src.shape[r]-1;
+      // bc: clamp to boundary_value elsewhere
       if(coord<0 || src.shape[r]<=coord)
       { oob=1;
         break;
