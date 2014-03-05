@@ -17,26 +17,25 @@ else()
   set(SHLWAPI)
 endif()
 
-message(STATUS "Configuring nd from the build tree  at @CMAKE_CURRENT_BINARY_DIR@.")
-
 set(ND_INCLUDE_DIRS   "${ND_INCLUDE_DIR}" "${CUDA_INCLUDE_DIRS}")
 set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}" "${SHLWAPI}")
 
 ### Handle components
 # component name and the imported target must be the same
 foreach(package ${ND_FIND_COMPONENTS})
-  find_package(${package} PATHS .)
+  find_package(${package} PATHS ${CMAKE_SOURCE_DIR})
   if(${package}_FOUND)
     get_property(plugin TARGET ${package} PROPERTY LOCATION)
     if(plugin) ## should remove this when I add config files for the plugins?
       set(ND_${package}_FOUND TRUE)
     endif()
-    install(FILES ${plugin}           DESTINATION bin/plugins)
+    install(FILES ${plugin}            DESTINATION bin/plugins)
     install(FILES ${${package}-EXTRAS} DESTINATION bin/plugins)
   endif()
 endforeach()
 
 ### Check everything got found
+show(ND_LIBRARIES)
 find_package_handle_standard_args(ND
   REQUIRED_VARS
     ND_LIBRARIES

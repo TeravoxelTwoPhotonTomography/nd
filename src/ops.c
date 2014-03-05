@@ -245,6 +245,8 @@ struct _cuda_copy_param_t
 nd_t ndcopy(nd_t dst, const nd_t src, size_t ndim, size_t *shape)
 { REQUIRE(src,PTR_ARITHMETIC);
   REQUIRE(dst,PTR_ARITHMETIC);
+  TRY(!nderror(dst));
+  TRY(!nderror(src));
   // if shape or ndims is unspecified use smallest
   if(!ndim)
     ndim=min_sz_t(ndndim(dst),ndndim(src));
