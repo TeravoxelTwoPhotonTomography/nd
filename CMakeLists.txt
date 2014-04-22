@@ -12,6 +12,7 @@ macro(show v)
   message("${v} is ${${v}}")
 endmacro()
 
+
 set(CMAKE_INSTALL_RPATH $ORIGIN) ## Probably need to change this to @rpath or @loaderpath on os x
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(CMAKE_INSTALL_NAME_DIR ${CMAKE_INSTALL_PREFIX}) ## OSX specific(untested)
@@ -52,8 +53,10 @@ if(CUDA_FOUND)
   show(CUDA_GENERATE_CODE)
   include_directories(${CUDA_INCLUDE_DIRS})
   cuda_build_clean_target()
+  get_filename_component(CC ${CMAKE_C_COMPILER} REALPATH)
   set(cuda_build_cubin on)
   set(CUOPTS
+    -ccbin ${CC}
     -Xcompiler -fPIC --generate-code ${CUDA_GENERATE_CODE}
     DEBUG -g -G
     RELEASE --use_fast_math
