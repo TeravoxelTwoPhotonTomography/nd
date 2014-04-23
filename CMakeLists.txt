@@ -46,10 +46,14 @@ if(CUDA_FOUND)
   show(CUDA_GENERATE_CODE)
   include_directories(${CUDA_INCLUDE_DIRS})
   cuda_build_clean_target()
-  get_filename_component(CC ${CMAKE_C_COMPILER} REALPATH)
+
+  if(APPLE)
+    get_filename_component(CC ${CMAKE_C_COMPILER} REALPATH)
+    set(CCOPTS --ccbind ${CC})
+  endif()
   set(cuda_build_cubin on)
   set(CUOPTS
-    -ccbin ${CC}
+    ${CCOPTS}
     -Xcompiler -fPIC --generate-code ${CUDA_GENERATE_CODE}
     DEBUG -g -G
     RELEASE --use_fast_math
@@ -137,7 +141,7 @@ add_subdirectory(app/ndconvert) # FIXME
 ###############################################################################
 #  Testing
 ###############################################################################
-add_subdirectory(test)
+#add_subdirectory(test)
 
 ###############################################################################
 #  Documentation

@@ -22,12 +22,13 @@ ExternalProject_Add(ndio-tiff-plugin
              -DGTEST_INCLUDE_DIR:PATH=${GTEST_INCLUDE_DIR}
              -DGTEST_BOTH_LIBRARIES:STRING=${SEP_GTEST_BOTH_LIBRARIES}
   )
+ExternalProject_Get_Property(ndio-tiff-plugin INSTALL_DIR)
 
 add_library(ndio-tiff MODULE IMPORTED)
 set(plugin ndio-tiff)
 set_target_properties(${plugin} PROPERTIES
   IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-  IMPORTED_LOCATION "${ND_ROOT_DIR}/bin/plugins/${CMAKE_SHARED_MODULE_PREFIX}${plugin}${CMAKE_SHARED_MODULE_SUFFIX}"
+  IMPORTED_LOCATION "${INSTALL_DIR}/bin/plugins/${CMAKE_SHARED_MODULE_PREFIX}${plugin}${CMAKE_SHARED_MODULE_SUFFIX}"
 )
 add_dependencies(ndio-tiff libnd)
 
