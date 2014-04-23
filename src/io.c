@@ -75,25 +75,30 @@ Error:
   return 0;
 }
 
-/** \returns the index of the detected format on sucess, otherwise -1 */
-static int detect_file_type(const char *filename, const char *mode)
-{ size_t i;
-  TRY(filename);
-  TRY(mode);
-  for(i=0;i<g_countof_formats;++i)
-    if(g_formats[i]->is_fmt(filename,mode))
-      return (int)i;
-Error:
-  return -1;
-}
-
-/** \returns the index of the detected format on sucess, otherwise -1 */
+/** \returns the index of the detected format on success, otherwise -1 */
 static int get_format_by_name(const char *format)
 { size_t i;
   if(!format) return -1;
   for(i=0;i<g_countof_formats;++i)
     if(0==strcmp(format,g_formats[i]->name()))
       return (int)i;
+  return -1;
+}
+
+/** \returns the index of the detected format on success, otherwise -1 */
+static int detect_file_type(const char *filename, const char *mode)
+{ size_t i;
+  TRY(filename);
+  TRY(mode);
+  // check for series 1st (if plugin is present)
+  if( (i=get_format_by_name("series"))>=0 )
+    if(g_formats[i]->is_fmt(filename,mode))
+      return (int)i;
+  // check the rest
+  for(i=0;i<g_countof_formats;++i)
+    if(g_formats[i]->is_fmt(filename,mode))
+      return (int)i;
+Error:
   return -1;
 }
 
