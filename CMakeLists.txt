@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.6CONFIG)
+cmake_minimum_required(VERSION 2.8)
 project(nd)
 
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
@@ -46,8 +46,10 @@ if(CUDA_FOUND)
   show(CUDA_GENERATE_CODE)
   include_directories(${CUDA_INCLUDE_DIRS})
   cuda_build_clean_target()
+  get_filename_component(CC ${CMAKE_C_COMPILER} REALPATH)
   set(cuda_build_cubin on)
   set(CUOPTS
+    -ccbin ${CC}
     -Xcompiler -fPIC --generate-code ${CUDA_GENERATE_CODE}
     DEBUG -g -G
     RELEASE --use_fast_math
@@ -161,5 +163,4 @@ endif()
 install(EXPORT libnd-targets DESTINATION cmake)
 export(TARGETS nd FILE nd-config-targets.cmake )
 export(PACKAGE nd)
-export(PACKAGE ND)
 

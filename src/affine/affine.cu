@@ -147,14 +147,13 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
     u8 oob=0;
 #if 1 // 30 ms without this block, 200 ms with (64x64x64x64)
     for(u8 r=0;r<src.ndim;++r)
-    { float fcoord=0.0f;
+    { int coord=0;
       unsigned i=idst,o=(dst.ndim+1)*r;
       for(u8 c=0;c<dst.ndim;++c)
-      { fcoord+=(i%dst.shape[c])*transform[o+c];
+      { coord+=(int)((i%dst.shape[c])*transform[o+c]);
         i/=dst.shape[c];
       }
-      fcoord+=transform[o+dst.ndim];
-      int coord = floor(fcoord);
+      coord+=transform[o+dst.ndim];
       // bc: nearest for 1 px 
       if(coord==-1) coord=0;
       if(coord==src.shape[r]) coord=src.shape[r]-1;
