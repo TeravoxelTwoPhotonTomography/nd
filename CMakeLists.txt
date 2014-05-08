@@ -49,7 +49,7 @@ if(CUDA_FOUND)
 
   if(APPLE)
     get_filename_component(CC ${CMAKE_C_COMPILER} REALPATH)
-    set(CCOPTS --ccbind ${CC})
+    set(CCOPTS -ccbin ${CC})
   endif()
   set(cuda_build_cubin on)
   set(CUOPTS
