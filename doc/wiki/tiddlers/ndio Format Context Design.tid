@@ -1,0 +1,120 @@
+created: 20140523185953555
+modified: 20140527201432214
+tags: idea design
+title: ndio Format Context Design
+type: text/vnd.tiddlywiki
+
+! TODO
+
+* ndio interface
+** ndio_format_t type
+** ndioFormat function
+** ndioFormatApi function
+*** corresponding change to plugin interface.h
+* implement (and test!) for some plugins
+** ndio-ffmpeg
+*** crf
+*** tune
+*** profile
+*** gop
+** ndio-hdf5
+*** dataset
+* future plugins
+** ndio-serve
+*** port
+** ndio-cache
+*** cache settings
+** ndio-client
+*** server address, port
+    
+
+
+! Motivation
+
+Currently, opening an [[ndio]] file takes a string to specify the format.  For example:
+
+```c
+ndio_t h=ndioOpen("filename.ext","hdf5","r");
+```
+
+The format string is used to resolve which plugin should be used to resolve the [[ndio interface]].
+
+I'd like to replace this with something like:
+
+```c
+ndio_format_t f = ndioFormat("hdf5");
+ndio_hdf_set_dataset(f,"\example");
+ndio_t h = ndioOpen("filename.ext",f,"r");
+```
+
+This allows us to set format specific parameters that effect how reading and writing work.  One consequence is each format has to publish an api for manipulating the format-specific settings -- this is a form of coupling that wasn't there in the past design.
+
+!! Questions
+
+; Is there a way to avoid dynamic allocation of the format context?
+: I think it should be ok to pass by value.  The <code>ndio_t</code> object should manage all the resource state.
+: The problem is that user-code won't know the size of the context at runtime.
+: Could "take ownership" when the file is opened.
+: Could refer to a singleton.
+: The format context could be returned with the format api.
+; How to locate the plugin header?
+: ???
+
+!! Invariants/Gaurantees
+
+(need to test for these)
+
+; A format context is instanced once and followed by an "open".
+: If getting a format context involves allocating resources, those resources can be freed later during file open or close.  The would leak if the file is not opened/closed.
+; The format context becomes owned by the <code>ndio_t</code> handle on ndioOpen.
+: ndioOpen empties out the input context.
+; The format api does not have to implement a context getter.
+: A "null" context should be valid.  There should be reasonable behavior if the plugin api does leaves the <code>ctx</code> field NULL.
+
+!! Plugin interface
+
+The plugin has a header that defines the function interface:
+
+```c
+// ndio-ffmpeg.h
+struct ndio_ffmpeg_api {
+  ndio_format_t ctx;
+  void (*set_crf    )(ndio_format_t *ctx, int crf);
+  void (*set_tune   )(ndio_format_t *ctx, const char *tune);
+  void (*set_profile)(ndio_format_t *ctx, const char* profile);
+}
+```
+These functions are defined in the [[ndio-ffmpeg]] shared library and exposed through the [[ndio]] api which uses the plugin interface to get an pointer to the implementation.
+
+```c
+// nd/src/io.h
+void *ndioFormatApi(ndio_format_t *fmt);
+```
+
+In user code:
+
+```c
+#include <nd.h>
+#include <ndio-ffmpeg.h>
+...
+ndio_format_t f = ndioFormat("ffmpeg");
+/* might use a macro to do the cast */
+/* api = ndioFfmpegApi(f);          */
+ndio_ffmpeg_api *api=(ndio_ffmpeg_api*)ndioFormatApi(f);
+api->set_crf(f,18);
+...
+```
+
+!! Build system consequences
+
+;Need to install the correct header alongside the shared library?
+:I think the cmake package system locates the build directory, which doesn't necessarily have the headers in a standard relative location.
+:Need to copy the header to a standard location in the build directory.
+;Need to copy the header to the plugin directory for dependent targets?
+:No
+
+! Alternative designs
+
+!!!Use a common DDL
+|!Descritpion|!Advantages|!Disadvantages|
+|Use something like protobuf or key,value string pairs to implement a data-description that plugins consume|loose coupling|error handling,documentation, contract/schema, dependency|

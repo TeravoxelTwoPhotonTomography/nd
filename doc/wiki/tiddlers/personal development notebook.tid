@@ -1,0 +1,18 @@
+created: 20140523185303659
+modified: 20140523200849944
+tags: devlog todo
+title: personal development notebook
+type: text/vnd.tiddlywiki
+
+! Ideas
+
+Also see the [[issue tracker|https://bitbucket.org/nclack/nd/issues?status=new&status=open]]
+
+* redo tests as ctest and not gtest to remove the gtest dependency
+* move test data to a plugin: ndio-test-data
+* thin-plate spline warps (work from ndaffine)
+* proper nd copies to/from gpu (may require cuda kernel).
+
+! Working on
+
+|[[ndio Format Context Design]]|parameterization for ndio plugins|

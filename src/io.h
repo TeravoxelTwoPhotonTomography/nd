@@ -25,8 +25,16 @@ ndio_fmt_t**  ndioPlugins(size_t *count);
 
 int       ndioIsFile(const char *filename);
 
-ndio_t    ndioOpen  (const char *filename    , const char *format, const char *mode);
-ndio_t    ndioOpenv (const char *filename_fmt, const char *format, const char *mode, ...);
+ndio_fmt_t* ndioFormat(const char *format);
+ndio_fmt_t* ndioFormatFromFilename(const char *filename,const char* mode);
+ndio_fmt_t* ndioFormatSet(ndio_fmt_t *fmt, void *param, size_t nbytes);
+void*       ndioFormatGet(ndio_fmt_t *fmt);
+ndio_fmt_t* ndioFormatIncRef(ndio_fmt_t *fmt);
+ndio_fmt_t* ndioFormatDecRef(ndio_fmt_t *fmt);
+
+
+ndio_t    ndioOpen  (const char *filename    , ndio_fmt_t *format, const char *mode);
+ndio_t    ndioOpenv (const char *filename_fmt, ndio_fmt_t *format, const char *mode, ...);
 void      ndioClose (ndio_t file);
 
 nd_t      ndioShape (ndio_t file);  // caller must free the returned object

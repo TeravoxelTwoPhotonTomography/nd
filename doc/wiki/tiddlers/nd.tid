@@ -1,0 +1,12 @@
+created: 20140523185016059
+modified: 20140523185255928
+title: nd
+type: text/vnd.tiddlywiki
+
+! Description
+
+[[nd]] is a library for interacting with n-dimensional scalar arrays.
+
+This wiki will serve as a bit of a [[personal development notebook]] and as [[user documentation]].
+
+There is also doxygen documentation.  Maybe one day I will learn how to link to it from this wiki!

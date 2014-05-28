@@ -46,7 +46,7 @@ struct _ndio_t
 { ndio_fmt_t *fmt;       ///< The plugin API used to operate on the file.
   void       *context;   ///< The data that the plugin uses to operate on the file.  A plugin-specific file handle.
 
-  nd_t        shape;     ///< (subarrays) 
+  nd_t        shape;     ///< (subarrays)
   nd_t        cache;     ///< (subarrays) Cache used to store temporary data.
   char       *seekable;  ///< (subarrays) Seekable dimension mask
   size_t      seekable_n;///< (subarrays) count of elements allocated for \a seekable
@@ -87,7 +87,7 @@ static int get_format_by_name(const char *format)
 
 /** \returns the index of the detected format on success, otherwise -1 */
 static int detect_file_type(const char *filename, const char *mode)
-{ size_t i;
+{ int i;
   TRY(filename);
   TRY(mode);
   // check for series 1st (if plugin is present)
@@ -134,7 +134,7 @@ int ndioPreloadPlugins()
 /** Adds the interface specified by \a plugin to the internal list of file
  *  format interfaces.
  *
- *  This is useful for adding a custom reader at run time, for example, for 
+ *  This is useful for adding a custom reader at run time, for example, for
  *  loading files from a specific directory structure or specialized database.
  *
  *  If the plugin->is_fmt() function always returns false, \a plugin will not
@@ -162,6 +162,48 @@ int ndioIsFile(const char *filename)
   return detect_file_type(filename,"r")>=0;
 }
 
+ndio_fmt_t* ndioFormat(const char *format)
+{ ndio_fmt_t *out=0;
+  int ifmt;
+  maybe_load_plugins();
+  TRY(0<=(ifmt=get_format_by_name(format)));
+  out=g_formats[ifmt];
+  out->ref++;
+Error:
+  return out;
+}
+
+ndio_fmt_t* ndioFormatFromFilename(const char *filename, const char* mode)
+{ ndio_fmt_t *out=0;
+  int ifmt;
+  maybe_load_plugins();
+  TRY(0<=(ifmt=detect_file_type(filename,mode)));
+  out=g_formats[ifmt];
+  out->ref++;
+Error:
+  return out;
+}
+
+ndio_fmt_t* ndioFormatIncRef(ndio_fmt_t *fmt) {
+  TRY(fmt);
+  fmt->ref++;
+  return fmt;
+Error:
+  return NULL;
+}
+ndio_fmt_t* ndioFormatDecRef(ndio_fmt_t *fmt) {
+  TRY(fmt);
+  if(--fmt->ref<=0) {
+    if(fmt->close_fmt)
+      fmt->close_fmt(fmt);
+    return 0;
+  }
+  return fmt;
+Error:
+  return NULL;
+}
+
+
 
 /** Opens a file according to the mode.
 
@@ -177,7 +219,7 @@ int ndioIsFile(const char *filename)
 
     \returns NULL on failure, otherwise an ndio_t object.
  */
-ndio_t ndioOpen(const char* filename, const char *format, const char *mode)
+ndio_t ndioOpen(const char* filename, ndio_fmt_t *format, const char *mode)
 { ndio_t file=NULL;
   void *ctx=NULL;
   int ifmt;
@@ -187,24 +229,17 @@ ndio_t ndioOpen(const char* filename, const char *format, const char *mode)
   TRY(*filename); //assert non-empty string
   TRY(mode);
   TRY(*mode);     //assert non-empty string
-  if(format)
-  { if(0>(ifmt=get_format_by_name(format))) goto ErrorSpecificFormat;
-  } else
-  { if(0>(ifmt=detect_file_type(filename,mode))) goto ErrorDetectFormat;
-  }
-  TRY(ctx=g_formats[ifmt]->open(filename,mode));
+  if(!( format || (format=ndioFormatFromFilename(filename,mode))))
+    goto ErrorDetectFormat;
+  TRY(ctx=format->open(format,filename,mode));
   NEW(struct _ndio_t,file,1);
   memset(file,0,sizeof(struct _ndio_t));
   file->context=ctx;
-  file->fmt=g_formats[ifmt];
+  file->fmt=format;
   return file;
-ErrorSpecificFormat:
-  LOG("%s(%d): %s"ENDL "\tCould not open \"%s\" for %s with specified format %s."ENDL,
-      __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing",format);
-  return NULL;
 ErrorDetectFormat:
   LOG("%s(%d): %s"ENDL "\tCould not detect file format of \"%s\" for %s."ENDL,
-      __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing"); 
+      __FILE__,__LINE__,__FUNCTION__,filename?filename:"(null)",(mode[0]=='r')?"reading":"writing");
   return NULL;
 Error:
   return NULL;
@@ -225,7 +260,7 @@ Error:
 
     \returns NULL on failure, otherwise an ndio_t object.
  */
-ndio_t ndioOpenv (const char *filename_fmt, const char *format, const char *mode, ...)
+ndio_t ndioOpenv (const char *filename_fmt, ndio_fmt_t *format, const char *mode, ...)
 { char buf[1024]={0};
   va_list args;
   va_start(args,mode);
@@ -237,6 +272,7 @@ ndio_t ndioOpenv (const char *filename_fmt, const char *format, const char *mode
 /** Closes the file and releases resources.  Always succeeds. */
 void ndioClose(ndio_t file)
 { if(!file) return;
+  ndioFormatDecRef(file->fmt);
   file->fmt->close(file);
   ndfree(file->shape);
   ndfree(file->cache);
@@ -276,7 +312,7 @@ ndio_t ndioWrite(ndio_t file, nd_t a)
   TRY(a);
   if(ndkind(a)==nd_gpu_cuda)
   { TRY(ndcopy(t=ndheap(a),a,0,0));
-    a=t; 
+    a=t;
   }
   TRY(file->fmt->write(file,a));
 Finalize:
@@ -305,7 +341,7 @@ Error:
 ndio_t ndioSet(ndio_t file, void *param, size_t nbytes)
 { TRY(file);
   TRY(file->fmt->set); // some formats may not implement set()
-  TRY(file->fmt->set(file,param,nbytes));
+  TRY(file->fmt->set(file->fmt,param,nbytes));
 Error:
   return NULL;
 }
@@ -323,7 +359,8 @@ Error:
   return "(error)";
 }
 
-/** Set format specific data.
+
+/** Get format specific data.
  *
  *  \param[in]  file   An open file.
  *  \returns 0 on failure, otherwise a pointer to format specific data.
@@ -332,11 +369,53 @@ Error:
 void* ndioGet(ndio_t file)
 { TRY(file);
   TRY(file->fmt->get); // some formats may not implement get()
-  return file->fmt->get(file);
+  return file->fmt->get(file->fmt);
 Error:
   return NULL;
 }
 #undef LOG
+
+
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) fprintf(stderr,__VA_ARGS__)
+/// @endcond
+
+/** Set format specific data.
+ *
+ *  \param[in] fmt    A format context
+ *  \param[in] param  A buffer of size \a nbytes.  The contents required
+ *                    depend on the specific format of the file.
+ *  \param[in] nbyets The number of bytes in the \a param buffer.
+ *  \returns 0 on failure, otherwise \a file.
+ */
+ndio_fmt_t* ndioFormatSet(ndio_fmt_t* fmt, void *param, size_t nbytes)
+{ TRY(fmt);
+  TRY(fmt->set); // some formats may not implement set()
+  TRY(fmt->set(fmt,param,nbytes));
+  return fmt;
+Error:
+  return NULL;
+}
+
+/** Get format specific data.
+ *
+ *  \param[in]  fmt   A format context.
+ *  \returns 0 on failure, otherwise a pointer to format specific data.
+ */
+
+void* ndioFormatGet(ndio_fmt_t* fmt)
+{ TRY(fmt);
+  TRY(fmt->get); // some formats may not implement get()
+  return fmt->get(fmt);
+Error:
+  return NULL;
+}
+
+/// @cond DEFINES
+#undef LOG
+#define LOG(...) ndioLogError(file,__VA_ARGS__)
+/// @endcond
 
 /** Appends message to error log for \a file
     and prints it to \c stderr.
@@ -387,7 +466,7 @@ void ndioResetLog(ndio_t file) {SAFEFREE(file->log);}
 #define step_(idx_)            (step?step[idx_]:1)
 #define ori_(idx_)             (origin?origin[idx_]:0)
 // If a file format doesn't support seeking, the entire array is read into cache
-// These macros replace the format implementations with defaults to effect this 
+// These macros replace the format implementations with defaults to effect this
 // behavior.
 #define canseek_(file_,i_)     (file_->fmt->canseek?file_->fmt->canseek(file_,i_):0)
 #define seek_(file_,vol_,pos_) (file_->fmt->seek?file_->fmt->seek(file_,vol_,pos_):file_->fmt->read(file_,vol_))
@@ -421,12 +500,12 @@ static unsigned inc(nd_t domain,size_t *pos, char *mask)
       printf("%5zu",pos[i]);
     printf(ENDL);
   }
-#endif  
+#endif
   return 1;
 }
 /// (for subarray) set offset for sub-array relative to \a ori
 static void setpos(nd_t src,const size_t *ipos, size_t *ori)
-{ size_t i;  
+{ size_t i;
   for(i=0;i<ndndim(src);++i)
     ndoffset(src,(unsigned)i,((int64_t)ipos[i])-(ori?ori[i]:0));
 }
@@ -473,7 +552,7 @@ static unsigned cachemiss(ndio_t file)
  *    // Assume we know the dimensionality of our data and which dimension to iterate over.
  *    n=ndshape()[2];      // remember the range over which to iterate
  *    ndShapeSet(vol,2,1); // prep to iterate over 3'rd dimension (e.g. expect WxHxDxC data, read WxHx1XC planes)
- *    ndref(vol,malloc(ndnbytes(vol)),nd_heap); // alloc just enough data      
+ *    ndref(vol,malloc(ndnbytes(vol)),nd_heap); // alloc just enough data
  *    { int64_t pos[]={0,0,0,0}; // 4d data
  *      size_t i;
  *      for(i=0;i<n;++i,++pos[2])
@@ -489,16 +568,16 @@ static unsigned cachemiss(ndio_t file)
  *  \param[in,out]  dst     The destination array. Must have valid data pointer.
  *                          The kind should be compatible with ndcopy().
  *                          The read will attempt to fill the specified shape.
- *                          The domain requested must fit within the shape of 
+ *                          The domain requested must fit within the shape of
  *                          the array described by \a file.
- *  \param[in]      origin  An array of <tt>ndndim(ndioShape(file))</tt> 
+ *  \param[in]      origin  An array of <tt>ndndim(ndioShape(file))</tt>
  *                          elements.  This point in the file will correspond to
- *                          (0,...) in the \a dst array.  If NULL, the origin 
+ *                          (0,...) in the \a dst array.  If NULL, the origin
  *                          will be set to (0,...).
  *  \param[in]      step    An array of <tt>ndndim(ndioShape(file))</tt>
  *                          elements that specifies the step size to be taken
  *                          along each dimension as it is read into \a dst.
- *                          If NULL, a step size of 1 on each dimension will be 
+ *                          If NULL, a step size of 1 on each dimension will be
  *                          used.
  *  \see _ndio_fmt_t.subarray
  *  \see _ndio_fmt_t.seek
@@ -509,7 +588,7 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   // maximum non-seekable dimensions
   size_t ndim,max_unseekable=0;  /// \todo do i use max_unseekable?
   unsigned use_cache=0;
-  void *ref=nddata(dst); // remember the original pointer so nddata(dst) doesn't change even when this call fails  
+  void *ref=nddata(dst); // remember the original pointer so nddata(dst) doesn't change even when this call fails
   TRY(file && dst);
   // Check for direct format support
   if(file->fmt->subarray)
@@ -533,8 +612,8 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
   }
   /*
     File format doesn't directly support subarray() interface.
-    There are two other options: 
-      (A) Format supports seek()/canseek() or 
+    There are two other options:
+      (A) Format supports seek()/canseek() or
       (B) Format only permits reading the whole volume.
     In the case of (B) the entire volume is read into an internal cache on the
     first ndioReadSubarray() call.  Subsequent calls use the cache.
@@ -568,8 +647,8 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
 
   // Need to cache a dim if it's not seekable and shape[i]<dst->shape[i]
   // Only need to cache up to maximum unseekable dim (dims>ndim are treated as seekable).
-  
-  // First check for the need to cache  
+
+  // First check for the need to cache
   { size_t i;
     const size_t *dsh=ndshape(dst),
                  *fsh=ndshape(file->shape);
@@ -635,9 +714,9 @@ ndio_t ndioReadSubarray(ndio_t file, nd_t dst, size_t *origin, size_t *step)
         for(i=0;i<ndndim(file->cache);++i) // cachepos should be 0 for unseekable dims
           if(!file->seekable[i])
             file->cachepos[i]=0;
-        TRY(seek_(file,file->cache,file->cachepos)); 
+        TRY(seek_(file,file->cache,file->cachepos));
       }
-      
+
       setpos(dst,file->dstpos,0);
       setpos(file->cache,origin,0);
       TRY(ndcopy(dst,file->cache,0,0));//cache has file's dimensionality.
@@ -656,11 +735,11 @@ Error:
 
 /**
  * Query whether the file format supports seeking along dimension \a idim.
- * This can be used to guide calls to ndioReadSubarray() whose cacheing 
+ * This can be used to guide calls to ndioReadSubarray() whose cacheing
  * behavior depends on which dimensions are seekable.
  *
  * However, normally, you shouldn't need to call this function.  It is included
- * in the public interface mostly to aid in implementing new ndio formats. 
+ * in the public interface mostly to aid in implementing new ndio formats.
  */
 unsigned ndioCanSeek(ndio_t file, size_t idim)
 { return canseek_(file,idim);
