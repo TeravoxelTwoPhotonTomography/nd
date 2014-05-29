@@ -67,7 +67,7 @@ struct _ndio_t
 /** \todo make thread safe, needs a mutex */
 static int maybe_load_plugins()
 { if(!g_formats)
-  { TRY(ndioAddPluginPath(NDIO_PLUGIN_PATH));
+  { //TRY(ndioAddPluginPath(NDIO_PLUGIN_PATH));
     TRY(g_formats=ndioLoadPlugins(NULL,&g_countof_formats));
   }
   return 1;

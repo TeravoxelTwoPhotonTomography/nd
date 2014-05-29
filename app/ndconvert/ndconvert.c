@@ -92,7 +92,8 @@ Error:
 }
 
 void init()
-{ ndioAddPluginPath(NDIO_BUILD_ROOT); // add build root so we can successfully run the program from an msvc build system
+{ //ndioAddPluginPath(NDIO_BUILD_ROOT); // add build root so we can successfully run the program from an msvc build system
+  ndioAddPluginPath("plugins");
 }
 
 int main(int argc,char* argv[])
