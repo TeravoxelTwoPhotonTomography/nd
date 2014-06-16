@@ -127,6 +127,19 @@ inline __device__ unsigned prod(dim3 a)            {return a.x*a.y*a.z;}
 inline __device__ unsigned stride(uint3 a, dim3 b) {return a.x+b.x*(a.y+b.y*a.z);}
 inline __device__ unsigned sum(uint3 a)            {return a.x+a.y+a.z;}
 
+/*
+#define MSAA_DIMS (3)
+#define MSAA_BITS (2) // per dim
+#define MSAA_MASK (0x11)
+#define MSAA_STEP (1.0f/3.0f) // should be 1/MSAA_MASK
+#define MSAA_NSAMPS  (1<<(MSAA_BITS*MSAA_DIMS))
+*/
+#define MSAA_DIMS (3)
+#define MSAA_BITS (1) // per dim
+#define MSAA_MASK (0x1)
+#define MSAA_STEP (0.5f) // should be 1/MSAA_MASK
+#define MSAA_NSAMPS  (1<<(MSAA_BITS*MSAA_DIMS))
+
 
 /** \todo Respect strides.  Currently assumes strides reflect shape. */
 template<typename Tsrc,typename Tdst> 
@@ -147,7 +160,7 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
 #if 1 // 30 ms without this block, 200 ms with (64x64x64x64)
     // For MSAA Notes See item [MSAA 1] at end of this file
     v=0.0f;
-    for(u8 imsaa=0;imsaa<8;++imsaa) // [ ] HAX FIXME (ngc) only multisample first three dims (bad cases ndim<3, want msaa for higher dims)
+    for(u8 imsaa=0;imsaa<MSAA_NSAMPS;++imsaa) // [ ] HAX FIXME (ngc) only multisample first three dims (bad cases ndim<3, want msaa for higher dims)
     { 
       unsigned isrc=0;
       u8 oob=0;
@@ -155,7 +168,7 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
       { int coord=0;
         unsigned i=idst,o=(dst.ndim+1)*r;
         for(u8 c=0;c<dst.ndim;++c)
-        { coord+=(int)(((imsaa>>c&1)*0.5f + i%dst.shape[c])*transform[o+c]); // [MSAA 2]
+        { coord+=(int)(( ( (imsaa>>(c*MSAA_BITS))&MSAA_MASK )*MSAA_STEP + i%dst.shape[c])*transform[o+c]); // NOte: [MSAA 2]
           i/=dst.shape[c];
         }
         coord+=transform[o+dst.ndim];
@@ -176,7 +189,7 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
 #endif    
     /////
     o=((Tdst*)dst.data)[idst];
-    ((Tdst*)dst.data)[idst]=max(o,(Tdst)(v/8.0f));
+    ((Tdst*)dst.data)[idst]=max(o,(Tdst)(v/(float)MSAA_NSAMPS));
   }
 }
 
