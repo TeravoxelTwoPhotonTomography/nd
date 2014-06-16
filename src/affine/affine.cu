@@ -134,7 +134,8 @@ __global__ void
 __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
   affine_kernel(arg_t dst, arg_t src, const float *transform, const nd_affine_params_t param)
 { 
-  Tdst     o,v;
+  Tdst     o;
+  float    v;
   unsigned idst = sum(threadIdx)+stride(blockIdx,gridDim)*prod(blockDim);
 #if 0
   if(blockIdx.x==0 && threadIdx.x==2)
@@ -143,32 +144,39 @@ __launch_bounds__(BLOCKSIZE,1) /*max threads,min blocks*/
   if(idst<dst.nelem)
   {
     /////
-    unsigned isrc=0;
-    u8 oob=0;
 #if 1 // 30 ms without this block, 200 ms with (64x64x64x64)
-    for(u8 r=0;r<src.ndim;++r)
-    { int coord=0;
-      unsigned i=idst,o=(dst.ndim+1)*r;
-      for(u8 c=0;c<dst.ndim;++c)
-      { coord+=(int)((i%dst.shape[c])*transform[o+c]);
-        i/=dst.shape[c];
+    // For MSAA Notes See item [MSAA 1] at end of this file
+    v=0.0f;
+    for(u8 imsaa=0;imsaa<8;++imsaa) // [ ] HAX FIXME (ngc) only multisample first three dims (bad cases ndim<3, want msaa for higher dims)
+    { 
+      unsigned isrc=0;
+      u8 oob=0;
+      for(u8 r=0;r<src.ndim;++r)
+      { int coord=0;
+        unsigned i=idst,o=(dst.ndim+1)*r;
+        for(u8 c=0;c<dst.ndim;++c)
+        { coord+=(int)(((imsaa>>c&1)*0.5f + i%dst.shape[c])*transform[o+c]); // [MSAA 2]
+          i/=dst.shape[c];
+        }
+        coord+=transform[o+dst.ndim];
+        #if 0
+        // bc: nearest for 1 px         
+        if(coord==-1) coord=0;
+        if(coord==src.shape[r]) coord=src.shape[r]-1;
+        #endif 
+        // bc: clamp to boundary_value elsewhere
+        if(coord<0 || src.shape[r]<=coord)
+        { oob=1;
+          break;
+        }
+        isrc+=src.strides[r]*coord;
       }
-      coord+=transform[o+dst.ndim];
-      // bc: nearest for 1 px 
-      if(coord==-1) coord=0;
-      if(coord==src.shape[r]) coord=src.shape[r]-1;
-      // bc: clamp to boundary_value elsewhere
-      if(coord<0 || src.shape[r]<=coord)
-      { oob=1;
-        break;
-      }
-      isrc+=src.strides[r]*coord;
-    }
-#endif
-    v=(oob)?param.boundary_value:saturate<Tdst>(*(Tsrc*)((u8*)src.data+isrc));
+      v+=(oob)?param.boundary_value:saturate<Tdst>(*(Tsrc*)((u8*)src.data+isrc));
+   }
+#endif    
     /////
     o=((Tdst*)dst.data)[idst];
-    ((Tdst*)dst.data)[idst]=max(o,v);
+    ((Tdst*)dst.data)[idst]=max(o,(Tdst)(v/8.0f));
   }
 }
 
@@ -241,3 +249,17 @@ extern "C" unsigned ndaffine_cuda(nd_t dst_, const nd_t src_, const float *trans
 Error:
   return 0;
 }
+
+
+/* Notes
+
+ MSAA
+ ====
+
+[1]: Currently multisampling by 2x.
+
+     What's the best way to order work?
+
+[2]: Specific to MSAA x2
+
+*/
