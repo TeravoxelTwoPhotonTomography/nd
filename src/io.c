@@ -87,7 +87,7 @@ static int get_format_by_name(const char *format)
 
 /** \returns the index of the detected format on success, otherwise -1 */
 static int detect_file_type(const char *filename, const char *mode)
-{ size_t i;
+{ int i;
   TRY(filename);
   TRY(mode);
   // check for series 1st (if plugin is present)
