@@ -21,11 +21,11 @@ TYPEDEFS;
 
 template<typename T,unsigned BX,unsigned BY,unsigned WORK>
 __global__ void __launch_bounds__(BX*BY,1)
-fill_kernel(T* dst,unsigned w,unsigned h,T v)
+fill_kernel(T* dst,int w,int h,T v)
 { const int ox=threadIdx.x+(blockIdx.x*WORK)*BX,
             oy=threadIdx.y+ blockIdx.y      *BY;
   if(oy<h)
-  { dst+=ox+oy*(int)w;
+  { dst+=ox+oy*w;
     if(blockIdx.x!=(gridDim.x-1))
     {
       #pragma unroll
@@ -33,7 +33,7 @@ fill_kernel(T* dst,unsigned w,unsigned h,T v)
     } else
     { // last block 
       #pragma unroll
-      for(int i=0;i<WORK;++i) if(w-ox>i*BX) dst[i*BX]=v;
+      for(int i=0;i<WORK;++i) if((w-ox)>(i*(int)BX)) dst[i*BX]=v;
     }
   } 
 }
@@ -45,8 +45,8 @@ static unsigned prod(size_t n, size_t *v)
 }
 
 extern "C" unsigned fill_cuda(nd_t dst,uint64_t v)
-{ unsigned w=ndshape(dst)[0],
-           h=prod(ndndim(dst)-1,ndshape(dst)+1);
+{ int w=(int)ndshape(dst)[0],
+      h=(int)prod(ndndim(dst)-1,ndshape(dst)+1);
   const unsigned BX=32,BY=32,WORK=8;
   dim3 blocks((unsigned)ceil(w/(float)(WORK*BX)), (unsigned)ceil(h/(float)BY)),
        threads(BX,BY); // run max threads per block (1024).  Set BX to be 1 warp (32).

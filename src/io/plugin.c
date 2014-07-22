@@ -146,7 +146,8 @@ static ndio_fmt_t *load(const char *path, const char *fname)
   //TRY(lib=LoadLibraryEx(fname,NULL,DONT_RESOLVE_DLL_REFERENCES),estring());//fname);//"There was a problem loading the specified library.");
   SILENTTRY(lib=LoadLibrary(fname),estring());//fname);//"There was a problem loading the specified library.");
   SetDllDirectory(NULL); // reset
-#else
+#else             ch
+
   { char *buf;
     const char *p[]={(char*)path,"/",(char*)fname}; // windows handles the "/" just fine
     size_t n = strlen(path)+strlen(fname)+2; // one extra for the terminating null
@@ -450,8 +451,7 @@ Error:
 }
 
 unsigned ndioAddPluginPath(const char *path)
-{ return pushpath(path);
-}
+{ return pushpath(path);}
 
 #ifdef _MSC_VER
 /** \todo make thread safe...add a mutex */
