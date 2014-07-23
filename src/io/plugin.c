@@ -146,8 +146,7 @@ static ndio_fmt_t *load(const char *path, const char *fname)
   //TRY(lib=LoadLibraryEx(fname,NULL,DONT_RESOLVE_DLL_REFERENCES),estring());//fname);//"There was a problem loading the specified library.");
   SILENTTRY(lib=LoadLibrary(fname),estring());//fname);//"There was a problem loading the specified library.");
   SetDllDirectory(NULL); // reset
-#else             ch
-
+#else
   { char *buf;
     const char *p[]={(char*)path,"/",(char*)fname}; // windows handles the "/" just fine
     size_t n = strlen(path)+strlen(fname)+2; // one extra for the terminating null
