@@ -84,6 +84,7 @@ nd_kind_t     ndkind(const nd_t a);
 nd_t          ndreshape  (nd_t a, unsigned ndim, const size_t *shape);
 nd_t          ndreshapev (nd_t a, unsigned ndim, ...);
 nd_t          ndShapeSet (nd_t a, unsigned idim, size_t val); /// \todo bad name: should distinguish from using ndshape(a)[i]=c
+nd_t          ndsetndim  (nd_t a, unsigned ndim);         ///< changes the number of dimensions without recomputing the strides.
 nd_t          ndInsertDim(nd_t a, unsigned idim);
 nd_t          ndRemoveDim(nd_t a, unsigned idim);
 nd_t          ndPushShape(nd_t a);                        ///< Save the current state to an internal history

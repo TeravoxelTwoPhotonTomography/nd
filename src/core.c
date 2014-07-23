@@ -429,6 +429,24 @@ Error:
 #define LOG(...) ndLogError(a,__VA_ARGS__)
 /// @endcond
 
+/** Canges the number of dimensions without recomputing the strides.
+ *  \returns the input array.  Can not fail.
+ *  
+ *  This assumes you know what you're doing.  If you set ndim to 
+ *  something higher than has been properly allocated for, you'll get 
+ *  a buffer overflow.
+ *
+ *  Example:
+ *  \code{c}
+ *  ndsetndim(a,4); 
+ *  \endcode
+ */
+nd_t ndsetndim(nd_t a, unsigned ndim)
+{ a->ndim=ndim;
+  return a;
+}
+
+
 /** Inserts an extra dimension at \a idim.
  *  The new dimension will have size 1.
  *
