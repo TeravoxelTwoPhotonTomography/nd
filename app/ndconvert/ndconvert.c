@@ -28,7 +28,7 @@
 #define PATHSEP '/'
 #endif
 
-typedef struct _opt_t
+typedef struct _opt_t                 
 { char *srcname;
   char *dstname;
   nd_type_id_t type;
