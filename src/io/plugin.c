@@ -48,7 +48,6 @@
 //    Use the dirent (posix) interface for directory traversal.
 #ifdef _MSC_VER
 #include <windows.h>
-#include "Shlwapi.h" // for PathIsRelative()
 #include "dirent.win.h"                                     // use posix-style directory traversal
 const char* estring();
 #else // POSIX
@@ -342,15 +341,6 @@ Error:
   goto Finalize;
 }
 
-static unsigned is_path_relative(const char *path)
-{
-#ifdef _MSC_VER
-  return PathIsRelative(path); 
-#else
-  return path[0]!='/';
-#endif
-}
-
 //
 // === INTERFACE ===
 //
@@ -362,21 +352,13 @@ static unsigned is_path_relative(const char *path)
 static apis_t search(const char *path)
 { apis_t apis = {0};
   DIR*           dir;
-  char *buf=0,
-       *exepath=rpath();
-  if(!is_path_relative(path))
-  { buf=(char*)path;
-  } else 
-  { size_t n=strlen(exepath)+strlen(path)+2; // +1 for the directory seperator and +1 for the terminating null
-    const char *p[]={exepath,"/",path};
-    TRY(buf=(char*)alloca(n),"Out of stack space.");
-    cat(buf,n,3,p);
-  }
+  char *buf = 0;
+  TRY(buf=_fullpath(NULL, path, -1),"Allocating absolute path failed.");
   SILENTTRY(dir=opendir(buf),strerror(errno));
   TRY(recursive_load(&apis,dir,buf),"Search for plugins failed.");  
 Finalize:
   if(dir) closedir(dir);
-  if(exepath) free(exepath);
+  if(buf) free(buf);
   return apis;
 Error:
   //printf("\t%s\n",buf);

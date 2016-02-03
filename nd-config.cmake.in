@@ -11,14 +11,9 @@ if(NOT CUDA_FOUND)
 endif()
 ### Windows shell lightweight utility functions - for plugin search
 message(STATUS "Configuring nd from the build tree at @CMAKE_CURRENT_BINARY_DIR@.")
-if(WIN32)  
-  find_library(SHLWAPI Shlwapi.lib) 
-else()
-  set(SHLWAPI)
-endif()
 
 set(ND_INCLUDE_DIRS   "${ND_INCLUDE_DIR}" "${CUDA_INCLUDE_DIRS}")
-set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}" "${SHLWAPI}")
+set(ND_LIBRARIES      "${ND_LIBRARY}" "${CUDA_LIBRARIES}")
 
 ### Handle components
 # component name and the imported target must be the same

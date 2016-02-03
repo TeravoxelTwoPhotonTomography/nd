@@ -31,11 +31,6 @@ set(NDIO_PLUGIN_PATH  plugins)
 set(ND_TEST_DATA_PATH ${PROJECT_SOURCE_DIR}/test/data)
 
 ### Windows shell lightweight utility functions - for plugin search
-if(WIN32)
-find_library(SHLWAPI Shlwapi.lib) 
-else()
-set(SHLWAPI)
-endif()
 
 ### CUDA
 set(HAVE_CUDA 0)
@@ -127,7 +122,6 @@ target_link_libraries(nd
   ${CUDA_LIBRARIES}
   ${CUDA_CUFFT_LIBRARIES}
   ${CMAKE_DL_LIBS}
-  ${SHLWAPI}
 )
 set_target_properties(nd PROPERTIES 
   POSITION_INDEPENDENT_CODE TRUE
